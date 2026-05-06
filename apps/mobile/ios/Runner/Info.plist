@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TripSave needs your location to find the cheapest stores near you and calculate driving costs.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>TripSave needs your location to find the cheapest stores near you and calculate driving costs.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

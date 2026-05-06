@@ -29,6 +29,12 @@ export class User {
   @Column('decimal', { precision: 10, scale: 7, nullable: true })
   location_lng: number;
 
+  @Column({ nullable: true })
+  location_name: string;
+
+  @Column({ nullable: true })
+  zip_code: string;
+
   @Column({ type: 'enum', enum: ['user', 'admin'], default: 'user' })
   role: string;
 

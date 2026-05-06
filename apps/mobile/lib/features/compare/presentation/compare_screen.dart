@@ -1,0 +1,702 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:latlong2/latlong.dart';
+import 'compare_map_view.dart';
+import '../bloc/comparison_cubit.dart';
+import '../../savings/bloc/savings_cubit.dart';
+import '../../../core/theme/app_theme.dart';
+
+class CompareScreen extends StatefulWidget {
+  const CompareScreen({super.key});
+
+  @override
+  State<CompareScreen> createState() => _CompareScreenState();
+}
+
+class _CompareScreenState extends State<CompareScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  int _selectedFilterIndex = 0;
+  final List<String> _filters = ['All', 'Grocery', 'Gas', 'Pharmacy'];
+  bool _isMapView = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Only fetch on first app open — skip if cubit already has data (e.g. tab switch)
+    final cubit = context.read<ComparisonCubit>();
+    if (!cubit.hasData) {
+      cubit.searchItem('milk');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: null,
+        toolbarHeight: 0,
+        backgroundColor: AppTheme.backgroundLight,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              // Search Bar
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onSubmitted: (value) => context.read<ComparisonCubit>().searchItem(
+                    value, 
+                    storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                    forceRefresh: true,
+                  ),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: 'Search products to compare...',
+                    hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400),
+                    prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0),
+              const SizedBox(height: 20),
+              // Horizontal Filters
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(_filters.length, (index) {
+                    final isSelected = _selectedFilterIndex == index;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedFilterIndex = index);
+                        final filter = _filters[index].toLowerCase();
+                        final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
+                        context.read<ComparisonCubit>().searchItem(query, storeType: filter, forceRefresh: true);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            if (index == 0) Icon(Icons.layers, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                            if (index == 1) Icon(Icons.shopping_cart_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                            if (index == 2) Icon(Icons.local_gas_station_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                            if (index == 3) Icon(Icons.local_pharmacy_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                            if (index != 0) const SizedBox(width: 8),
+                            Text(
+                              _filters[index],
+                              style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Sort and Trip Type Settings
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Sort Dropdown
+                  BlocBuilder<ComparisonCubit, ComparisonState>(
+                    builder: (context, state) {
+                      String currentSort = 'true_cost';
+                      if (state is ComparisonLoaded) currentSort = state.sortBy;
+                      
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: DropdownButton<String>(
+                          value: currentSort,
+                          underline: const SizedBox(),
+                          icon: const Icon(Icons.sort, size: 16, color: AppTheme.primaryBlue),
+                          items: const [
+                            DropdownMenuItem(value: 'true_cost', child: Text('Total Cost', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'item_total', child: Text('Item Price', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'driving_cost', child: Text('Drive Cost', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'distance', child: Text('Distance', style: TextStyle(fontSize: 13))),
+                            DropdownMenuItem(value: 'savings', child: Text('Savings', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              final filter = _filters[_selectedFilterIndex].toLowerCase();
+                              final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
+                              context.read<ComparisonCubit>().searchItem(query, storeType: filter, sortBy: val, forceRefresh: true);
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  // Round Trip Toggle
+                  BlocBuilder<ComparisonCubit, ComparisonState>(
+                    builder: (context, state) {
+                      bool isRoundTrip = true;
+                      if (state is ComparisonLoaded) isRoundTrip = state.isRoundTrip;
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          final filter = _filters[_selectedFilterIndex].toLowerCase();
+                          final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
+                          context.read<ComparisonCubit>().searchItem(query, storeType: filter, isRoundTrip: !isRoundTrip, forceRefresh: true);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isRoundTrip ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isRoundTrip ? AppTheme.primaryBlue.withOpacity(0.3) : Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(isRoundTrip ? Icons.repeat : Icons.trending_flat, size: 16, color: isRoundTrip ? AppTheme.primaryBlue : Colors.grey),
+                              const SizedBox(width: 8),
+                              Text(isRoundTrip ? 'Round Trip' : 'One Way', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isRoundTrip ? AppTheme.primaryBlue : Colors.grey.shade700)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // Map/List Toggle
+                  GestureDetector(
+                    onTap: () => setState(() => _isMapView = !_isMapView),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _isMapView ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _isMapView ? AppTheme.primaryBlue.withOpacity(0.3) : Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(_isMapView ? Icons.list : Icons.map_outlined, size: 16, color: _isMapView ? AppTheme.primaryBlue : Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(_isMapView ? 'List View' : 'Map View', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _isMapView ? AppTheme.primaryBlue : Colors.grey.shade700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+              const SizedBox(height: 24),
+              // List of Results
+              Expanded(
+                child: BlocBuilder<ComparisonCubit, ComparisonState>(
+                  builder: (context, state) {
+                    if (state is ComparisonLoading || state is ComparisonInitial) {
+                      return const Center(child: CircularProgressIndicator(color: AppTheme.savingsGreen));
+                    } else if (state is ComparisonError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                            const SizedBox(height: 16),
+                            Text(
+                              state.message,
+                              style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey.shade700),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                if (_searchController.text.isNotEmpty) {
+                                  context.read<ComparisonCubit>().searchItem(
+                                    _searchController.text,
+                                    storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                  );
+                                } else {
+                                  context.read<ComparisonCubit>().searchItem(
+                                    'milk',
+                                    storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Try Again'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryBlue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    } else if (state is ComparisonLoaded) {
+                      final results = state.results;
+                      if (results.isEmpty) {
+                        return const Center(child: Text('No nearby stores found.'));
+                      }
+
+                      if (_isMapView) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: CompareMapView(
+                            results: results,
+                            userLocation: LatLng(
+                              state.userLat ?? 32.776664, 
+                              state.userLng ?? -96.796987
+                            ),
+                            onStoreTap: (comparison) => _showStoreDetails(context, comparison, results.indexOf(comparison) == 0),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: results.length,
+                        itemBuilder: (context, index) {
+                          final comparison = results[index];
+                          final isBest = index == 0;
+                          
+                          Widget card;
+                          if (isBest) {
+                            card = Column(
+                              children: [
+                                _buildBestOptionCard(comparison, true),
+                                const SizedBox(height: 16),
+                              ],
+                            );
+                          } else {
+                            card = Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildRegularStoreCard(comparison, false),
+                            );
+                          }
+
+                          return card.animate(delay: (index * 100).ms).fadeIn(duration: 500.ms).slideX(begin: 0.1, end: 0);
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStoreDetails(BuildContext context, Map<String, dynamic> comparison, bool isBest) {
+    final store = comparison['store'];
+    final chain = store['chain'];
+    final isPharmacy = chain['type'] == 'pharmacy';
+    final products = comparison['products'] as List<dynamic>;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isBest) Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.savingsGreen, borderRadius: BorderRadius.circular(20)),
+                child: Text(comparison['source'] == 'oxylabs' ? 'LIVE PRICE' : 'BEST VALUE NEAR YOU', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+              ),
+              if (!isBest) Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
+                child: Text(comparison['source'] == 'oxylabs' ? 'LIVE SCRAPE' : 'STORE DETAILS', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 10)),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(Icons.verified, color: AppTheme.primaryBlue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(store['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.textDark), overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+              const Text('Best value for your full basket', style: TextStyle(color: Colors.grey, fontSize: 14)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  _buildDetailPill(Icons.location_on_outlined, '${comparison['driving_distance']} mi'),
+                  const SizedBox(width: 8),
+                  _buildDetailPill(Icons.directions_car_outlined, '\$${comparison['driving_cost']} drive'),
+                ],
+              ),
+              if (chain['type'] == 'gas' && store['gasPrices'] != null) ...[
+                const SizedBox(height: 24),
+                const Text('FUEL TYPES', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey, letterSpacing: 0.5)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildGasTypeColumn('Regular', store['gasPrices']['regular']),
+                    _buildGasTypeColumn('Mid-grade', store['gasPrices']['midgrade']),
+                    _buildGasTypeColumn('Premium', store['gasPrices']['premium']),
+                    _buildGasTypeColumn('Diesel', store['gasPrices']['diesel']),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 24),
+              Text('PRODUCTS FOUND (${products.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey, letterSpacing: 0.5)),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 110,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: products.length,
+                  itemBuilder: (context, idx) {
+                    final p = products[idx];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: _buildProductThumbnail(p['name'], '\$${p['price']}', p['image']),
+                    );
+                  },
+                ),
+              ),
+              if (comparison['missing_items'] != null && comparison['missing_items'] > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text('${comparison['missing_items']} items from your list are not available at this location.', 
+                          style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w500)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final cubit = context.read<ComparisonCubit>();
+                    double maxCost = 0;
+                    if (cubit.state is ComparisonLoaded) {
+                      final results = (cubit.state as ComparisonLoaded).results;
+                      for (var res in results) {
+                        final cost = double.tryParse(res['true_cost'].toString()) ?? 0;
+                        if (cost > maxCost) maxCost = cost;
+                      }
+                    }
+                    
+                    final currentCost = double.tryParse(comparison['true_cost'].toString()) ?? 0;
+                    final savings = double.tryParse(comparison['savings']?.toString() ?? '') ?? (maxCost > currentCost ? maxCost - currentCost : 2.50);
+
+                    context.read<SavingsCubit>().addSavingsRecord(
+                      storeName: store['name'],
+                      amountSaved: savings,
+                      category: chain['type'].toString().toUpperCase(),
+                      iconName: chain['type'] == 'gas' ? 'gas' : (chain['type'] == 'pharmacy' ? 'pharmacy' : 'grocery'),
+                    );
+                    
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Trip saved! You saved \$${savings.toStringAsFixed(2)}'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: AppTheme.savingsGreen,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.savingsGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('Confirm Trip Selection', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProductThumbnail(String name, String price, [String? imageUrl]) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 70, height: 70,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6), 
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          alignment: Alignment.center,
+          child: (imageUrl != null && imageUrl.isNotEmpty)
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Icon(Icons.shopping_basket, color: Colors.grey),
+                    errorWidget: (context, url, error) => const Icon(Icons.shopping_basket, color: Colors.grey),
+                  ),
+                )
+              : Text(name.substring(0, 1).toUpperCase(), style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 24)),
+        ),
+        const SizedBox(height: 8),
+        Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      ],
+    );
+  }
+
+  Widget _buildGasTypeColumn(String label, dynamic price) {
+    String priceStr = '--';
+    if (price is num) {
+      priceStr = '\$${price.toStringAsFixed(2)}';
+    } else if (price != null) {
+      priceStr = '\$$price';
+    }
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        Text(priceStr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: price != null ? AppTheme.textDark : Colors.grey.shade400)),
+      ],
+    );
+  }
+
+  Widget _buildDetailPill(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade200)),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.grey.shade600),
+          const SizedBox(width: 6),
+          Text(text, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBestOptionCard(Map<String, dynamic> comparison, bool isBest) {
+    final store = comparison['store'];
+    final chain = store['chain'];
+    final isGas = chain['type'] == 'gas';
+    final isPharmacy = chain['type'] == 'pharmacy';
+
+    final primaryColor = isGas ? const Color(0xFF2563EB) : (isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.savingsGreen);
+    final bgColor = isGas ? const Color(0xFFEFF6FF) : (isPharmacy ? const Color(0xFFF5F3FF) : const Color(0xFFF0FDF4));
+    
+    return GestureDetector(
+      onTap: () => _showStoreDetails(context, comparison, isBest),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: primaryColor.withOpacity(0.1), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text('Best Option', 
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+            const SizedBox(height: 16),
+            Text(store['name'], 
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.textDark, letterSpacing: -0.5), 
+              overflow: TextOverflow.ellipsis
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildBestOptionMetric('Basket', '\$${comparison['item_total']}'),
+                Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.1)),
+                _buildBestOptionMetric('Drive', '\$${comparison['driving_cost']}'),
+                Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.1)),
+                _buildBestOptionMetric('Total', '\$${comparison['true_cost']}', isPrimary: true),
+              ],
+            ),
+            const SizedBox(height: 24),
+            if (comparison['savings'] != null && comparison['savings'] > 0)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.favorite, color: AppTheme.savingsGreen, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Save \$${comparison['savings']} vs most expensive',
+                      style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBestOptionMetric(String label, String value, {bool isPrimary = false}) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        Text(
+          value, 
+          style: TextStyle(
+            fontSize: isPrimary ? 24 : 20, 
+            fontWeight: FontWeight.w900, 
+            color: isPrimary ? AppTheme.savingsGreen : AppTheme.textDark
+          )
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCostColumn(String label, String amount, Color amountColor) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Text(amount, style: TextStyle(color: amountColor, fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _buildRegularStoreCard(Map<String, dynamic> comparison, bool isBest) {
+    final store = comparison['store'];
+    final chain = store['chain'];
+    final isGas = chain['type'] == 'gas';
+    final isPharmacy = chain['type'] == 'pharmacy';
+
+    return GestureDetector(
+      onTap: () => _showStoreDetails(context, comparison, isBest),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade100, width: 1),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isGas ? const Color(0xFFEFF6FF) : (isPharmacy ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    isGas ? Icons.local_gas_station : (isPharmacy ? Icons.local_pharmacy : Icons.shopping_cart_rounded), 
+                    color: isGas ? const Color(0xFF2563EB) : (isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.primaryBlue),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(store['name'], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.textDark)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(chain['type'].toString().toUpperCase(), style: const TextStyle(color: AppTheme.primaryBlue, fontSize: 11, fontWeight: FontWeight.w700)),
+                          const SizedBox(width: 6),
+                          Text('\u2022 ${comparison['driving_distance']} mi away', style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('\$${comparison['true_cost']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark)),
+                    const Text('total', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ],
+            ),
+            if (comparison['savings'] != null && comparison['savings'] > 0) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text('Save \$${comparison['savings']}', style: const TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.w800, fontSize: 14)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
