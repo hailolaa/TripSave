@@ -11,6 +11,7 @@ import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { calculateDriveCost, calculateTrueCost, metersToMiles, haversineDistanceMiles } from '../utils/geo.util';
+import { geocodePlaceNear } from '../utils/geocoding.util';
 
 @Injectable()
 export class ComparisonService {
@@ -74,7 +75,7 @@ export class ComparisonService {
     this.logger.log(`No fresh DB data for "${itemName}". Running live scrape for ZIP ${resolvedZip}...`);
 
     try {
-      const scraperResult = await this.aggregatorService.search(itemName, resolvedZip);
+      const scraperResult = await this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: forceRefresh });
 
       if (scraperResult.data.length === 0) {
         this.logger.warn(`All scrapers returned 0 results for "${itemName}".`);
@@ -140,6 +141,36 @@ export class ComparisonService {
       where: { store_id: In(storeIds) }
     });
 
+    // If DB-cached items don't include coordinates and we don't have a local DB store match,
+    // enrich store coordinates via bounded geocoding near the user's current location.
+    // This prevents "0,0" coords and removes the jitter fallback for real users.
+    const missingCoordStoreNames = [
+      ...new Set(
+        products
+          .filter(p => (!p.lat || !p.lng))
+          .map(p => (p.store || '').trim())
+          .filter(Boolean),
+      ),
+    ];
+
+    const storeCoordOverrides = new Map<string, { lat: number; lng: number; address?: string }>();
+    const MAX_GEOCODE = 10; // keep requests bounded and responsive
+    await Promise.allSettled(
+      missingCoordStoreNames.slice(0, MAX_GEOCODE).map(async (storeName) => {
+        // If we already have a nearby DB store match by name, no need to geocode
+        const localMatch = nearbyStores.find(ns =>
+          ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
+          storeName.toLowerCase().includes(ns.store.name.toLowerCase())
+        );
+        if (localMatch) return;
+
+        const geo = await geocodePlaceNear(storeName, userLat, userLng, 0.35);
+        if (geo) {
+          storeCoordOverrides.set(storeName.toLowerCase(), { lat: geo.lat, lng: geo.lng, address: geo.displayName });
+        }
+      }),
+    );
+
     return products.map(item => {
       // Find the nearest local store that matches this retailer's name
       const localMatch = nearbyStores.find(ns => 
@@ -162,6 +193,16 @@ export class ComparisonService {
         distance = localMatch.distance;
         storeData = localMatch.store;
       } else {
+        const override = storeCoordOverrides.get(item.store.toLowerCase());
+        if (override && (storeData.lat === 0 || storeData.lng === 0)) {
+          storeData = {
+            ...storeData,
+            lat: override.lat,
+            lng: override.lng,
+            address: storeData.address || override.address || '',
+          };
+        }
+
         // If not in our DB, calculate distance from scraped coordinates
         if (storeData.lat !== 0 && storeData.lng !== 0) {
           distance = haversineDistanceMiles(userLat, userLng, storeData.lat, storeData.lng);
@@ -189,11 +230,15 @@ export class ComparisonService {
       }
 
       const trueCost = item.price + driveCost;
+      const displayDistance =
+        distance > 0 && distance < 0.1
+          ? 0.1
+          : distance;
 
       return {
         store: storeData,
         item_total: Number(item.price.toFixed(2)),
-        driving_distance: Number(distance.toFixed(1)), 
+        driving_distance: Number(displayDistance.toFixed(1)),
         driving_cost: Number(driveCost.toFixed(2)),
         true_cost: Number(trueCost.toFixed(2)),
         items_found: 1,
@@ -371,7 +416,19 @@ export class ComparisonService {
           userLng, userLat, ns.store.lng, ns.store.lat,
         );
         if (routeInfo) distanceMiles = metersToMiles(routeInfo.distanceMeters);
-      } catch { /* use haversine fallback */ }
+      } catch {
+        // OSRM failure: fall back to haversine if coordinates exist
+        if (ns.store.lat && ns.store.lng) {
+          distanceMiles = haversineDistanceMiles(userLat, userLng, Number(ns.store.lat), Number(ns.store.lng));
+        }
+      }
+
+      // Final safety: if routing + haversine still failed, fall back to haversine using any coords we have
+      if (!distanceMiles || distanceMiles <= 0) {
+        if (ns.store.lat && ns.store.lng) {
+          distanceMiles = haversineDistanceMiles(userLat, userLng, Number(ns.store.lat), Number(ns.store.lng));
+        }
+      }
 
       const driveCost = calculateDriveCost(distanceMiles, userMpg, userGasPrice, isRoundTrip);
       const trueCost = fillUpCost + driveCost;

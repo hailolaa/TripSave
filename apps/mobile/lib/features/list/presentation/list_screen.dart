@@ -74,7 +74,7 @@ class _ListScreenState extends State<ListScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.withOpacity(0.05)),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.05)),
                   ),
                   child: TextField(
                     controller: _searchController,
@@ -157,7 +157,7 @@ class _ListScreenState extends State<ListScreen> {
                           backgroundColor: AppTheme.savingsGreen,
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           elevation: 4,
-                          shadowColor: AppTheme.savingsGreen.withOpacity(0.4),
+                          shadowColor: AppTheme.savingsGreen.withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         child: Row(
@@ -257,9 +257,9 @@ class _ListScreenState extends State<ListScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.savingsGreen.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.savingsGreen.withValues(alpha: 0.3)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -4)),
         ],
       ),
       child: Column(

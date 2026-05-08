@@ -5,7 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../bloc/auth_cubit.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -244,16 +244,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.savingsGreen.withOpacity(0.06),
+                    color: AppTheme.savingsGreen.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.savingsGreen.withOpacity(0.15)),
+                    border: Border.all(color: AppTheme.savingsGreen.withValues(alpha: 0.15)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppTheme.savingsGreen.withOpacity(0.1),
+                          color: AppTheme.savingsGreen.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.directions_car_outlined, color: AppTheme.savingsGreen, size: 20),
@@ -288,11 +288,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: isLoading
-                              ? [AppTheme.savingsGreen.withOpacity(0.6), const Color(0xFF059669).withOpacity(0.6)]
+                              ? [AppTheme.savingsGreen.withValues(alpha: 0.6), const Color(0xFF059669).withValues(alpha: 0.6)]
                               : [AppTheme.savingsGreen, const Color(0xFF059669)],
                           ),
                           borderRadius: BorderRadius.circular(16),
-                          boxShadow: [BoxShadow(color: AppTheme.savingsGreen.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))],
+                          boxShadow: [BoxShadow(color: AppTheme.savingsGreen.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))],
                         ),
                         child: Center(
                           child: isLoading

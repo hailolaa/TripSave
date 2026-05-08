@@ -32,7 +32,7 @@ class _DealsScreenState extends State<DealsScreen> {
           } else if (state is DealsError) {
             return Center(child: Text(state.message));
           } else if (state is DealsLoaded) {
-            final deals = state.deals;
+            final deals = state.deals.where((deal) => _matchesSelectedFilter(deal)).toList();
             
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,34 +132,22 @@ class _DealsScreenState extends State<DealsScreen> {
     );
   }
 
-  Widget _buildStoreHeader(String name, String subtitle, String badgeText) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: const Color(0xFFE8F0FE), borderRadius: BorderRadius.circular(8)),
-          child: const Icon(Icons.shopping_cart_outlined, color: AppTheme.primaryBlue, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text(subtitle, style: GoogleFonts.outfit(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF7ED),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(badgeText, style: GoogleFonts.outfit(color: const Color(0xFFF97316), fontWeight: FontWeight.bold, fontSize: 10)),
-        ),
-      ],
-    );
+  bool _matchesSelectedFilter(Map<String, dynamic> deal) {
+    if (_selectedFilter == 0) return true;
+
+    final category = (deal['category'] ?? '').toString().toLowerCase();
+    final storeType = (deal['store']?['chain']?['type'] ?? '').toString().toLowerCase();
+
+    switch (_filters[_selectedFilter].toLowerCase()) {
+      case 'grocery':
+        return storeType == 'grocery' || category.contains('grocery') || category.contains('food');
+      case 'pharmacy':
+        return storeType == 'pharmacy' || category.contains('pharmacy') || category.contains('medicine');
+      case 'household':
+        return category.contains('house') || category.contains('clean') || category.contains('home');
+      default:
+        return true;
+    }
   }
 
   Widget _buildProductDeal(BuildContext context, Map<String, dynamic> deal) {

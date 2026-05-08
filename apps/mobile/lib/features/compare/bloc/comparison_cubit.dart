@@ -18,19 +18,35 @@ class ComparisonLoaded extends ComparisonState {
   final bool isRoundTrip;
   final double? userLat;
   final double? userLng;
+  final DateTime fetchedAt;
   
-  ComparisonLoaded(this.results, {this.sortBy = 'true_cost', this.isRoundTrip = true, this.userLat, this.userLng});
+  ComparisonLoaded(
+    this.results, {
+    this.sortBy = 'true_cost',
+    this.isRoundTrip = true,
+    this.userLat,
+    this.userLng,
+    DateTime? fetchedAt,
+  }) : fetchedAt = fetchedAt ?? DateTime.now();
   
   @override
-  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng];
+  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng, fetchedAt];
 
-  ComparisonLoaded copyWith({List<dynamic>? results, String? sortBy, bool? isRoundTrip, double? userLat, double? userLng}) {
+  ComparisonLoaded copyWith({
+    List<dynamic>? results,
+    String? sortBy,
+    bool? isRoundTrip,
+    double? userLat,
+    double? userLng,
+    DateTime? fetchedAt,
+  }) {
     return ComparisonLoaded(
       results ?? this.results,
       sortBy: sortBy ?? this.sortBy,
       isRoundTrip: isRoundTrip ?? this.isRoundTrip,
       userLat: userLat ?? this.userLat,
       userLng: userLng ?? this.userLng,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
     );
   }
 }
@@ -141,6 +157,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         queryParams['fuelType'] = 'regular';
         queryParams['sortBy'] = _sortBy;
         queryParams['isRoundTrip'] = _isRoundTrip.toString();
+        queryParams['forceRefresh'] = forceRefresh.toString();
         response = await apiClient.dio.get('/comparison/gas', queryParameters: queryParams);
       } else {
         queryParams['item'] = itemName;
@@ -149,6 +166,8 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         }
         queryParams['sortBy'] = _sortBy;
         queryParams['isRoundTrip'] = _isRoundTrip.toString();
+        // Ensure backend can bypass DB + in-memory cache when user refreshes.
+        queryParams['forceRefresh'] = forceRefresh.toString();
         response = await apiClient.dio.get('/comparison/compare', queryParameters: queryParams);
       }
 

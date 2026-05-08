@@ -9,6 +9,8 @@ import { SearchCacheService } from './search-cache.service';
 import { OxylabsBaseService, ScrapedProduct } from './oxylabs-base.service';
 import { StoresService } from '../../stores/stores.service';
 import { resolveZipFromRequest } from '../../utils/location.util';
+import { combinedSimilarity } from '../../utils/string-similarity.util';
+import { geocodePlace, geocodePlaceNear } from '../../utils/geocoding.util';
 
 /** Search response shape */
 export interface SearchResponse {
@@ -60,14 +62,19 @@ export class AggregatorService {
    * Resolves ZIP, checks cache, deduplicates in-flight requests,
    * runs scrapers in parallel, cleans results.
    */
-  async search(query: string, zip?: string, req?: any): Promise<SearchResponse> {
+  async search(
+    query: string,
+    zip?: string,
+    req?: any,
+    options?: { bypassCache?: boolean },
+  ): Promise<SearchResponse> {
     const startTime = Date.now();
     const resolvedZip = zip || await resolveZipFromRequest(req, this.DEFAULT_ZIP);
     const cacheKey = this.cache.makeKey(query, resolvedZip);
 
     // 1. Check in-memory cache first (instant)
-    const cached = this.cache.get<SearchResponse>(cacheKey);
-    if (cached) {
+    const cached = options?.bypassCache ? null : this.cache.get<SearchResponse>(cacheKey);
+    if (cached && !options?.bypassCache) {
       this.logger.log(`Returning cached results for "${query}" in ${resolvedZip}`);
       return { ...cached, responseTimeMs: Date.now() - startTime };
     }
@@ -86,7 +93,7 @@ export class AggregatorService {
     }
 
     // 3. Start a new scrape and register it as in-flight
-    const scrapePromise = this.executeScrape(query, resolvedZip, cacheKey, startTime);
+    const scrapePromise = this.executeScrape(query, resolvedZip, cacheKey, startTime, options);
     this.inFlightRequests.set(cacheKey, scrapePromise);
 
     try {
@@ -106,6 +113,7 @@ export class AggregatorService {
     resolvedZip: string, 
     cacheKey: string, 
     startTime: number,
+    options?: { bypassCache?: boolean },
   ): Promise<SearchResponse> {
     this.logger.log(`Searching "${query}" in ZIP ${resolvedZip} — running all scrapers...`);
 
@@ -171,11 +179,30 @@ export class AggregatorService {
     // Step 4a: First pass enrichment from DB and initial GMaps results
     allProducts = allProducts.map(p => {
       if (!p.lat || !p.lng) {
-        // Try DB first
-        const dbMatch = dbStores.find((s: any) => 
-          s.name.toLowerCase().includes(p.store.toLowerCase()) || 
-          p.store.toLowerCase().includes(s.name.toLowerCase())
-        );
+        // Try DB first (only stores with real coordinates, and match by store name OR chain name)
+        const storeKey = p.store.toLowerCase();
+        const candidates = dbStores
+          .filter((s: any) => Number(s.lat) !== 0 && Number(s.lng) !== 0)
+          .filter((s: any) => {
+            const storeName = (s.name || '').toLowerCase();
+            const chainName = (s.chain?.name || '').toLowerCase();
+            return (
+              storeName.includes(storeKey) ||
+              storeKey.includes(storeName) ||
+              chainName.includes(storeKey) ||
+              storeKey.includes(chainName)
+            );
+          })
+          .map((s: any) => ({
+            store: s,
+            score: Math.max(
+              combinedSimilarity(s.name || '', p.store),
+              combinedSimilarity(s.chain?.name || '', p.store),
+            ),
+          }))
+          .sort((a, b) => b.score - a.score);
+
+        const dbMatch = candidates[0]?.store;
         if (dbMatch) return { ...p, lat: Number(dbMatch.lat), lng: Number(dbMatch.lng), address: dbMatch.address };
 
         // Try initial GMaps results
@@ -194,6 +221,7 @@ export class AggregatorService {
     const missingStores = [...new Set(allProducts.filter(p => !p.lat || !p.lng).map(p => p.store))];
     if (missingStores.length > 0) {
       this.logger.log(`Proactively searching Google Maps for ${missingStores.length} missing store locations: ${missingStores.join(', ')}`);
+      const zipCenter = await geocodePlace(resolvedZip);
       
       // Search for up to 10 missing stores in parallel to stay responsive
       const searchPromises = missingStores.slice(0, 10).map(async (storeName) => {
@@ -221,6 +249,31 @@ export class AggregatorService {
               });
             } else {
               this.logger.warn(`Could not find coordinates for ${storeName} even with targeted GMaps search.`);
+            }
+          } 
+
+          // If Google Maps scraping fails (often due to provider errors), fall back to Nominatim geocoding.
+          // This is less precise than place-level results but gives real (non-jitter) coordinates.
+          const stillMissing = allProducts.some(p => p.store === storeName && (!p.lat || !p.lng));
+          if (stillMissing) {
+            const geo = zipCenter
+              ? await geocodePlaceNear(storeName, zipCenter.lat, zipCenter.lng)
+              : await geocodePlace(`${storeName} ${resolvedZip}`);
+            if (geo) {
+              this.logger.log(`Geocoded ${storeName} near ${resolvedZip}: (${geo.lat}, ${geo.lng})`);
+              allProducts = allProducts.map(p => {
+                if (p.store === storeName && (!p.lat || !p.lng)) {
+                  return {
+                    ...p,
+                    lat: geo.lat,
+                    lng: geo.lng,
+                    address: p.address || geo.displayName,
+                  };
+                }
+                return p;
+              });
+            } else {
+              this.logger.warn(`Geocoding fallback failed for ${storeName} near ${resolvedZip}`);
             }
           }
         } catch (e) {
@@ -252,7 +305,9 @@ export class AggregatorService {
     };
 
     // Cache for 1 hour
-    this.cache.set(cacheKey, response);
+    if (!options?.bypassCache) {
+      this.cache.set(cacheKey, response);
+    }
 
     this.logger.log(`Search "${query}" completed in ${response.responseTimeMs}ms — ${cleaned.length} results`);
     return response;

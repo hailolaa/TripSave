@@ -25,25 +25,35 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
     this.logger.log(`Searching Google Maps (Structured): ${query}`);
 
     try {
+      // Oxylabs google_maps source is sensitive to payload shape.
+      // `parse: true` may not be supported for this target and can trigger 400s,
+      // so we rely on HTML parsing when structured results aren't present.
       const response = await this.httpClient.post('', {
         source: 'google_maps',
-        geo_location: 'United States',
-        query: query,
-        parse: true, // Enable Oxylabs automatic parsing
+        query,
+        // Provide a more specific geo_location than just "United States"
+        // so results are actually near the requested area (ZIP/city).
+        geo_location: `${area},United States`,
+        user_agent_type: 'desktop',
       });
 
-      const results = response.data?.results?.[0]?.content?.results?.local_results || 
-                     response.data?.results?.[0]?.content?.results?.organic_results || [];
-      
-      if (results.length > 0) {
-        return this.normalizeResults(results);
+      const content = response.data?.results?.[0]?.content;
+
+      // If Oxylabs returns a parsed object shape, normalize it.
+      const structuredResults =
+        content?.results?.local_results ||
+        content?.results?.organic_results ||
+        [];
+      if (Array.isArray(structuredResults) && structuredResults.length > 0) {
+        return this.normalizeResults(structuredResults);
       }
 
-      // Fallback to HTML parsing if structured data is missing
-      const html = response.data?.results?.[0]?.content || '';
-      return typeof html === 'string' ? this.parseHtmlResults(html) : [];
+      // Otherwise treat content as HTML and parse it ourselves.
+      return typeof content === 'string' ? this.parseHtmlResults(content) : [];
     } catch (error: any) {
-      this.logger.error(`Google Maps scraping failed: ${error.message}`);
+      const status = error?.response?.status;
+      const details = error?.response?.data ? JSON.stringify(error.response.data).slice(0, 500) : '';
+      this.logger.error(`Google Maps scraping failed${status ? ` (${status})` : ''}: ${error.message}${details ? ` — ${details}` : ''}`);
       return [];
     }
   }

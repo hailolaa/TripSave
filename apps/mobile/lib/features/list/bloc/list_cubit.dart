@@ -108,7 +108,6 @@ class ListCubit extends Cubit<ListState> {
 
   Future<void> _executeSearch(String query) async {
     if (state is! ListLoaded) return;
-    final currentState = state as ListLoaded;
 
     try {
       final results = await _repository.searchProducts(query);
@@ -183,6 +182,10 @@ class ListCubit extends Cubit<ListState> {
         lng: position.longitude,
         mpg: _settings.mpg,
         gasPrice: _settings.gasCostPerMile * _settings.mpg,
+        productIds: currentState.items
+            .map((item) => item['product_id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toList(),
       );
       
       if (state is ListLoaded) {

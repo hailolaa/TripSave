@@ -7,14 +7,13 @@ import '../../../core/theme/app_theme.dart';
 import '../bloc/auth_cubit.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -104,14 +103,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [AppTheme.primaryBlue, AppTheme.primaryBlue.withOpacity(0.8)],
+                            colors: [AppTheme.primaryBlue, AppTheme.primaryBlue.withValues(alpha: 0.8)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(28),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withOpacity(0.3),
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.3),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             ),
@@ -184,11 +183,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: isLoading
-                              ? [AppTheme.primaryBlue.withOpacity(0.6), const Color(0xFF1E40AF).withOpacity(0.6)]
+                              ? [AppTheme.primaryBlue.withValues(alpha: 0.6), const Color(0xFF1E40AF).withValues(alpha: 0.6)]
                               : [AppTheme.primaryBlue, const Color(0xFF1E40AF)],
                           ),
                           borderRadius: BorderRadius.circular(16),
-                          boxShadow: [BoxShadow(color: AppTheme.primaryBlue.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))],
+                          boxShadow: [BoxShadow(color: AppTheme.primaryBlue.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))],
                         ),
                         child: Center(
                           child: isLoading

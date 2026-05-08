@@ -139,8 +139,9 @@ export class ComparisonController {
     @Query('fuelType') fuelType?: 'regular' | 'midgrade' | 'premium' | 'diesel',
     @Query('isRoundTrip') isRoundTrip?: string,
     @Query('sortBy') sortBy?: string,
+    @Query('forceRefresh') forceRefresh?: string,
   ) {
-    const user = await this.usersService.findOneByEmail(req.user.email);
+    const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const userMpg = mpg ?? user?.vehicle_mpg ?? 25;
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
 

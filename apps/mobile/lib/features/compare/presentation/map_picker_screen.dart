@@ -81,7 +81,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, spreadRadius: 1)
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1)
                 ],
               ),
               child: Column(
@@ -141,7 +141,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
         ),
         child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
       ),

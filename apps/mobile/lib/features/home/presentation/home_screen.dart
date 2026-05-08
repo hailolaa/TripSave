@@ -5,8 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
-import '../../savings/bloc/savings_cubit.dart';
-import 'package:trip_save/features/list/bloc/list_cubit.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -101,7 +99,7 @@ class HomeScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9).withOpacity(0.5), 
+              color: const Color(0xFFF1F5F9).withValues(alpha: 0.5), 
               borderRadius: BorderRadius.circular(24),
             ),
             child: Row(
@@ -259,7 +257,7 @@ class HomeScreen extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade100, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 30,
             offset: const Offset(0, 10),
           )
@@ -386,7 +384,7 @@ class HomeScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isBest ? const Color(0xFFF0FDF4).withOpacity(0.5) : Colors.white,
+        color: isBest ? const Color(0xFFF0FDF4).withValues(alpha: 0.5) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isBest ? AppTheme.savingsGreen : Colors.grey.shade100, 

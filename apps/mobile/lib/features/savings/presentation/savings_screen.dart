@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../bloc/savings_cubit.dart';
-import '../savings_repository.dart';
 
 class SavingsScreen extends StatelessWidget {
   const SavingsScreen({super.key});
@@ -133,7 +132,7 @@ class SavingsScreen extends StatelessWidget {
 
     if (isBest) {
       textColor = AppTheme.savingsGreen;
-      borderColor = AppTheme.savingsGreen.withOpacity(0.5);
+      borderColor = AppTheme.savingsGreen.withValues(alpha: 0.5);
     } else if (isBlue) {
       bgColor = const Color(0xFFE8F0FE);
       borderColor = Colors.transparent;

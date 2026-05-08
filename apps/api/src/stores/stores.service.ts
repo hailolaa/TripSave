@@ -39,11 +39,11 @@ export class StoresService {
     const results = await query.getRawAndEntities();
     
     return results.entities.map((store, index) => {
-      // The distance is exposed in the raw results
-      const rawMatch = results.raw.find(r => r.store_id === store.id);
+      // Raw rows align with entities order from TypeORM for this query
+      const rawMatch = results.raw[index];
       return {
         store,
-        distance: rawMatch ? parseFloat(rawMatch.distance) : 0
+        distance: rawMatch?.distance != null ? parseFloat(rawMatch.distance) : 0
       };
     });
   }

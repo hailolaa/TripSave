@@ -40,8 +40,8 @@ class ListRepository {
     required double lng,
     required double mpg,
     required double gasPrice,
+    required List<String> productIds,
   }) async {
-    // We'll use the existing compare/cart endpoint to get the best store
     final response = await apiClient.dio.post(
       '/comparison/cart/compare',
       data: {
@@ -49,7 +49,7 @@ class ListRepository {
         'userLng': lng,
         'userMpg': mpg,
         'gasPrice': gasPrice,
-        'productIds': [], // Backend will pull from current user's cart if empty
+        'productIds': productIds,
       },
     );
     final results = List<Map<String, dynamic>>.from(response.data);

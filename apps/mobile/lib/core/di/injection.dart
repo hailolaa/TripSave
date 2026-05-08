@@ -7,6 +7,7 @@ import '../../features/savings/savings_repository.dart';
 import '../../features/deals/deals_repository.dart';
 import '../services/settings_service.dart';
 import '../services/location_service.dart';
+import '../services/favorite_store_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -18,6 +19,7 @@ Future<void> setupDependencies() async {
   // Services
   getIt.registerLazySingleton(() => SettingsService(getIt<SharedPreferences>()));
   getIt.registerLazySingleton(() => LocationService());
+  getIt.registerLazySingleton(() => FavoriteStoreService(getIt<SharedPreferences>()));
 
   // Network
   getIt.registerLazySingleton(() => ApiClient());

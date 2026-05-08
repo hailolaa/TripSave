@@ -37,7 +37,7 @@ class CompareMapView extends StatelessWidget {
               height: 40,
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.2),
+                  color: AppTheme.primaryBlue.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                   border: Border.all(color: AppTheme.primaryBlue, width: 2),
                 ),
@@ -57,7 +57,7 @@ class CompareMapView extends StatelessWidget {
               final lng = double.tryParse(store['lng'].toString()) ?? 0;
 
               // Skip invalid coordinates
-              if (lat == 0 && lng == 0) return Marker(point: const LatLng(0, 0), child: const SizedBox());
+              if (lat == 0 && lng == 0) return null;
 
               return Marker(
                 point: LatLng(lat, lng),
@@ -68,7 +68,7 @@ class CompareMapView extends StatelessWidget {
                   child: _buildStoreMarker(result, isCheapest),
                 ),
               );
-            }),
+            }).whereType<Marker>(),
           ],
         ),
       ],
@@ -81,6 +81,7 @@ class CompareMapView extends StatelessWidget {
     final isGas = chain['type'] == 'gas';
     final primaryColor = isGas ? const Color(0xFF2563EB) : AppTheme.savingsGreen;
     final markerIcon = isGas ? Icons.local_gas_station : Icons.shopping_basket_outlined;
+    final oneWayDistance = ((double.tryParse(result['driving_distance'].toString()) ?? 0) / 2).toStringAsFixed(1);
 
     return Column(
       children: [
@@ -91,7 +92,7 @@ class CompareMapView extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.primaryBlue,
               borderRadius: BorderRadius.circular(8),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
             ),
             child: const Text(
               'BEST VALUE',
@@ -104,9 +105,9 @@ class CompareMapView extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 6, spreadRadius: 1),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6, spreadRadius: 1),
             ],
-            border: Border.all(color: isCheapest ? AppTheme.primaryBlue : primaryColor.withOpacity(0.3), width: 1.5),
+            border: Border.all(color: isCheapest ? AppTheme.primaryBlue : primaryColor.withValues(alpha: 0.3), width: 1.5),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -114,7 +115,7 @@ class CompareMapView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(markerIcon, size: 14, color: primaryColor),
@@ -144,7 +145,7 @@ class CompareMapView extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${result['driving_distance'] ?? '0'} mi',
+                          '$oneWayDistance mi',
                           style: const TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -156,7 +157,7 @@ class CompareMapView extends StatelessWidget {
           ),
         ),
         // Pin tip
-        Icon(Icons.arrow_drop_down, color: isCheapest ? AppTheme.primaryBlue : primaryColor.withOpacity(0.5), size: 16),
+        Icon(Icons.arrow_drop_down, color: isCheapest ? AppTheme.primaryBlue : primaryColor.withValues(alpha: 0.5), size: 16),
       ],
     );
   }

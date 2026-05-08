@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/location_service.dart';
-import '../../compare/bloc/comparison_cubit.dart';
 import '../../list/list_repository.dart';
+import '../../../core/services/settings_service.dart';
 import '../../../core/di/injection.dart';
 
 class CategoryDetailScreen extends StatefulWidget {
@@ -19,10 +18,13 @@ class CategoryDetailScreen extends StatefulWidget {
 class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   bool get isGas => widget.categoryType == 'gas';
   bool get isPharmacy => widget.categoryType == 'pharmacy';
+  bool get isGrocery => widget.categoryType == 'grocery';
   List<dynamic> _results = [];
   bool _isLoading = true;
   String? _error;
   String _searchQuery = '';
+  String _selectedFuelType = 'regular';
+  int _gallons = 15;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -46,6 +48,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     try {
       final listRepo = getIt<ListRepository>();
       final locationService = getIt<LocationService>();
+      final settings = getIt<SettingsService>();
       final position = await locationService.getCurrentLocation();
       final lat = position.latitude;
       final lng = position.longitude;
@@ -55,8 +58,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         final response = await listRepo.apiClient.dio.get('/comparison/gas', queryParameters: {
           'lat': lat,
           'lng': lng,
-          'gallons': 15,
-          'fuelType': 'regular',
+          'gallons': _gallons,
+          'fuelType': _selectedFuelType,
+          'mpg': settings.mpg,
+          'gasPrice': settings.gasCostPerMile * settings.mpg,
+          'sortBy': 'true_cost',
+          'isRoundTrip': 'true',
         });
         final results = List<dynamic>.from(response.data);
         setState(() {
@@ -64,12 +71,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           _isLoading = false;
         });
       } else {
-        // Flow 3: Pharmacy — search common OTC items across pharmacy stores
+        final storeType = isPharmacy ? 'pharmacy' : 'grocery';
+        final defaultQuery = isPharmacy ? 'tylenol' : 'milk';
+        // Flow 1 + 3: Grocery / Pharmacy search and true-cost compare
         final response = await listRepo.apiClient.dio.get('/comparison/compare', queryParameters: {
-          'item': _searchQuery.isNotEmpty ? _searchQuery : 'tylenol',
+          'item': _searchQuery.isNotEmpty ? _searchQuery : defaultQuery,
           'lat': lat,
           'lng': lng,
-          'storeType': 'pharmacy',
+          'storeType': storeType,
+          'sortBy': 'true_cost',
+          'isRoundTrip': 'true',
         });
         final results = List<dynamic>.from(response.data);
         setState(() {
@@ -88,7 +99,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final primaryColor = isGas ? const Color(0xFF2563EB) : const Color(0xFF6A3CE2);
-    final title = isGas ? 'Gas Stations' : 'Pharmacies';
+    final title = isGas ? 'Gas Stations' : (isPharmacy ? 'Pharmacies' : 'Grocery Stores');
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -118,8 +129,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   children: [
-                    // Pharmacy search bar
-                    if (isPharmacy) Container(
+                    // Grocery/Pharmacy search bar
+                    if (!isGas) Container(
                       margin: const EdgeInsets.only(bottom: 20),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
@@ -132,7 +143,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                           _fetchData();
                         },
                         decoration: InputDecoration(
-                          hintText: 'Search pharmacy items (Tylenol, vitamins...)',
+                          hintText: isPharmacy
+                              ? 'Search pharmacy items (Tylenol, vitamins...)'
+                              : 'Search grocery items (milk, eggs, bread...)',
                           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
                           prefixIcon: const Icon(Icons.search, color: Color(0xFF6A3CE2)),
                           border: InputBorder.none,
@@ -140,9 +153,23 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                         ),
                       ),
                     ),
+                    if (isGas) _buildGasControls(primaryColor),
                     if (_results.isNotEmpty) _buildHeroCard(_results.first, primaryColor),
+                    if (_results.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 48),
+                        child: Center(
+                          child: Text(
+                            'No nearby ${isGas ? 'stations' : (isPharmacy ? 'pharmacies' : 'grocery stores')} found.',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 32),
-                    Text(isGas ? 'All Nearby Stations' : 'All Nearby Pharmacies', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: AppTheme.textDark, letterSpacing: -0.5)),
+                    Text(
+                      isGas ? 'All Nearby Stations' : (isPharmacy ? 'All Nearby Pharmacies' : 'All Nearby Grocery Stores'),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: AppTheme.textDark, letterSpacing: -0.5),
+                    ),
                     const SizedBox(height: 16),
                     ..._results.map((item) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -158,13 +185,15 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   Widget _buildHeroCard(Map<String, dynamic> data, Color primaryColor) {
     final store = data['store'];
     final savings = data['savings'] ?? 0;
+    final products = (data['products'] as List?) ?? const [];
+    final fallbackFuelPrice = products.isNotEmpty ? products.first['price'] : '0.00';
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: primaryColor,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +206,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               ),
               if (savings > 0) Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
                 child: Text('Save \$${savings.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
               ),
             ],
@@ -196,7 +225,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('\$${data['price_per_gallon'] ?? data['products'][0]['price']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 44, letterSpacing: -1)),
+                Text('\$${data['price_per_gallon'] ?? fallbackFuelPrice}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 44, letterSpacing: -1)),
                 const Padding(
                   padding: EdgeInsets.only(bottom: 8),
                   child: Text('/gal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
@@ -208,7 +237,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             // Gas fill-up breakdown
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -230,7 +259,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
                 child: Row(
                   children: [
                     const Icon(Icons.location_on_outlined, color: Colors.white, size: 14),
@@ -242,10 +271,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
                 child: Row(
                   children: [
-                    Icon(Icons.directions_car_outlined, color: Colors.white.withOpacity(0.8), size: 14),
+                    Icon(Icons.directions_car_outlined, color: Colors.white.withValues(alpha: 0.8), size: 14),
                     const SizedBox(width: 6),
                     Text('\$${data['driving_cost']} fuel', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
                   ],
@@ -269,10 +298,72 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
+  Widget _buildGasControls(Color primaryColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              initialValue: _selectedFuelType,
+              decoration: const InputDecoration(
+                labelText: 'Fuel Type',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: const [
+                DropdownMenuItem(value: 'regular', child: Text('Regular')),
+                DropdownMenuItem(value: 'midgrade', child: Text('Mid-grade')),
+                DropdownMenuItem(value: 'premium', child: Text('Premium')),
+                DropdownMenuItem(value: 'diesel', child: Text('Diesel')),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _selectedFuelType = value);
+                _fetchData();
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonFormField<int>(
+              initialValue: _gallons,
+              decoration: const InputDecoration(
+                labelText: 'Gallons',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: const [10, 15, 20, 25]
+                  .map((g) => DropdownMenuItem(value: g, child: Text('$g gal')))
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _gallons = value);
+                _fetchData();
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: _fetchData,
+            icon: Icon(Icons.refresh, color: primaryColor),
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildListItem(Map<String, dynamic> data, {bool isBest = false}) {
     final store = data['store'];
-    final bgColor = isGas ? const Color(0xFFEFF6FF) : const Color(0xFFF3E8FF);
-    final iconColor = isGas ? const Color(0xFF2563EB) : const Color(0xFF6A3CE2);
+    final bgColor = isGas ? const Color(0xFFEFF6FF) : (isPharmacy ? const Color(0xFFF3E8FF) : const Color(0xFFE8F0FE));
+    final iconColor = isGas ? const Color(0xFF2563EB) : (isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.primaryBlue);
     final price = isGas ? (data['price_per_gallon'] ?? data['products'][0]['price']) : data['true_cost'];
     
     return Container(
@@ -287,7 +378,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
-            child: Icon(isGas ? Icons.local_gas_station_outlined : Icons.local_pharmacy_outlined, color: iconColor, size: 24),
+            child: Icon(
+              isGas ? Icons.local_gas_station_outlined : (isPharmacy ? Icons.local_pharmacy_outlined : Icons.shopping_cart_outlined),
+              color: iconColor,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -301,7 +396,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: AppTheme.savingsGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(color: AppTheme.savingsGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
                         child: const Text('Best', style: TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.bold, fontSize: 10)),
                       )
                     ]

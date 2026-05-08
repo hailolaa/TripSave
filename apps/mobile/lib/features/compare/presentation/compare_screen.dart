@@ -8,6 +8,8 @@ import 'compare_map_view.dart';
 import '../bloc/comparison_cubit.dart';
 import '../../savings/bloc/savings_cubit.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/di/injection.dart';
+import '../../../core/services/favorite_store_service.dart';
 
 class CompareScreen extends StatefulWidget {
   const CompareScreen({super.key});
@@ -21,6 +23,8 @@ class _CompareScreenState extends State<CompareScreen> {
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All', 'Grocery', 'Gas', 'Pharmacy'];
   bool _isMapView = false;
+  final FavoriteStoreService _favoriteStoreService = getIt<FavoriteStoreService>();
+  Set<String> _favoriteStores = <String>{};
 
   @override
   void dispose() {
@@ -31,11 +35,34 @@ class _CompareScreenState extends State<CompareScreen> {
   @override
   void initState() {
     super.initState();
+    _loadFavorites();
     // Only fetch on first app open — skip if cubit already has data (e.g. tab switch)
     final cubit = context.read<ComparisonCubit>();
     if (!cubit.hasData) {
       cubit.searchItem('milk');
     }
+  }
+
+  void _loadFavorites() {
+    _favoriteStores = _favoriteStoreService.getFavoriteStoreNames().toSet();
+  }
+
+  Future<void> _toggleFavoriteStore(String storeName) async {
+    await _favoriteStoreService.toggleFavorite(storeName);
+    if (!mounted) return;
+    setState(() {
+      _loadFavorites();
+    });
+  }
+
+  bool _isFavoriteStore(String storeName) {
+    return _favoriteStores.contains(storeName.toLowerCase());
+  }
+
+  String _formatFetchedAt(DateTime fetchedAt) {
+    final hour = fetchedAt.hour.toString().padLeft(2, '0');
+    final minute = fetchedAt.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   @override
@@ -59,7 +86,7 @@ class _CompareScreenState extends State<CompareScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -180,9 +207,9 @@ class _CompareScreenState extends State<CompareScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isRoundTrip ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.grey.shade100,
+                            color: isRoundTrip ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isRoundTrip ? AppTheme.primaryBlue.withOpacity(0.3) : Colors.grey.shade200),
+                            border: Border.all(color: isRoundTrip ? AppTheme.primaryBlue.withValues(alpha: 0.3) : Colors.grey.shade200),
                           ),
                           child: Row(
                             children: [
@@ -201,9 +228,9 @@ class _CompareScreenState extends State<CompareScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: _isMapView ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.grey.shade100,
+                        color: _isMapView ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _isMapView ? AppTheme.primaryBlue.withOpacity(0.3) : Colors.grey.shade200),
+                        border: Border.all(color: _isMapView ? AppTheme.primaryBlue.withValues(alpha: 0.3) : Colors.grey.shade200),
                       ),
                       child: Row(
                         children: [
@@ -218,6 +245,28 @@ class _CompareScreenState extends State<CompareScreen> {
               ),
             ),
               const SizedBox(height: 24),
+              BlocBuilder<ComparisonCubit, ComparisonState>(
+                builder: (context, state) {
+                  if (state is! ComparisonLoaded) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.schedule, size: 14, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Last updated ${_formatFetchedAt(state.fetchedAt)}',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
               // List of Results
               Expanded(
                 child: BlocBuilder<ComparisonCubit, ComparisonState>(
@@ -243,11 +292,13 @@ class _CompareScreenState extends State<CompareScreen> {
                                   context.read<ComparisonCubit>().searchItem(
                                     _searchController.text,
                                     storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                    forceRefresh: true,
                                   );
                                 } else {
                                   context.read<ComparisonCubit>().searchItem(
                                     'milk',
                                     storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                    forceRefresh: true,
                                   );
                                 }
                               },
@@ -364,7 +415,10 @@ class _CompareScreenState extends State<CompareScreen> {
               const SizedBox(height: 24),
               Row(
                 children: [
-                  _buildDetailPill(Icons.location_on_outlined, '${comparison['driving_distance']} mi'),
+                  _buildDetailPill(
+                    Icons.location_on_outlined,
+                    '${((double.tryParse(comparison['driving_distance'].toString()) ?? 0) / 2).toStringAsFixed(1)} mi',
+                  ),
                   const SizedBox(width: 8),
                   _buildDetailPill(Icons.directions_car_outlined, '\$${comparison['driving_cost']} drive'),
                 ],
@@ -404,7 +458,7 @@ class _CompareScreenState extends State<CompareScreen> {
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                   child: Row(
                     children: [
                       const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
@@ -532,6 +586,8 @@ class _CompareScreenState extends State<CompareScreen> {
     final chain = store['chain'];
     final isGas = chain['type'] == 'gas';
     final isPharmacy = chain['type'] == 'pharmacy';
+    final storeName = store['name']?.toString() ?? '';
+    final isFavorite = _isFavoriteStore(storeName);
 
     final primaryColor = isGas ? const Color(0xFF2563EB) : (isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.savingsGreen);
     final bgColor = isGas ? const Color(0xFFEFF6FF) : (isPharmacy ? const Color(0xFFF5F3FF) : const Color(0xFFF0FDF4));
@@ -543,7 +599,7 @@ class _CompareScreenState extends State<CompareScreen> {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: primaryColor.withOpacity(0.1), width: 1.5),
+          border: Border.all(color: primaryColor.withValues(alpha: 0.1), width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -558,18 +614,32 @@ class _CompareScreenState extends State<CompareScreen> {
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
             ),
             const SizedBox(height: 16),
-            Text(store['name'], 
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.textDark, letterSpacing: -0.5), 
-              overflow: TextOverflow.ellipsis
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    storeName,
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.textDark, letterSpacing: -0.5),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _toggleFavoriteStore(storeName),
+                  icon: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? AppTheme.savingsGreen : Colors.grey.shade500,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildBestOptionMetric('Basket', '\$${comparison['item_total']}'),
-                Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.1)),
+                Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
                 _buildBestOptionMetric('Drive', '\$${comparison['driving_cost']}'),
-                Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.1)),
+                Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
                 _buildBestOptionMetric('Total', '\$${comparison['true_cost']}', isPrimary: true),
               ],
             ),
@@ -579,7 +649,7 @@ class _CompareScreenState extends State<CompareScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -617,21 +687,13 @@ class _CompareScreenState extends State<CompareScreen> {
     );
   }
 
-  Widget _buildCostColumn(String label, String amount, Color amountColor) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Text(amount, style: TextStyle(color: amountColor, fontSize: 16, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
   Widget _buildRegularStoreCard(Map<String, dynamic> comparison, bool isBest) {
     final store = comparison['store'];
     final chain = store['chain'];
     final isGas = chain['type'] == 'gas';
     final isPharmacy = chain['type'] == 'pharmacy';
+    final storeName = store['name']?.toString() ?? '';
+    final isFavorite = _isFavoriteStore(storeName);
 
     return GestureDetector(
       onTap: () => _showStoreDetails(context, comparison, isBest),
@@ -663,13 +725,16 @@ class _CompareScreenState extends State<CompareScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(store['name'], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.textDark)),
+                      Text(storeName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.textDark)),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           Text(chain['type'].toString().toUpperCase(), style: const TextStyle(color: AppTheme.primaryBlue, fontSize: 11, fontWeight: FontWeight.w700)),
                           const SizedBox(width: 6),
-                          Text('\u2022 ${comparison['driving_distance']} mi away', style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
+                          Text(
+                            '\u2022 ${((double.tryParse(comparison['driving_distance'].toString()) ?? 0) / 2).toStringAsFixed(1)} mi away',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
                         ],
                       ),
                     ],
@@ -680,6 +745,15 @@ class _CompareScreenState extends State<CompareScreen> {
                   children: [
                     Text('\$${comparison['true_cost']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark)),
                     const Text('total', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _toggleFavoriteStore(storeName),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? AppTheme.savingsGreen : Colors.grey.shade500,
+                        size: 20,
+                      ),
+                    ),
                   ],
                 ),
               ],

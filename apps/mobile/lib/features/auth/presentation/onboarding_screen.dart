@@ -5,7 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../bloc/auth_cubit.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({Key? key}) : super(key: key);
+  const OnboardingScreen({super.key});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -79,7 +79,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppTheme.savingsGreen.withOpacity(0.1),
+                      color: AppTheme.savingsGreen.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.directions_car, size: 60, color: AppTheme.savingsGreen),

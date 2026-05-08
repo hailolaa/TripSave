@@ -9,8 +9,8 @@ class LocationService {
   Position? _currentPosition;
   String? _currentCity;
   
-  // Set this to true to force the app to use Dallas coordinates for testing
-  bool useMockLocation = true;
+  // Keep real-device location enabled by default in production builds.
+  bool useMockLocation = false;
 
   Position? get currentPosition => _currentPosition;
   String? get currentCity => _currentCity;
@@ -42,7 +42,7 @@ class LocationService {
 
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
       
       // Try to get city name

@@ -40,11 +40,11 @@ class AppTheme {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: Colors.grey.withOpacity(0.05)),
+        side: BorderSide(color: Colors.grey.withValues(alpha: 0.05)),
       ),
     ),
     dividerTheme: DividerThemeData(
-      color: Colors.grey.withOpacity(0.1),
+      color: Colors.grey.withValues(alpha: 0.1),
       thickness: 1,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(

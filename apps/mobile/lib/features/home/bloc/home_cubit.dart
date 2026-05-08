@@ -98,13 +98,10 @@ class HomeCubit extends Cubit<HomeState> {
       final productIds = cartItems.map((item) => item['product_id'] as String).toList();
 
       // 3. Fetch comparisons
-      print('DEBUG: Loading dashboard for ${productIds.length} items at $locationName');
       await comparisonCubit.fetchComparisons(productIds, forceRefresh: true);
       
-      print('DEBUG: Comparison state: ${comparisonCubit.state}');
       if (comparisonCubit.state is ComparisonLoaded) {
         final results = (comparisonCubit.state as ComparisonLoaded).results;
-        print('DEBUG: Found ${results.length} results');
         final best = results.isNotEmpty ? results.first : null;
         final others = results.length > 1 ? results.sublist(1) : [];
         
@@ -116,7 +113,6 @@ class HomeCubit extends Cubit<HomeState> {
           locationName: locationName,
         ));
       } else if (comparisonCubit.state is ComparisonError) {
-        print('DEBUG: Comparison error: ${(comparisonCubit.state as ComparisonError).message}');
         emit(HomeLoaded(
           bestStore: null,
           otherStores: [],

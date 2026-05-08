@@ -8,6 +8,7 @@ import { OsrmService } from '../integrations/osrm/osrm.service';
 import { StoresService } from '../stores/stores.service';
 import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
+import { StoreChainType } from '../stores/store-chain.entity';
 
 describe('ComparisonService', () => {
   let service: ComparisonService;
@@ -35,24 +36,29 @@ describe('ComparisonService', () => {
 
   describe('compareGasStations', () => {
     it('should calculate true cost correctly for a 15-gallon fill-up', async () => {
-      // Mock dependencies
+      const mockStore = {
+        id: 's1',
+        name: 'Shell',
+        lat: 32.7767,
+        lng: -96.7970,
+        chain: { type: StoreChainType.GAS },
+      };
       const mockGasPrice = {
-        id: '1',
-        regular: 3.50,
-        midgrade: 3.80,
-        premium: 4.10,
-        diesel: 4.50,
-        store: { id: 's1', name: 'Shell', latitude: 32.7767, longitude: -96.7970, chain: { type: 'gas' } }
+        store_id: 's1',
+        regular_price: 3.50,
+        midgrade_price: 3.80,
+        premium_price: 4.10,
+        diesel_price: 4.50,
       };
 
       (service as any).storesService = {
-        findNearbyStores: jest.fn().mockResolvedValue([{ store: mockGasPrice.store, distance: 2 }])
+        findNearbyStores: jest.fn().mockResolvedValue([{ store: mockStore, distance: 2 }])
       };
       (service as any).gasPriceRepository = {
         find: jest.fn().mockResolvedValue([mockGasPrice])
       };
       (service as any).osrmService = {
-        getDistance: jest.fn().mockResolvedValue(2) // 2 miles
+        getRouteInfo: jest.fn().mockResolvedValue({ distanceMeters: 3218.688 }) // ~2 miles
       };
 
       const results = await service.compareGasStations(32.7766, -96.7969, 25, 3.50);
