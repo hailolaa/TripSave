@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/shopsave_logo.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
@@ -41,15 +42,10 @@ class HomeScreen extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Logo
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.shopping_bag, color: AppTheme.primaryBlue, size: 24),
-                const SizedBox(width: 4),
-                Text('TripSave', style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.w900, fontSize: 18, fontStyle: FontStyle.italic, letterSpacing: -0.5)),
-              ],
-            ).animate().fadeIn().slideX(begin: -0.2),
+            const ShopSaveLogo(textSize: 18, iconSize: 24, compact: true)
+                .animate()
+                .fadeIn()
+                .slideX(begin: -0.2),
             
             // Location Selector
             Container(

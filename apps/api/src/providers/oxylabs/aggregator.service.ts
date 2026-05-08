@@ -39,6 +39,8 @@ export interface SearchResponse {
 export class AggregatorService {
   private readonly logger = new Logger(AggregatorService.name);
   private readonly DEFAULT_ZIP = '75201';
+  private readonly TARGETED_GMAPS_LIMIT = 6;
+  private readonly TARGETED_GMAPS_TIMEOUT_MS = 12000;
 
   /**
    * In-flight request deduplication.
@@ -218,15 +220,27 @@ export class AggregatorService {
     });
 
     // Step 4b: Proactive GMaps search for remaining stores without coordinates
-    const missingStores = [...new Set(allProducts.filter(p => !p.lat || !p.lng).map(p => p.store))];
+    // Keep this bounded so compare responses stay fast on mobile.
+    const missingStores = [
+      ...new Set(
+        allProducts
+          .filter(p => !p.lat || !p.lng)
+          .map(p => (p.store || '').trim())
+          .filter(name => this.isValidTargetedStoreName(name)),
+      ),
+    ];
     if (missingStores.length > 0) {
       this.logger.log(`Proactively searching Google Maps for ${missingStores.length} missing store locations: ${missingStores.join(', ')}`);
       const zipCenter = await geocodePlace(resolvedZip);
       
-      // Search for up to 10 missing stores in parallel to stay responsive
-      const searchPromises = missingStores.slice(0, 10).map(async (storeName) => {
+      // Search only top missing stores and enforce timeout per lookup.
+      const searchPromises = missingStores.slice(0, this.TARGETED_GMAPS_LIMIT).map(async (storeName) => {
         try {
-          const targetedResults = await this.googleMapsScraper.searchNearbyStores(resolvedZip, storeName);
+          const targetedResults = await this.runWithTimeout(
+            `GoogleMaps targeted (${storeName})`,
+            () => this.googleMapsScraper.searchNearbyStores(resolvedZip, storeName),
+            this.TARGETED_GMAPS_TIMEOUT_MS,
+          );
           if (targetedResults.length > 0) {
             // Find the best match using fuzzy name matching
             const bestMatch = targetedResults.find(tr => 
@@ -358,6 +372,15 @@ export class AggregatorService {
   private shouldScrapeGas(query: string): boolean {
     const q = query.toLowerCase();
     return q.includes('gas') || q.includes('fuel') || q.includes('diesel') || q.includes('station');
+  }
+
+  private isValidTargetedStoreName(name: string): boolean {
+    const normalized = name.toLowerCase().trim();
+    if (!normalized) return false;
+    if (normalized.length < 3) return false;
+    if (normalized === 'sponsored') return false;
+    if (normalized.startsWith('sponsored')) return false;
+    return true;
   }
 
   private normalizeName(name: string): string {

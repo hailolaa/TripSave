@@ -97,7 +97,7 @@ class _CompareScreenState extends State<CompareScreen> {
                   onSubmitted: (value) => context.read<ComparisonCubit>().searchItem(
                     value, 
                     storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                    forceRefresh: true,
+                    forceRefresh: false,
                   ),
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
@@ -121,7 +121,7 @@ class _CompareScreenState extends State<CompareScreen> {
                         setState(() => _selectedFilterIndex = index);
                         final filter = _filters[index].toLowerCase();
                         final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
-                        context.read<ComparisonCubit>().searchItem(query, storeType: filter, forceRefresh: true);
+                        context.read<ComparisonCubit>().searchItem(query, storeType: filter, forceRefresh: false);
                       },
                       child: Container(
                         margin: const EdgeInsets.only(right: 12),
@@ -185,7 +185,7 @@ class _CompareScreenState extends State<CompareScreen> {
                             if (val != null) {
                               final filter = _filters[_selectedFilterIndex].toLowerCase();
                               final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
-                              context.read<ComparisonCubit>().searchItem(query, storeType: filter, sortBy: val, forceRefresh: true);
+                              context.read<ComparisonCubit>().searchItem(query, storeType: filter, sortBy: val, forceRefresh: false);
                             }
                           },
                         ),
@@ -202,7 +202,7 @@ class _CompareScreenState extends State<CompareScreen> {
                         onTap: () {
                           final filter = _filters[_selectedFilterIndex].toLowerCase();
                           final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
-                          context.read<ComparisonCubit>().searchItem(query, storeType: filter, isRoundTrip: !isRoundTrip, forceRefresh: true);
+                          context.read<ComparisonCubit>().searchItem(query, storeType: filter, isRoundTrip: !isRoundTrip, forceRefresh: false);
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -292,13 +292,13 @@ class _CompareScreenState extends State<CompareScreen> {
                                   context.read<ComparisonCubit>().searchItem(
                                     _searchController.text,
                                     storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                    forceRefresh: true,
+                                    forceRefresh: false,
                                   );
                                 } else {
                                   context.read<ComparisonCubit>().searchItem(
                                     'milk',
                                     storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                    forceRefresh: true,
+                                    forceRefresh: false,
                                   );
                                 }
                               },

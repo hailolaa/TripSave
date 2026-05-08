@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/shopsave_logo.dart';
 import '../bloc/auth_cubit.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -144,27 +146,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
           }
         },
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 20),
-                // Back Button
-                GestureDetector(
-                  onTap: () => context.pop(),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: const Color(0xFFF8F9FA), borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.arrow_back, color: AppTheme.textDark, size: 20),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => context.pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8F9FA),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: AppTheme.textDark,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    const ShopSaveLogo(textSize: 19, iconSize: 28, compact: true),
+                  ],
+                ).animate().fadeIn().slideY(begin: -0.08, end: 0),
+                const SizedBox(height: 18),
+                const Text(
+                  'Create Account',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 30,
+                    color: AppTheme.textDark,
+                    letterSpacing: -0.5,
                   ),
-                ),
-                const SizedBox(height: 28),
-                // Header
-                const Text('Create Account', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, color: AppTheme.textDark, letterSpacing: -0.5)),
-                const SizedBox(height: 8),
-                Text('Start saving on every shopping trip', style: TextStyle(color: Colors.grey.shade500, fontSize: 16, height: 1.4)),
-                const SizedBox(height: 32),
+                ).animate(delay: 80.ms).fadeIn(),
+                const SizedBox(height: 6),
+                Text(
+                  'Start saving on every shopping trip',
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                ).animate(delay: 130.ms).fadeIn(),
+                const SizedBox(height: 16),
                 // Name Field
                 _buildLabel('Full Name'),
                 const SizedBox(height: 8),
@@ -175,7 +202,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   errorText: _nameError,
                   onChanged: (_) => _clearFieldErrors(),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 // Email Field
                 _buildLabel('Email'),
                 const SizedBox(height: 8),
@@ -187,7 +214,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   errorText: _emailError,
                   onChanged: (_) => _clearFieldErrors(),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 // Password Field
                 _buildLabel('Password'),
                 const SizedBox(height: 8),
@@ -206,7 +233,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 // Password Strength Indicator
                 if (_passwordController.text.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
@@ -225,7 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
                 // Confirm Password Field
                 _buildLabel('Confirm Password'),
                 const SizedBox(height: 8),
@@ -239,33 +266,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onToggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm),
                   onChanged: (_) => _clearFieldErrors(),
                 ),
-                const SizedBox(height: 24),
-                // Vehicle Info Banner
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.savingsGreen.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.savingsGreen.withValues(alpha: 0.15)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.savingsGreen.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.directions_car_outlined, color: AppTheme.savingsGreen, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text("You'll set up your vehicle details after sign up to calculate true trip costs!", style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.4)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
+                const Spacer(),
                 // Create Account Button
                 BlocBuilder<AuthCubit, AuthState>(
                   builder: (context, state) {
@@ -284,7 +285,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: isLoading
@@ -303,27 +304,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 20),
-                // Terms
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        text: 'By creating an account, you agree to our ',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 12, height: 1.5),
-                        children: [
-                          TextSpan(text: 'Terms of Service', style: TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
-                          TextSpan(text: ' and ', style: TextStyle(color: Colors.grey.shade400)),
-                          TextSpan(text: 'Privacy Policy', style: TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Sign In Link
+                const SizedBox(height: 12),
                 Center(
                   child: GestureDetector(
                     onTap: () => context.pop(),
@@ -338,7 +319,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 4),
               ],
             ),
           ),

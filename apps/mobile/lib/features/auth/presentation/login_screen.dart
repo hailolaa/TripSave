@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/shopsave_logo.dart';
 import '../bloc/auth_cubit.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -89,45 +90,37 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         },
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 60),
-                // Logo
                 Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AppTheme.primaryBlue, AppTheme.primaryBlue.withValues(alpha: 0.8)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.shopping_bag, color: Colors.white, size: 48),
-                      ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack).rotate(begin: -0.1, end: 0),
-                      const SizedBox(height: 20),
-                      Text('TripSave', style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.w900, fontSize: 36, fontStyle: FontStyle.italic, letterSpacing: -1)),
-                    ],
+                  child: const ShopSaveLogo(textSize: 30, iconSize: 52)
+                      .animate()
+                      .fadeIn(duration: 420.ms)
+                      .slideY(begin: -0.2, end: 0, curve: Curves.easeOutCubic),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Welcome back',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 31,
+                    color: AppTheme.textDark,
+                    letterSpacing: -0.5,
                   ),
-                ).animate().fadeIn(duration: 800.ms).slideY(begin: -0.2, end: 0),
-                const SizedBox(height: 48),
-                const Text('Welcome back', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 32, color: AppTheme.textDark, letterSpacing: -0.5)).animate(delay: 100.ms).fadeIn(),
-                const SizedBox(height: 8),
-                Text('Sign in to continue saving on every trip', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontSize: 16, height: 1.4)).animate(delay: 200.ms).fadeIn().slideX(begin: -0.1),
-                const SizedBox(height: 36),
+                ).animate(delay: 100.ms).fadeIn(),
+                const SizedBox(height: 6),
+                Text(
+                  'Sign in to continue saving on every trip',
+                  style: GoogleFonts.outfit(
+                    color: Colors.grey.shade500,
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                ).animate(delay: 180.ms).fadeIn().slideX(begin: -0.08),
+                const SizedBox(height: 22),
                 // Email Field
                 _buildLabel('Email'),
                 const SizedBox(height: 8),
@@ -153,16 +146,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
                   onChanged: (_) => _clearFieldErrors(),
                 ),
-                const SizedBox(height: 12),
-                // Forgot Password
+                const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {},
-                    child: Text('Forgot Password?', style: TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.w600, fontSize: 14)),
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 8),
                 // Sign In Button
                 BlocBuilder<AuthCubit, AuthState>(
                   builder: (context, state) {
@@ -179,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: isLoading
@@ -198,44 +197,31 @@ class _LoginScreenState extends State<LoginScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 28),
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Colors.grey.shade200)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('or continue with', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-                    ),
-                    Expanded(child: Divider(color: Colors.grey.shade200)),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                // Social Buttons Row
-                Row(
-                  children: [
-                    Expanded(child: _buildSocialButton(Icons.g_mobiledata, 'Google')),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildSocialButton(Icons.apple, 'Apple')),
-                  ],
-                ),
-                const SizedBox(height: 40),
-                // Sign Up Link
+                const Spacer(),
                 Center(
                   child: GestureDetector(
                     onTap: () => context.push('/register'),
                     child: RichText(
                       text: TextSpan(
                         text: "Don't have an account? ",
-                        style: GoogleFonts.outfit(color: Colors.grey.shade500, fontSize: 15),
+                        style: GoogleFonts.outfit(
+                          color: Colors.grey.shade500,
+                          fontSize: 15,
+                        ),
                         children: [
-                          TextSpan(text: 'Sign Up', style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.w700)),
+                          TextSpan(
+                            text: 'Sign Up',
+                            style: GoogleFonts.outfit(
+                              color: AppTheme.primaryBlue,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                ).animate(delay: 1.seconds).fadeIn(),
-                const SizedBox(height: 32),
+                ).animate(delay: 400.ms).fadeIn(),
+                const SizedBox(height: 4),
               ],
             ),
           ),
@@ -304,25 +290,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildSocialButton(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 22, color: Colors.grey.shade700),
-          const SizedBox(width: 8),
-          Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.grey.shade700)),
-        ],
-      ),
     );
   }
 }

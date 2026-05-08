@@ -51,7 +51,14 @@ export class ProductsService {
    * Upsert scraped data into the database.
    */
   async upsertScrapedProducts(scrapedData: ScrapedProduct[], zip: string) {
+    // Deduplicate noisy scraper rows in-memory first (same store + product).
+    const deduped = new Map<string, ScrapedProduct>();
     for (const item of scrapedData) {
+      const key = `${item.store.toLowerCase().trim()}|${item.product.toLowerCase().trim()}`;
+      deduped.set(key, item);
+    }
+
+    for (const item of deduped.values()) {
       try {
         // 1. Resolve Store (find by name + zip)
         let store = await this.storesRepository.findOne({ 
@@ -67,15 +74,24 @@ export class ProductsService {
           if (!chain) {
             // Try to find any grocery chain or fallback
             chain = await this.chainsRepository.findOne({ where: { type: StoreChainType.GROCERY } });
-            
-            if (!chain) {
-              // Create the default chain if literally nothing exists
+          }
+
+          if (!chain) {
+            // Create default chain in a race-safe way.
+            // Concurrent scrapes may attempt this simultaneously.
+            try {
               chain = await this.chainsRepository.save({
                 name: 'Default Store Chain',
                 slug: 'default-chain',
                 type: StoreChainType.GROCERY,
               });
+            } catch {
+              chain = await this.chainsRepository.findOne({ where: { slug: 'default-chain' } });
             }
+          }
+
+          if (!chain) {
+            throw new Error('Unable to resolve store chain for scraped store');
           }
 
           // Create dummy store if not exists
@@ -107,25 +123,17 @@ export class ProductsService {
           });
         }
 
-        // 3. Upsert StoreProduct price
-        const existingSP = await this.storeProductsRepository.findOne({
-          where: { store_id: store.id, product_id: product.id }
-        });
-
-        if (existingSP) {
-          existingSP.price = item.price;
-          existingSP.last_verified_at = new Date();
-          existingSP.source = item.source as any;
-          await this.storeProductsRepository.save(existingSP);
-        } else {
-          await this.storeProductsRepository.save({
+        // 3. Upsert StoreProduct atomically (avoids duplicate-key races)
+        await this.storeProductsRepository.upsert(
+          {
             store_id: store.id,
             product_id: product.id,
             price: item.price,
             last_verified_at: new Date(),
-            source: item.source as any
-          });
-        }
+            source: item.source as any,
+          },
+          ['store_id', 'product_id'],
+        );
       } catch (err) {
         // Continue if one record fails
         console.error(`Failed to upsert product ${item.product}:`, err);
