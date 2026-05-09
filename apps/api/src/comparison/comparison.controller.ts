@@ -140,6 +140,7 @@ export class ComparisonController {
     @Query('isRoundTrip') isRoundTrip?: string,
     @Query('sortBy') sortBy?: string,
     @Query('forceRefresh') forceRefresh?: string,
+    @Query('locationName') locationName?: string,
   ) {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const userMpg = mpg ?? user?.vehicle_mpg ?? 25;
@@ -161,6 +162,7 @@ export class ComparisonController {
       fuelType || 'regular',
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
+      locationName || user?.location_name || 'TX',
     );
   }
 }

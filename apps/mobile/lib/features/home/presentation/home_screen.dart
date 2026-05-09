@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
@@ -6,9 +7,282 @@ import '../../../core/widgets/shopsave_logo.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
+import '../../../core/services/location_service.dart';
+import '../../../core/di/injection.dart';
+import '../../auth/auth_repository.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+
+  void _showLocationPicker(BuildContext context, String currentLocation) {
+    HapticFeedback.mediumImpact();
+    final locationService = getIt<LocationService>();
+    final searchController = TextEditingController();
+    bool isSearching = false;
+    List<Map<String, dynamic>> searchResults = [];
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.55,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 4),
+                    child: Text(
+                      'Change Location',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Search for a city or zip code',
+                      style: GoogleFonts.outfit(color: Colors.grey.shade500, fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Search field
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: TextField(
+                      controller: searchController,
+                      autofocus: true,
+                      style: GoogleFonts.outfit(fontSize: 16),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Houston, TX or 77001',
+                        hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400),
+                        prefixIcon: Icon(Icons.search, color: Colors.grey.shade400),
+                        suffixIcon: isSearching
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: const Color(0xFFF1F5F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      onSubmitted: (query) async {
+                        if (query.trim().isEmpty) return;
+                        setSheetState(() => isSearching = true);
+                        
+                        final repo = getIt<AuthRepository>();
+                        final result = await repo.geocode(query.trim());
+                        
+                        if (result != null) {
+                          setSheetState(() {
+                            isSearching = false;
+                            searchResults = [result];
+                          });
+                        } else {
+                          setSheetState(() {
+                            isSearching = false;
+                            searchResults = [];
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Current / Auto-detected location option
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        final cubit = ctx.mounted ? null : null;  // just for context
+                        // Use the parent context to read HomeCubit
+                        final homeCubit = BlocProvider.of<HomeCubit>(this.context);
+                        homeCubit.resetLocation();
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: locationService.isOverridden
+                              ? const Color(0xFFF8F9FA)
+                              : const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: locationService.isOverridden
+                                ? Colors.grey.shade200
+                                : AppTheme.primaryBlue.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.savingsGreen.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.my_location, color: AppTheme.savingsGreen, size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Auto-detected', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.textDark)),
+                                  const SizedBox(height: 2),
+                                  Text(locationService.autoDetectedCity, style: GoogleFonts.outfit(color: Colors.grey.shade500, fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                            if (!locationService.isOverridden)
+                              const Icon(Icons.check_circle, color: AppTheme.primaryBlue, size: 22),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Current override if any
+                  if (locationService.isOverridden)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.location_on, color: AppTheme.primaryBlue, size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Current', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.textDark)),
+                                  const SizedBox(height: 2),
+                                  Text(currentLocation, style: GoogleFonts.outfit(color: Colors.grey.shade500, fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.check_circle, color: AppTheme.primaryBlue, size: 22),
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Search results
+                  if (searchResults.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text('SEARCH RESULTS', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 1)),
+                    ),
+                    const SizedBox(height: 8),
+                    ...searchResults.map((result) {
+                      final name = result['displayName'] ?? result['location_name'] ?? 'Unknown';
+                      final lat = double.tryParse(result['lat']?.toString() ?? '');
+                      final lng = double.tryParse(result['lng']?.toString() ?? result['lon']?.toString() ?? '');
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.mediumImpact();
+                            final homeCubit = BlocProvider.of<HomeCubit>(this.context);
+                            // Use a short display name
+                            String displayName = name;
+                            if (result['location_name'] != null) {
+                              displayName = result['location_name'];
+                            }
+                            homeCubit.updateLocation(displayName, lat: lat, lng: lng);
+                            Navigator.pop(context);
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8F9FA),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFDECB5),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.place, color: Colors.black87, size: 20),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15, color: AppTheme.textDark),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey.shade400),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,21 +322,31 @@ class HomeScreen extends StatelessWidget {
                 .slideX(begin: -0.2),
             
             // Location Selector
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F9FA),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.location_on_outlined, size: 16, color: AppTheme.savingsGreen),
-                  const SizedBox(width: 6),
-                  Text(state.locationName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  const SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey.shade600),
-                ],
+            GestureDetector(
+              onTap: () => _showLocationPicker(context, state.locationName),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 16, color: AppTheme.savingsGreen),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120),
+                      child: Text(
+                        state.locationName,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey.shade600),
+                  ],
+                ),
               ),
             ),
             

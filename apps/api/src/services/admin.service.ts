@@ -80,4 +80,30 @@ export class AdminService {
       gas: { total: totalGas, stale: staleGas, fresh: totalGas - staleGas },
     };
   }
+
+  /** Fix gas station coordinates that are 0,0 */
+  async fixGasCoordinates() {
+    const { geocodePlaceNear } = require('../utils/geocoding.util');
+    const { Store } = require('../stores/store.entity');
+    const storeRepo = this.storeProductRepo.manager.getRepository(Store);
+
+    const storesToFix = await storeRepo.find({ where: { lat: 0, lng: 0 } });
+    if (storesToFix.length === 0) return { success: true, message: 'No stores need fixing' };
+
+    let fixedCount = 0;
+    for (const store of storesToFix) {
+      // Defaulting to near Dallas since most testing data is there.
+      const geo = await geocodePlaceNear(`${store.name} ${store.address}`, 32.776664, -96.796987, 2.0);
+      if (geo) {
+        store.lat = geo.lat;
+        store.lng = geo.lng;
+        await storeRepo.save(store);
+        fixedCount++;
+        // Small delay to prevent rate limits
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    return { success: true, fixed: fixedCount, totalFailed: storesToFix.length };
+  }
 }

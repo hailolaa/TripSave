@@ -12,6 +12,7 @@ import { ProductsService } from '../products/products.service';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { calculateDriveCost, calculateTrueCost, metersToMiles, haversineDistanceMiles } from '../utils/geo.util';
 import { geocodePlaceNear } from '../utils/geocoding.util';
+import { GasSyncService } from '../services/gas-sync.service';
 
 @Injectable()
 export class ComparisonService {
@@ -22,6 +23,7 @@ export class ComparisonService {
     private readonly storesService: StoresService,
     private readonly aggregatorService: AggregatorService,
     private readonly productsService: ProductsService,
+    private readonly gasSyncService: GasSyncService,
     @InjectRepository(StoreProduct)
     private storeProductsRepository: Repository<StoreProduct>,
     @InjectRepository(GasPrice)
@@ -374,14 +376,24 @@ export class ComparisonService {
     fuelType: 'regular' | 'midgrade' | 'premium' | 'diesel' = 'regular',
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
+    locationName: string = 'TX',
   ) {
     // 1. Find nearby gas stations
     let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
     nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
 
     if (!nearbyStores.length) {
-      this.logger.warn('No gas stations found nearby.');
-      return [];
+      this.logger.warn(`No gas stations found nearby ${userLat}, ${userLng}. Triggering live sync...`);
+      await this.gasSyncService.syncGasPrices(locationName);
+      
+      // Re-query after sync
+      nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+      nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
+      
+      if (!nearbyStores.length) {
+        this.logger.warn('Still no gas stations found after live sync.');
+        return [];
+      }
     }
 
     const storeIds = nearbyStores.map(ns => ns.store.id);

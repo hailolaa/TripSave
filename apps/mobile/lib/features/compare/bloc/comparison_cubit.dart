@@ -158,6 +158,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         queryParams['sortBy'] = _sortBy;
         queryParams['isRoundTrip'] = _isRoundTrip.toString();
         queryParams['forceRefresh'] = forceRefresh.toString();
+        queryParams['locationName'] = await locationService.getLocationName();
         response = await apiClient.dio.get('/comparison/gas', queryParameters: queryParams);
       } else {
         queryParams['item'] = itemName;

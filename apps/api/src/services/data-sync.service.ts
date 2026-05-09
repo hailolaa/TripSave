@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GasSyncService } from './gas-sync.service';
+import { WarmCacheService } from './warm-cache.service';
 import { DataSyncLog } from '../models/data-sync-log.entity';
 import { CRON_SCHEDULES } from '../common/constants/cache-ttl.constants';
 
@@ -20,6 +21,7 @@ export class DataSyncService {
 
   constructor(
     private readonly gasSyncService: GasSyncService,
+    private readonly warmCacheService: WarmCacheService,
     @InjectRepository(DataSyncLog)
     private readonly syncLogRepo: Repository<DataSyncLog>,
   ) {}
@@ -47,6 +49,10 @@ export class DataSyncService {
         case 'gas':
           const gasResult = await this.gasSyncService.syncGasPrices(params?.regionCode || 'TX');
           count = gasResult.count;
+          break;
+        case 'warm-cache':
+          const warmResult = await this.warmCacheService.triggerManual();
+          count = warmResult.productsWarmed;
           break;
         default:
           throw new Error(`Unknown provider: ${provider}`);

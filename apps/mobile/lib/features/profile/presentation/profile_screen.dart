@@ -10,6 +10,7 @@ import '../../auth/auth_repository.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/favorite_store_service.dart';
+import '../../../core/services/location_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,13 +25,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _profile;
   bool _notificationsEnabled = true;
   bool _locationAccessEnabled = true;
+  String _currentLocationName = 'Detecting...';
   final SettingsService _settingsService = getIt<SettingsService>();
   final FavoriteStoreService _favoriteStoreService = getIt<FavoriteStoreService>();
+  final LocationService _locationService = getIt<LocationService>();
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadLocation();
+  }
+
+  Future<void> _loadLocation() async {
+    final name = await _locationService.getLocationName();
+    if (mounted) {
+      setState(() {
+        _currentLocationName = name;
+      });
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -181,7 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Divider(height: 1),
               _buildSettingRow(
                 Icons.location_on_outlined, const Color(0xFFD6F3E9), 'Location Access', null, 
-                subtitle: _profile?['location_name'] ?? 'Dallas, TX', 
+                subtitle: _currentLocationName, 
                 hasSwitch: true, 
                 switchVal: _locationAccessEnabled,
                 onSwitchChanged: (val) {

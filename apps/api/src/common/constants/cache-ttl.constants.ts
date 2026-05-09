@@ -26,4 +26,7 @@ export const CRON_SCHEDULES = {
 
   /** Once daily at 3 AM */
   STORE_REFRESH: '0 3 * * *',
+
+  /** Every 45 minutes — keeps popular product cache warm */
+  WARM_CACHE_REFRESH: '*/45 * * * *',
 } as const;

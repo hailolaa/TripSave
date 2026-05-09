@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminRoleGuard } from './admin-role.guard';
 import { AdminService } from '../services/admin.service';
 import { DataSyncService } from '../services/data-sync.service';
+import { WarmCacheService } from '../services/warm-cache.service';
 
 /**
  * Admin endpoints for manual data management.
@@ -14,6 +15,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly dataSyncService: DataSyncService,
+    private readonly warmCacheService: WarmCacheService,
   ) {}
 
   /** Update a product's price manually */
@@ -63,5 +65,28 @@ export class AdminController {
   @Get('data/overview')
   async getDataOverview() {
     return this.adminService.getDataOverview();
+  }
+
+  /** Manually trigger a warm-cache cycle */
+  @Post('warm-cache/trigger')
+  @HttpCode(200)
+  async triggerWarmCache() {
+    return this.warmCacheService.triggerManual();
+  }
+
+  /** View the list of products being warm-cached */
+  @Get('warm-cache/products')
+  async getWarmCacheProducts() {
+    return {
+      count: WarmCacheService.POPULAR_PRODUCTS.length,
+      products: WarmCacheService.POPULAR_PRODUCTS,
+    };
+  }
+
+  /** Fix gas station 0,0 coordinates */
+  @Post('fix-gas-coords')
+  @HttpCode(200)
+  async fixGasCoords() {
+    return this.adminService.fixGasCoordinates();
   }
 }

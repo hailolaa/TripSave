@@ -6,6 +6,8 @@ import 'dart:async';
 import '../../deals/deals_repository.dart';
 import '../../compare/bloc/comparison_cubit.dart';
 import '../../../core/services/location_service.dart';
+import '../../auth/auth_repository.dart';
+import '../../../core/di/injection.dart';
 
 abstract class HomeState extends Equatable {
   @override
@@ -33,6 +35,22 @@ class HomeLoaded extends HomeState {
 
   @override
   List<Object?> get props => [bestStore, otherStores, nearbyDeals, cartItemCount, locationName];
+
+  HomeLoaded copyWith({
+    Map<String, dynamic>? bestStore,
+    List<dynamic>? otherStores,
+    List<dynamic>? nearbyDeals,
+    int? cartItemCount,
+    String? locationName,
+  }) {
+    return HomeLoaded(
+      bestStore: bestStore ?? this.bestStore,
+      otherStores: otherStores ?? this.otherStores,
+      nearbyDeals: nearbyDeals ?? this.nearbyDeals,
+      cartItemCount: cartItemCount ?? this.cartItemCount,
+      locationName: locationName ?? this.locationName,
+    );
+  }
 }
 
 class HomeError extends HomeState {
@@ -68,6 +86,37 @@ class HomeCubit extends Cubit<HomeState> {
   Future<void> close() {
     _listSubscription?.cancel();
     return super.close();
+  }
+
+  /// Update the user's location and refresh dashboard data.
+  Future<void> updateLocation(String cityName, {double? lat, double? lng}) async {
+    // Update the location service
+    locationService.setLocation(cityName, lat: lat, lng: lng);
+    
+    // Update the backend profile with the new location
+    try {
+      final repo = getIt<AuthRepository>();
+      final updateData = <String, dynamic>{'location_name': cityName};
+      if (lat != null) updateData['location_lat'] = lat;
+      if (lng != null) updateData['location_lng'] = lng;
+      await repo.updateProfile(updateData);
+    } catch (_) {
+      // Non-critical — location still works locally
+    }
+
+    // Quick UI update with new location name
+    if (state is HomeLoaded) {
+      emit((state as HomeLoaded).copyWith(locationName: cityName));
+    }
+
+    // Re-fetch dashboard data for the new location
+    await loadDashboard();
+  }
+
+  /// Reset to auto-detected GPS location.
+  Future<void> resetLocation() async {
+    locationService.resetToAutoDetected();
+    await loadDashboard();
   }
 
   Future<void> loadDashboard() async {

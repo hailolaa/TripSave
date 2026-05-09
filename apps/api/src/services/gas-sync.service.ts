@@ -133,24 +133,37 @@ export class GasSyncService {
 
     // 2. Find or create store
     let store = await this.storeRepo.findOne({ where: { external_id: station.stationId } });
+    
+    let finalLat = station.latitude;
+    let finalLng = station.longitude;
+    let finalAddress = station.address;
+
     if (!store) {
       store = await this.storeRepo.save(this.storeRepo.create({
         chain_id: chain.id,
-        name: `${station.name} - ${station.address}`,
-        address: station.address,
-        lat: station.latitude,
-        lng: station.longitude,
+        name: `${station.name} - ${finalAddress}`,
+        address: finalAddress,
+        lat: finalLat,
+        lng: finalLng,
         external_id: station.stationId,
         source: DataSource.GOOGLE_MAPS,
         is_active: true,
       }));
     } else {
       // Update coordinates and address for existing stores to ensure they stay accurate
-      await this.storeRepo.update(store.id, {
-        lat: station.latitude,
-        lng: station.longitude,
-        address: station.address
-      });
+      // IMPORTANT: Don't let 0,0 overwrite good coordinates!
+      const updateData: any = {};
+      if (finalLat !== 0 && finalLng !== 0) {
+        updateData.lat = finalLat;
+        updateData.lng = finalLng;
+      }
+      if (finalAddress && finalAddress !== 'Unknown') {
+        updateData.address = finalAddress;
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        await this.storeRepo.update(store.id, updateData);
+      }
     }
 
     // 3. Upsert gas price
