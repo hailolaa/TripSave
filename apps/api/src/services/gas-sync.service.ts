@@ -134,9 +134,10 @@ export class GasSyncService {
     // 1. Find or create chain
     let chain = await this.chainRepo.findOne({ where: { name: station.name } });
     if (!chain) {
+      const slug = station.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').substring(0, 190);
       const newChain = this.chainRepo.create({
         name: station.name,
-        slug: station.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+        slug,
         type: StoreChainType.GAS,
         logo_url: station.logoUrl,
       });
@@ -157,12 +158,17 @@ export class GasSyncService {
 
     // If scraper fallback gave 0,0, try to geocode it based on the region
     if (finalLat === 0 && finalLng === 0) {
-      const query = station.address !== 'Unknown' ? `${station.name} ${station.address}` : `${station.name} ${regionCode}`;
+      // Nominatim works MUCH better with just the address than "Store Name + Address"
+      const query = (station.address && station.address !== 'Unknown') 
+        ? `${station.address}, ${regionCode}` 
+        : `${station.name} ${regionCode}`;
+        
       let geo = null;
       if (lat && lng) {
         const { geocodePlaceNear } = require('../utils/geocoding.util');
         geo = await geocodePlaceNear(query, lat, lng, 0.4);
       } else {
+        const { geocodePlace } = require('../utils/geocoding.util');
         geo = await geocodePlace(query);
       }
       
@@ -170,7 +176,9 @@ export class GasSyncService {
         finalLat = geo.lat;
         finalLng = geo.lng;
         finalAddress = geo.displayName;
-        this.logger.log(`Geocoded missing coordinates for ${station.name}: ${finalLat}, ${finalLng}`);
+        this.logger.log(`[GEO SUCCESS] ${station.name} -> ${finalLat}, ${finalLng}`);
+      } else {
+        this.logger.warn(`[GEO FAIL] Could not find coordinates for: ${query}`);
       }
     }
 
