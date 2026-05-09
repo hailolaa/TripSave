@@ -52,6 +52,10 @@ export class GasSyncService {
         try {
           await this.processStation(station, regionCode, lat, lng);
           synced++;
+          
+          // Respect Nominatim's strict 1 request/sec limit
+          // Await 1.2 seconds between geocoding requests to prevent 429 IP bans.
+          await new Promise(resolve => setTimeout(resolve, 1200));
         } catch (err: any) {
           this.logger.error(`Failed to process station ${station.stationId}: ${err.message}`);
         }
