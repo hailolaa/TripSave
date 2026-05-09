@@ -174,10 +174,11 @@ export class ComparisonService {
     );
 
     return products.map(item => {
+      const storeName = item.store || '';
       // Find the nearest local store that matches this retailer's name
       const localMatch = nearbyStores.find(ns => 
-        ns.store.name.toLowerCase().includes(item.store.toLowerCase()) ||
-        item.store.toLowerCase().includes(ns.store.name.toLowerCase())
+        ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
+        storeName.toLowerCase().includes(ns.store.name.toLowerCase())
       );
 
       let distance = 0;
