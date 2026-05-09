@@ -84,55 +84,42 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
     $('.VkpGBb, div.v7W49e, div.Vkp9Se, div.u950Ad, .tF2Cxc, .C8vY6e, .cX3fhd').each((_, el) => {
       const element = $(el);
       
-      // Try multiple selectors for name
-      let name = element.find('.dbg0pd, h3, .OSrXXb, .rllt__details span, .VwiC3b, .uJ337c').first().text().trim();
+      // 1. Name
+      const name = element.find('.hfpxzc').attr('aria-label') || 
+                  element.find('.qBF1Pd').text() || 
+                  element.find('.OSrXXb').text() || 
+                  element.find('.dbg0pd, h3').first().text() ||
+                  'Unknown Station';
+
+      // 2. Address
+      let address = element.find('.W4E7P').first().text() || 
+                    element.find('.rllt__details div:nth-child(3)').text() ||
+                    element.find('.L8B79d, .yGr79e, .VwiC3b, .t86Sre').first().text() ||
+                    'Unknown';
       
-      // Try multiple selectors for address
-      let address = element.find('.rllt__details div:nth-child(3), .L8B79d, .yGr79e, .VwiC3b, .t86Sre').text().trim();
-      
-      // Attempt to extract latitude/longitude from data attributes or links
+      // Clean up address (remove phone numbers like "· (713) 523-6402")
+      address = address.split('·')[0].trim();
+
+      // 3. Coordinates
       let latitude = 0;
       let longitude = 0;
-      
-      // Some elements have data-lat/data-lng
-      const latAttr = element.attr('data-lat') || element.find('[data-lat]').attr('data-lat');
-      const lngAttr = element.attr('data-lng') || element.find('[data-lng]').attr('data-lng');
+
+      const latAttr = element.find('.hfpxzc').attr('data-latitude');
+      const lngAttr = element.find('.hfpxzc').attr('data-longitude');
       
       if (latAttr && lngAttr) {
         latitude = parseFloat(latAttr);
         longitude = parseFloat(lngAttr);
       } else {
-        // Look in links (e.g. Google Maps links often have coordinates)
-        const mapLink = element.find('a[href*="/maps/"], a[href*="google.com/maps"]').attr('href');
-        if (mapLink) {
-          // Patterns: @lat,lng or !3d...!4d...
-          const coordMatch = mapLink.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || 
-                            mapLink.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-          if (coordMatch) {
-            latitude = parseFloat(coordMatch[1]);
-            longitude = parseFloat(coordMatch[2]);
-          }
-        }
-      }
-
-      // If we still don't have coordinates, try to find them in the entire element's HTML/attributes
-      if (latitude === 0) {
         const htmlContext = element.html() || '';
-        // Look for @lat,lng or static map URLs in attributes
-        const deepMatch = htmlContext.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || 
-                         htmlContext.match(/center=(-?\d+\.\d+)%2C(-?\d+\.\d+)/) ||
-                         htmlContext.match(/ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
-                         
-        if (deepMatch) {
-          latitude = parseFloat(deepMatch[1]);
-          longitude = parseFloat(deepMatch[2]);
-        } else {
-          // Final attempt: any pair of numbers that look like coordinates
-          const latMatch = htmlContext.match(/(-?\d+\.\d+),(-?\d+\.\d+)/);
-          if (latMatch && Math.abs(parseFloat(latMatch[1])) < 90 && Math.abs(parseFloat(latMatch[2])) < 180) {
-            latitude = parseFloat(latMatch[1]);
-            longitude = parseFloat(latMatch[2]);
-          }
+        // Look for @lat,lng or static map URLs or raw lat,lng pairs
+        const coordMatch = htmlContext.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || 
+                          htmlContext.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) ||
+                          htmlContext.match(/(-?\d+\.\d{5,}),(-?\d+\.\d{5,})/); // Raw lat,lng
+                          
+        if (coordMatch) {
+          latitude = parseFloat(coordMatch[1]);
+          longitude = parseFloat(coordMatch[2]);
         }
       }
 
