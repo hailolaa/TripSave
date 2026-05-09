@@ -34,7 +34,7 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
       const response = await this.httpClient.post('', {
         source: 'google_maps',
         query,
-        parse: true,
+        user_agent_type: 'desktop',
       });
 
       const content = response.data?.results?.[0]?.content;
