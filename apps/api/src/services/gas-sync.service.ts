@@ -185,7 +185,7 @@ export class GasSyncService {
     if (!store) {
       store = await this.storeRepo.save(this.storeRepo.create({
         chain_id: chain.id,
-        name: `${station.name} - ${finalAddress}`,
+        name: station.name,
         address: finalAddress,
         lat: finalLat,
         lng: finalLng,

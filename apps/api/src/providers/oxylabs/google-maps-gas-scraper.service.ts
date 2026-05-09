@@ -85,11 +85,14 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
       const element = $(el);
       
       // 1. Name
-      const name = element.find('.hfpxzc').attr('aria-label') || 
+      let name = element.find('.hfpxzc').attr('aria-label') || 
                   element.find('.qBF1Pd').text() || 
                   element.find('.OSrXXb').text() || 
                   element.find('.dbg0pd, h3').first().text() ||
                   'Unknown Station';
+
+      // Clean up name (remove " · Gas station", " · Houston", " - Open 24h" etc.)
+      name = name.split(' · ')[0].split(' - ')[0].split(' · ')[0].trim();
 
       // 2. Address
       let address = element.find('.W4E7P').first().text() || 
