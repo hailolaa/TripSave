@@ -18,8 +18,8 @@ export const CACHE_TTL = {
  * Cron expressions for background data refresh jobs.
  */
 export const CRON_SCHEDULES = {
-  /** Disabled: Gas is now synced strictly on-demand when a user's location is detected */
-  GAS_REFRESH: '0 0 31 2 *', // Invalid date (Feb 31), effectively disables cron without removing constant
+  /** Disabled: Gas is now synced strictly on-demand. Running once a year to satisfy cron validation without API load. */
+  GAS_REFRESH: '0 0 1 1 *', // Jan 1st at midnight
 
   /** Every 12 hours */
   GROCERY_REFRESH: '0 */12 * * *',
