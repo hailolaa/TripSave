@@ -135,7 +135,7 @@ export class ComparisonService {
     isRoundTrip: boolean = true,
   ) {
     // Get nearby stores once to avoid multiple DB calls
-    const nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+    const nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
     
     // Get all gas prices for these stores if they are gas stations
     const storeIds = nearbyStores.map(ns => ns.store.id);
@@ -380,7 +380,7 @@ export class ComparisonService {
     locationName: string = 'TX',
   ) {
     // 1. Find nearby gas stations
-    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
     nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
 
     if (!nearbyStores.length) {
@@ -388,7 +388,7 @@ export class ComparisonService {
       await this.gasSyncService.syncGasPrices(locationName, userLat, userLng);
       
       // Re-query after sync
-      nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+      nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
       nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
       
       if (!nearbyStores.length) {

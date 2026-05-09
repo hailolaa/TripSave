@@ -92,3 +92,38 @@ export async function geocodePlaceNear(
     return null;
   }
 }
+
+/**
+ * Reverse geocode coordinates to get a display name/address.
+ */
+export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeResult | null> {
+  try {
+    const url =
+      `https://nominatim.openstreetmap.org/reverse` +
+      `?lat=${lat}` +
+      `&lon=${lng}` +
+      `&format=json` +
+      `&addressdetails=1`;
+
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'TripSaveApp/1.0',
+      },
+      timeout: 5000,
+    });
+
+    if (response.data) {
+      const result = response.data;
+      return {
+        lat: parseFloat(result.lat),
+        lng: parseFloat(result.lon),
+        zipCode: result.address?.postcode || null,
+        displayName: result.display_name,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    return null;
+  }
+}

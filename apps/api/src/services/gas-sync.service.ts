@@ -70,7 +70,7 @@ export class GasSyncService {
   /**
    * Get nearby gas prices from the cached database.
    */
-  async getNearbyGasPrices(lat: number, lng: number, radiusMiles: number = 10) {
+  async getNearbyGasPrices(lat: number, lng: number, radiusMiles: number = 10000) {
     let results = await this.queryNearbyGas(lat, lng, radiusMiles);
 
     // If no gas stations found, trigger a sync for the region and try again

@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Body, Query, HttpCode, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, HttpCode, UseGuards, Request, Logger } from '@nestjs/common';
 import { ComparisonService } from './comparison.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { StoreChainType } from '../stores/store-chain.entity';
+import { reverseGeocode } from '../utils/geocoding.util';
 
 @Controller('comparison')
 export class ComparisonController {
+  private readonly logger = new Logger(ComparisonController.name);
+
   constructor(
     private readonly comparisonService: ComparisonService,
     private readonly usersService: UsersService,
@@ -153,6 +156,21 @@ export class ComparisonController {
       finalLng = Number(user.location_lng);
     }
 
+    let resolvedLocation = locationName || user?.location_name;
+
+    // If still no location name but we have coordinates, try to reverse geocode it
+    if (!resolvedLocation && finalLat && finalLng) {
+      try {
+        const geo = await reverseGeocode(finalLat, finalLng);
+        if (geo) {
+          resolvedLocation = geo.displayName;
+          this.logger.log(`Reverse geocoded ${finalLat}, ${finalLng} to: ${resolvedLocation}`);
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to reverse geocode user location: ${e.message}`);
+      }
+    }
+
     return this.comparisonService.compareGasStations(
       finalLat,
       finalLng,
@@ -162,7 +180,7 @@ export class ComparisonController {
       fuelType || 'regular',
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
-      locationName || user?.location_name || 'TX',
+      resolvedLocation || 'TX',
     );
   }
 }
