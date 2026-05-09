@@ -31,8 +31,7 @@ export class ComparisonController {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const userMpg = mpg ?? user?.vehicle_mpg ?? 25;
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
-    const userZip = user?.zip_code || '75201';
-
+    
     // If coordinates are the default Dallas ones or missing, use user's saved location
     let finalLat = Number(lat);
     let finalLng = Number(lng);
@@ -50,13 +49,28 @@ export class ComparisonController {
       finalLng = -96.7970;
     }
 
+    let resolvedZip = user?.zip_code;
+    
+    // Reverse geocode to get the zip code of the selected location
+    try {
+      const geo = await reverseGeocode(finalLat, finalLng);
+      if (geo && geo.zipCode) {
+        resolvedZip = geo.zipCode;
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to reverse geocode user location for zip: ${e.message}`);
+    }
+
+    // Fallback to Dallas if everything fails
+    resolvedZip = resolvedZip || '75201';
+
     return this.comparisonService.compareItem(
       item,
       finalLat,
       finalLng,
       Number(userMpg),
       Number(userGasPrice),
-      userZip,
+      resolvedZip,
       storeType,
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',

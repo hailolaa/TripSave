@@ -30,13 +30,10 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
       const isUS = area.toLowerCase().includes('united states');
       const geoLocation = isUS ? area : `${area}, United States`;
 
-      this.logger.log(`Searching Google Maps (Structured): ${query} in ${geoLocation}`);
+      this.logger.log(`Searching Google Maps (Structured): ${query}`);
       const response = await this.httpClient.post('', {
         source: 'google_maps',
         query,
-        // Provide a more specific geo_location than just "United States"
-        // so results are actually near the requested area (ZIP/city).
-        geo_location: geoLocation,
         user_agent_type: 'desktop',
       });
 
