@@ -42,6 +42,14 @@ export class ComparisonController {
       finalLng = Number(user.location_lng);
     }
 
+    // Restriction: USA searches only. If outside, default to Dallas.
+    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
+    if (!isUSA) {
+      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Defaulting to Dallas, TX.`);
+      finalLat = 32.7767;
+      finalLng = -96.7970;
+    }
+
     return this.comparisonService.compareItem(
       item,
       finalLat,
@@ -76,9 +84,19 @@ export class ComparisonController {
     const mpg = body.userMpg ?? user?.vehicle_mpg ?? 25;
     const gasPriceValue = body.gasPrice ?? user?.default_gas_price ?? 3.50;
 
+    let finalLat = body.userLat;
+    let finalLng = body.userLng;
+
+    // Restriction: USA searches only. If outside, default to Dallas.
+    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
+    if (!isUSA) {
+      finalLat = 32.7767;
+      finalLng = -96.7970;
+    }
+
     return this.comparisonService.getBestTrueCost(
-      body.userLat,
-      body.userLng,
+      finalLat,
+      finalLng,
       body.productIds,
       mpg,
       gasPriceValue,
@@ -119,9 +137,19 @@ export class ComparisonController {
 
     if (productIds.length === 0) return [];
 
+    let finalLat = body.userLat;
+    let finalLng = body.userLng;
+
+    // Restriction: USA searches only. If outside, default to Dallas.
+    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
+    if (!isUSA) {
+      finalLat = 32.7767;
+      finalLng = -96.7970;
+    }
+
     return this.comparisonService.getBestTrueCost(
-      body.userLat,
-      body.userLng,
+      finalLat,
+      finalLng,
       productIds,
       Number(mpg),
       Number(gasPriceValue),
@@ -158,6 +186,15 @@ export class ComparisonController {
 
     let resolvedLocation = locationName || user?.location_name;
 
+    // Restriction: USA searches only. If outside, default to Dallas.
+    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
+    if (!isUSA) {
+      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Defaulting to Dallas, TX.`);
+      finalLat = 32.7767;
+      finalLng = -96.7970;
+      resolvedLocation = 'Dallas, TX';
+    }
+
     // If still no location name but we have coordinates, try to reverse geocode it
     if (!resolvedLocation && finalLat && finalLng) {
       try {
@@ -180,7 +217,7 @@ export class ComparisonController {
       fuelType || 'regular',
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
-      resolvedLocation || 'TX',
+      resolvedLocation || 'Dallas, TX',
     );
   }
 }

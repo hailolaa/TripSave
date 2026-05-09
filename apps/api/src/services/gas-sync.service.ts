@@ -11,7 +11,7 @@ import { Product, ProductCategory } from '../products/product.entity';
 import { StoreProduct } from '../products/store-product.entity';
 import { NormalizedGasStation } from '../common/interfaces/normalized-gas-price.interface';
 import { CACHE_TTL } from '../common/constants/cache-ttl.constants';
-import { geocodePlace } from '../utils/geocoding.util';
+import { geocodePlace, reverseGeocode } from '../utils/geocoding.util';
 
 /**
  * Gas price synchronization service.
@@ -36,7 +36,7 @@ export class GasSyncService {
    * On failure, marks existing data as stale instead of crashing.
    */
   async syncGasPrices(regionCode: string = 'TX', lat?: number, lng?: number): Promise<{ success: boolean; count: number; stale: boolean }> {
-    this.logger.log(`Syncing gas prices for region: ${regionCode}`);
+    this.logger.log(`[SYNC INIT] Starting gas station sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
 
     try {
       const stations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
@@ -70,13 +70,25 @@ export class GasSyncService {
   /**
    * Get nearby gas prices from the cached database.
    */
-  async getNearbyGasPrices(lat: number, lng: number, radiusMiles: number = 10000) {
+  async getNearbyGasPrices(lat: number, lng: number, radiusMiles: number = 15) {
     let results = await this.queryNearbyGas(lat, lng, radiusMiles);
 
     // If no gas stations found, trigger a sync for the region and try again
     if (results.length === 0) {
-      this.logger.log(`No gas prices found near ${lat}, ${lng}. Triggering region sync...`);
-      await this.syncGasPrices('TX'); // Defaulting to TX for now
+      this.logger.warn(`[SYNC TRIGGER] No gas prices found within ${radiusMiles} miles of ${lat}, ${lng}. Triggering region sync...`);
+      
+      let region = 'TX';
+      try {
+        const geo = await reverseGeocode(lat, lng);
+        if (geo) {
+          region = geo.displayName;
+          this.logger.log(`[GEO DETECT] Resolved coordinates ${lat}, ${lng} to region: ${region}`);
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to reverse geocode for sync: ${e.message}`);
+      }
+
+      await this.syncGasPrices(region, lat, lng);
       results = await this.queryNearbyGas(lat, lng, radiusMiles);
     }
 

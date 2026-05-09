@@ -17,9 +17,19 @@ export class GasController {
     @Query('lng') lng: number,
     @Query('radius') radius?: number,
   ) {
+    let finalLat = Number(lat);
+    let finalLng = Number(lng);
+
+    // Restriction: USA searches only. If outside, default to Dallas.
+    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
+    if (!isUSA) {
+      finalLat = 32.7767;
+      finalLng = -96.7970;
+    }
+
     return this.gasSyncService.getNearbyGasPrices(
-      Number(lat),
-      Number(lng),
+      finalLat,
+      finalLng,
       radius ? Number(radius) : 10,
     );
   }

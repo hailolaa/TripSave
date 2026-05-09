@@ -135,7 +135,7 @@ export class ComparisonService {
     isRoundTrip: boolean = true,
   ) {
     // Get nearby stores once to avoid multiple DB calls
-    const nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
+    const nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
     
     // Get all gas prices for these stores if they are gas stations
     const storeIds = nearbyStores.map(ns => ns.store.id);
@@ -379,16 +379,16 @@ export class ComparisonService {
     sortBy: string = 'true_cost',
     locationName: string = 'TX',
   ) {
-    // 1. Find nearby gas stations
-    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
+    // 1. Find nearby gas stations within 15 miles
+    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
     nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
 
     if (!nearbyStores.length) {
-      this.logger.warn(`No gas stations found nearby ${userLat}, ${userLng}. Triggering live sync...`);
+      this.logger.warn(`[SYNC TRIGGER] No gas stations found within 15 miles of ${userLat}, ${userLng}. Triggering live sync for region: ${locationName}...`);
       await this.gasSyncService.syncGasPrices(locationName, userLat, userLng);
       
       // Re-query after sync
-      nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
+      nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
       nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
       
       if (!nearbyStores.length) {
