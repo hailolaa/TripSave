@@ -22,18 +22,21 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
    */
   async searchNearbyStores(area: string, type?: string): Promise<NormalizedGasStation[]> {
     const query = type ? `${type} in ${area}` : area;
-    this.logger.log(`Searching Google Maps (Structured): ${query}`);
-
+    
     try {
       // Oxylabs google_maps source is sensitive to payload shape.
       // `parse: true` may not be supported for this target and can trigger 400s,
       // so we rely on HTML parsing when structured results aren't present.
+      const isUS = area.toLowerCase().includes('united states');
+      const geoLocation = isUS ? area : `${area}, United States`;
+
+      this.logger.log(`Searching Google Maps (Structured): ${query} in ${geoLocation}`);
       const response = await this.httpClient.post('', {
         source: 'google_maps',
         query,
         // Provide a more specific geo_location than just "United States"
         // so results are actually near the requested area (ZIP/city).
-        geo_location: `${area},United States`,
+        geo_location: geoLocation,
         user_agent_type: 'desktop',
       });
 

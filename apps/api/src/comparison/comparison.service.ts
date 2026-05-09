@@ -385,7 +385,7 @@ export class ComparisonService {
 
     if (!nearbyStores.length) {
       this.logger.warn(`No gas stations found nearby ${userLat}, ${userLng}. Triggering live sync...`);
-      await this.gasSyncService.syncGasPrices(locationName);
+      await this.gasSyncService.syncGasPrices(locationName, userLat, userLng);
       
       // Re-query after sync
       nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);

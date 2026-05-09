@@ -11,6 +11,7 @@ import { Product, ProductCategory } from '../products/product.entity';
 import { StoreProduct } from '../products/store-product.entity';
 import { NormalizedGasStation } from '../common/interfaces/normalized-gas-price.interface';
 import { CACHE_TTL } from '../common/constants/cache-ttl.constants';
+import { geocodePlace } from '../utils/geocoding.util';
 
 /**
  * Gas price synchronization service.
@@ -34,7 +35,7 @@ export class GasSyncService {
    * Sync gas prices from the provider into the database.
    * On failure, marks existing data as stale instead of crashing.
    */
-  async syncGasPrices(regionCode: string = 'TX'): Promise<{ success: boolean; count: number; stale: boolean }> {
+  async syncGasPrices(regionCode: string = 'TX', lat?: number, lng?: number): Promise<{ success: boolean; count: number; stale: boolean }> {
     this.logger.log(`Syncing gas prices for region: ${regionCode}`);
 
     try {
@@ -49,7 +50,7 @@ export class GasSyncService {
       let synced = 0;
       for (const station of stations) {
         try {
-          await this.processStation(station);
+          await this.processStation(station, regionCode, lat, lng);
           synced++;
         } catch (err: any) {
           this.logger.error(`Failed to process station ${station.stationId}: ${err.message}`);
@@ -113,7 +114,7 @@ export class GasSyncService {
     }));
   }
 
-  private async processStation(station: NormalizedGasStation): Promise<void> {
+  private async processStation(station: NormalizedGasStation, regionCode: string = '', lat?: number, lng?: number): Promise<void> {
     // 1. Find or create chain
     let chain = await this.chainRepo.findOne({ where: { name: station.name } });
     if (!chain) {
@@ -137,6 +138,25 @@ export class GasSyncService {
     let finalLat = station.latitude;
     let finalLng = station.longitude;
     let finalAddress = station.address;
+
+    // If scraper fallback gave 0,0, try to geocode it based on the region
+    if (finalLat === 0 && finalLng === 0) {
+      const query = station.address !== 'Unknown' ? `${station.name} ${station.address}` : `${station.name} ${regionCode}`;
+      let geo = null;
+      if (lat && lng) {
+        const { geocodePlaceNear } = require('../utils/geocoding.util');
+        geo = await geocodePlaceNear(query, lat, lng, 0.4);
+      } else {
+        geo = await geocodePlace(query);
+      }
+      
+      if (geo) {
+        finalLat = geo.lat;
+        finalLng = geo.lng;
+        finalAddress = geo.displayName;
+        this.logger.log(`Geocoded missing coordinates for ${station.name}: ${finalLat}, ${finalLng}`);
+      }
+    }
 
     if (!store) {
       store = await this.storeRepo.save(this.storeRepo.create({
