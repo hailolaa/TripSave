@@ -376,8 +376,6 @@ export class ComparisonService {
       return acc;
     }, {} as Record<string, StoreProduct[]>);
 
-    const comparisons = [];
-    
     const nearbyGasPrices = await this.gasPriceRepository.find({
       where: { store_id: In(storeIds) }
     });
@@ -497,7 +495,6 @@ export class ComparisonService {
       where: { store_id: In(storeIds) },
     });
 
-    const comparisons = [];
 
     const comparisons = await Promise.all(nearbyStores.map(async (ns) => {
       const gp = gasPrices.find(g => g.store_id === ns.store.id);
