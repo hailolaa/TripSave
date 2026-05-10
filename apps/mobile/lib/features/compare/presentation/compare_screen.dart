@@ -74,10 +74,42 @@ class _CompareScreenState extends State<CompareScreen> {
         backgroundColor: AppTheme.backgroundLight,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            children: [
+        child: Stack(
+          children: [
+            // Background Blobs
+            Positioned(
+              top: -100,
+              right: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withValues(alpha: 0.04),
+                  shape: BoxShape.circle,
+                ),
+              ).animate(onPlay: (c) => c.repeat(reverse: true))
+               .moveX(begin: 0, end: -30, duration: 10.seconds, curve: Curves.easeInOut)
+               .moveY(begin: 0, end: 50, duration: 12.seconds, curve: Curves.easeInOut),
+            ),
+            Positioned(
+              bottom: 100,
+              left: -80,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  color: AppTheme.savingsGreen.withValues(alpha: 0.03),
+                  shape: BoxShape.circle,
+                ),
+              ).animate(onPlay: (c) => c.repeat(reverse: true))
+               .moveX(begin: 0, end: 40, duration: 6.seconds, curve: Curves.easeInOut)
+               .moveY(begin: 0, end: -30, duration: 8.seconds, curve: Curves.easeInOut),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Column(
+                children: [
               const SizedBox(height: 20),
               // Search Bar
               Container(
@@ -102,13 +134,13 @@ class _CompareScreenState extends State<CompareScreen> {
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: 'Search products to compare...',
-                    hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400),
-                    prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue),
+                    hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 15),
+                    prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue, size: 20),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
-              ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0),
+              ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
               const SizedBox(height: 20),
               // Horizontal Filters
               SingleChildScrollView(
@@ -149,7 +181,7 @@ class _CompareScreenState extends State<CompareScreen> {
                     );
                   }),
                 ),
-              ),
+              ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1),
               const SizedBox(height: 16),
               // Sort and Trip Type Settings
               SingleChildScrollView(
@@ -191,7 +223,9 @@ class _CompareScreenState extends State<CompareScreen> {
                         ),
                       );
                     },
-                  ),
+                  ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
+                  const SizedBox(width: 10),
+
                   // Round Trip Toggle
                   BlocBuilder<ComparisonCubit, ComparisonState>(
                     builder: (context, state) {
@@ -221,7 +255,9 @@ class _CompareScreenState extends State<CompareScreen> {
                         ),
                       );
                     },
-                  ),
+                  ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1),
+                  const SizedBox(width: 10),
+
                   // Map/List Toggle
                   GestureDetector(
                     onTap: () => setState(() => _isMapView = !_isMapView),
@@ -240,7 +276,7 @@ class _CompareScreenState extends State<CompareScreen> {
                         ],
                       ),
                     ),
-                  ),
+                  ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.1),
                 ],
               ),
             ),
@@ -368,9 +404,11 @@ class _CompareScreenState extends State<CompareScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  ),
+);
+}
 
   void _showStoreDetails(BuildContext context, Map<String, dynamic> comparison, bool isBest) {
     final store = comparison['store'];
@@ -564,7 +602,7 @@ class _CompareScreenState extends State<CompareScreen> {
       children: [
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
-        Text(priceStr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: price != null ? AppTheme.textDark : Colors.grey.shade400)),
+        Text(priceStr, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: price != null ? AppTheme.textDark : Colors.grey.shade400)),
       ],
     );
   }
@@ -602,6 +640,13 @@ class _CompareScreenState extends State<CompareScreen> {
           color: bgColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: primaryColor.withValues(alpha: 0.1), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -614,7 +659,8 @@ class _CompareScreenState extends State<CompareScreen> {
               ),
               child: const Text('Best Option', 
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-            ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+             .shimmer(delay: 4.seconds, duration: 2.seconds, color: Colors.white24),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -681,7 +727,8 @@ class _CompareScreenState extends State<CompareScreen> {
           ],
         ),
       ),
-    );
+    ).animate(onPlay: (c) => c.repeat(reverse: true))
+     .moveY(begin: 0, end: -6, duration: 3.seconds, curve: Curves.easeInOut);
   }
 
   Widget _buildBestOptionMetric(String label, String value, {bool isPrimary = false}) {
@@ -692,7 +739,7 @@ class _CompareScreenState extends State<CompareScreen> {
         Text(
           value, 
           style: TextStyle(
-            fontSize: isPrimary ? 24 : 20, 
+            fontSize: isPrimary ? 20 : 16, 
             fontWeight: FontWeight.w900, 
             color: isPrimary ? AppTheme.savingsGreen : AppTheme.textDark
           )
@@ -762,7 +809,7 @@ class _CompareScreenState extends State<CompareScreen> {
                       (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? '\$${comparison['driving_cost']}' :
                       sortBy == 'savings' ? 'Save \$${comparison['savings']}' :
                       '\$${comparison['true_cost']}', 
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark)
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppTheme.textDark)
                     ),
                     Text(
                       sortBy == 'item_total' ? 'items' :

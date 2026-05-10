@@ -19,6 +19,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final ScrollController _dealsScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _dealsScrollController.dispose();
+    super.dispose();
+  }
 
   void _showLocationPicker(BuildContext context, String currentLocation) {
     HapticFeedback.mediumImpact();
@@ -289,20 +296,54 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => context.read<HomeCubit>().loadDashboard(),
-          child: BlocBuilder<HomeCubit, HomeState>(
-            builder: (context, state) {
-              if (state is HomeLoading) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (state is HomeError) {
-                return Center(child: Text(state.message));
-              } else if (state is HomeLoaded) {
-                return _buildDashboard(context, state);
-              }
-              return const SizedBox.shrink();
-            },
-          ),
+        child: Stack(
+          children: [
+            // Immersive background elements
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withValues(alpha: 0.03),
+                  shape: BoxShape.circle,
+                ),
+              ).animate(onPlay: (c) => c.repeat(reverse: true))
+               .moveX(begin: 0, end: 30, duration: 5.seconds, curve: Curves.easeInOut)
+               .moveY(begin: 0, end: 40, duration: 7.seconds, curve: Curves.easeInOut),
+            ),
+            Positioned(
+              bottom: 100,
+              left: -80,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  color: AppTheme.savingsGreen.withValues(alpha: 0.03),
+                  shape: BoxShape.circle,
+                ),
+              ).animate(onPlay: (c) => c.repeat(reverse: true))
+               .moveX(begin: 0, end: 40, duration: 6.seconds, curve: Curves.easeInOut)
+               .moveY(begin: 0, end: -30, duration: 8.seconds, curve: Curves.easeInOut),
+            ),
+            
+            RefreshIndicator(
+              onRefresh: () => context.read<HomeCubit>().loadDashboard(),
+              child: BlocBuilder<HomeCubit, HomeState>(
+                builder: (context, state) {
+                  if (state is HomeLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (state is HomeError) {
+                    return Center(child: Text(state.message));
+                  } else if (state is HomeLoaded) {
+                    return _buildDashboard(context, state);
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -310,45 +351,57 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDashboard(BuildContext context, HomeLoaded state) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      clipBehavior: Clip.none,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       children: [
         // Top Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const ShopSaveLogo(textSize: 18, iconSize: 24, compact: true)
-                .animate()
-                .fadeIn()
-                .slideX(begin: -0.2),
+            Flexible(
+              child: const ShopSaveLogo(textSize: 18, iconSize: 24, compact: true)
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .shimmer(delay: 5.seconds, duration: 2.seconds, color: Colors.white24)
+                  .animate()
+                  .fadeIn()
+                  .slideX(begin: -0.2),
+            ),
+            
+            const SizedBox(width: 12), // Horizontal gap between logo and location
             
             // Location Selector
-            GestureDetector(
-              onTap: () => _showLocationPicker(context, state.locationName),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F9FA),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.location_on_outlined, size: 16, color: AppTheme.savingsGreen),
-                    const SizedBox(width: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 120),
-                      child: Text(
-                        state.locationName,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+            Flexible(
+              child: GestureDetector(
+                  onTap: () => _showLocationPicker(context, state.locationName),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey.shade600),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.location_on_outlined, size: 16, color: AppTheme.savingsGreen),
+                        const SizedBox(width: 6),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: Text(
+                            state.locationName,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey.shade600),
+                      ],
+                    ),
+                  ),
               ),
             ),
+            
+            const SizedBox(width: 8), // Gap between location and notification
             
             // Notification
             Stack(
@@ -370,8 +423,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ],
-        ),
-        const SizedBox(height: 24),
+        ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2),
+        const SizedBox(height: 10),
         
         // Search Bar
         GestureDetector(
@@ -386,32 +439,38 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(Icons.search, color: Colors.grey.shade400, size: 24),
                 const SizedBox(width: 12),
-                Text('Search products to compare...', style: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 16)),
+                Expanded(
+                  child: Text(
+                    'Search products to compare...', 
+                    style: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),
-        ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
-        const SizedBox(height: 20),
+        ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1),
+        const SizedBox(height: 16),
         
         // Categories
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          child: Row(
-            children: [
-              _buildCategoryPill(Icons.shopping_cart_outlined, 'Grocery', true, onTap: () => context.push('/category/grocery')),
-              const SizedBox(width: 12),
-              _buildCategoryPill(Icons.local_gas_station_outlined, 'Gas', false, onTap: () => context.push('/category/gas')),
-              const SizedBox(width: 12),
-              _buildCategoryPill(Icons.local_pharmacy_outlined, 'Pharmacy', false, onTap: () => context.push('/category/pharmacy')),
-            ],
-          ),
-        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildCategoryPill(Icons.shopping_cart_outlined, 'Grocery', true, onTap: () => context.push('/category/grocery')),
+            _buildCategoryPill(Icons.local_gas_station_outlined, 'Gas', false, onTap: () => context.push('/category/gas')),
+            _buildCategoryPill(Icons.local_pharmacy_outlined, 'Pharmacy', false, onTap: () => context.push('/category/pharmacy')),
+          ],
+        ).animate().fadeIn(delay: 200.ms).slideX(begin: 0.2).scale(begin: const Offset(0.95, 0.95)),
         const SizedBox(height: 24),
         
         // Best Store Hero Card
         if (state.bestStore != null)
-          _buildHeroCard(context, state.bestStore!).animate().fadeIn(delay: 300.ms).scale(begin: const Offset(0.95, 0.95))
+          _buildHeroCard(context, state.bestStore!)
+            .animate(onPlay: (c) => c.repeat(reverse: true))
+            .shimmer(delay: 5.seconds, duration: 2.seconds, color: Colors.white10)
+            .animate()
+            .fadeIn(delay: 300.ms)
+            .scale(begin: const Offset(0.95, 0.95))
         else if (state.cartItemCount > 0)
           _buildNoResultsHero().animate().fadeIn(delay: 300.ms)
         else
@@ -419,12 +478,14 @@ class _HomeScreenState extends State<HomeScreen> {
           
         const SizedBox(height: 32),
         // Compare Stores Header
-        const Text('Compare Stores', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark, letterSpacing: -0.5)),
+        const Text('Compare Stores', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark, letterSpacing: -0.5))
+            .animate().fadeIn(delay: 400.ms),
         const SizedBox(height: 4),
         Text(state.cartItemCount > 0 
           ? 'Comparison for ${state.cartItemCount} items' 
           : 'Based on your shopping list', 
-          style: const TextStyle(color: Colors.grey, fontSize: 14)),
+          style: const TextStyle(color: Colors.grey, fontSize: 14))
+            .animate().fadeIn(delay: 450.ms),
         const SizedBox(height: 16),
         
         // Store List
@@ -456,7 +517,13 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Nearby Deals', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark, letterSpacing: -0.5)),
+            const Expanded(
+              child: Text(
+                'Nearby Deals', 
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark, letterSpacing: -0.5),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             GestureDetector(
               onTap: () => context.go('/deals'),
               child: const Text('See all', style: TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.w600, fontSize: 14)),
@@ -468,17 +535,65 @@ class _HomeScreenState extends State<HomeScreen> {
         if (state.nearbyDeals.isEmpty)
           const Center(child: Text('No deals found nearby'))
         else
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          Stack(
             clipBehavior: Clip.none,
-            child: Row(
-              children: state.nearbyDeals.map((deal) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: _buildDealCard(context, deal),
-                );
-              }).toList(),
-            ),
+            children: [
+              SingleChildScrollView(
+                controller: _dealsScrollController,
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                child: Row(
+                  children: [
+                    ...state.nearbyDeals.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final deal = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: _buildDealCard(context, deal),
+                      ).animate(onPlay: (c) => c.repeat(reverse: true))
+                       .moveY(begin: 0, end: index % 2 == 0 ? 5 : -5, duration: (2000 + index * 200).ms, curve: Curves.easeInOut);
+                    }).toList(),
+                    // Add some extra padding at the end so the arrow doesn't cover the last card too much
+                    const SizedBox(width: 40),
+                  ],
+                ),
+              ),
+              Positioned(
+                right: -10,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _dealsScrollController.animateTo(
+                        _dealsScrollController.offset + 220,
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeOutQuart,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryBlue,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryBlue.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white),
+                    )
+                    .animate(onPlay: (controller) => controller.repeat(reverse: true))
+                    .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 1000.ms, curve: Curves.easeInOut)
+                    .shimmer(delay: 3.seconds, duration: 1.seconds, color: Colors.white24),
+                  ),
+                ),
+              ),
+            ],
           ),
         const SizedBox(height: 40),
       ],
@@ -549,23 +664,33 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.savingsGreen,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.star, color: Colors.white, size: 14),
-                    SizedBox(width: 6),
-                    Text('BEST STORE RIGHT NOW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.5)),
-                  ],
-                ),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.savingsGreen,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star, color: Colors.white, size: 14),
+                      SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'BEST STORE RIGHT NOW', 
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.5),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                 .shimmer(delay: 2.seconds, duration: 1500.ms, color: Colors.white24),
               ),
+              const SizedBox(width: 8),
               if (data['savings'] != null && data['savings'] > 0)
-                Text('Save \$${data['savings']}', style: const TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.w900, fontSize: 20)),
+                Text('Save \$${data['savings']}', style: const TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.w900, fontSize: 16)),
             ],
           ),
           const SizedBox(height: 24),
@@ -732,17 +857,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryBlue : Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade200),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.grey.shade500),
-            const SizedBox(width: 8),
-            Text(text, style: TextStyle(color: isSelected ? Colors.white : Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 15)),
+            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Text(text, style: TextStyle(color: isSelected ? Colors.white : Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
           ],
         ),
       ),

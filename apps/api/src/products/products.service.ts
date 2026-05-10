@@ -167,53 +167,45 @@ export class ProductsService {
     const query = this.storeProductsRepository.createQueryBuilder('sp')
       .leftJoinAndSelect('sp.product', 'p')
       .leftJoinAndSelect('sp.store', 's')
-      .leftJoinAndSelect('s.chain', 'c');
+      .leftJoinAndSelect('s.chain', 'c')
+      .take(50); // Increased limit for broader coverage
 
     if (zip) {
       query.where('s.zip = :zip', { zip });
     }
 
-    // Prefer actual sale prices
-    query.andWhere('sp.sale_price IS NOT NULL AND sp.sale_price < sp.price');
+    // Order by products with highest savings percentage first, then recent updates
+    query.orderBy('CASE WHEN sp.sale_price IS NOT NULL THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END', 'DESC')
+         .addOrderBy('sp.last_verified_at', 'DESC');
     
-    let deals = await query.take(20).getMany();
+    const items = await query.getMany();
 
-    // Fallback: If no real deals, just take some products and "simulate" a deal for UI purposes
-    // This ensures the USER sees a working "Deals" page immediately.
-    if (deals.length === 0) {
-      const fallbackQuery = this.storeProductsRepository.createQueryBuilder('sp')
-        .leftJoinAndSelect('sp.product', 'p')
-        .leftJoinAndSelect('sp.store', 's')
-        .leftJoinAndSelect('s.chain', 'c')
-        .take(10);
-        
-      if (zip) fallbackQuery.where('s.zip = :zip', { zip });
-      
-      const items = await fallbackQuery.getMany();
-      deals = items.map(item => {
-        // Mock a 10-20% discount
-        const discount = 0.1 + (Math.random() * 0.1);
-        item.sale_price = Number((Number(item.price) * (1 - discount)).toFixed(2));
-        return item;
-      });
-    }
+    return items.map(sp => {
+      const price = Number(sp.price);
+      const salePrice = sp.sale_price ? Number(sp.sale_price) : price;
+      const savings = Number((price - salePrice).toFixed(2));
+      const savingsPercentage = price > 0 ? Math.round((savings / price) * 100) : 0;
 
-    return deals.map(sp => ({
-      id: sp.id,
-      productId: sp.product_id,
-      name: sp.product.name,
-      brand: sp.product.brand,
-      category: sp.product.category,
-      image_url: sp.product.image_url,
-      price: Number(sp.price),
-      sale_price: Number(sp.sale_price),
-      savings: Number((Number(sp.price) - Number(sp.sale_price)).toFixed(2)),
-      savings_percentage: Math.round((1 - (Number(sp.sale_price) / Number(sp.price))) * 100),
-      store: {
-        id: sp.store.id,
-        name: sp.store.name,
-        logo_url: sp.store.chain?.logo_url,
-      }
-    }));
+      return {
+        id: sp.id,
+        productId: sp.product_id,
+        name: sp.product.name,
+        brand: sp.product.brand,
+        category: sp.product.category,
+        image_url: sp.product.image_url,
+        price: price,
+        sale_price: salePrice,
+        savings: savings,
+        savings_percentage: savingsPercentage,
+        store: {
+          id: sp.store.id,
+          name: sp.store.name,
+          chain: sp.store.chain ? {
+            type: sp.store.chain.type,
+            logo_url: sp.store.chain.logo_url,
+          } : null,
+        }
+      };
+    });
   }
 }

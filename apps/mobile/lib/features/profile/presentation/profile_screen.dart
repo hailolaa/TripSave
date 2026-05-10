@@ -80,15 +80,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('PROFILE', style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
-            Text('Settings', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 24, color: AppTheme.textDark)),
+            Text('Profile', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 32, color: AppTheme.textDark, letterSpacing: -0.5)),
+            Text('Account & app settings', style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
           ],
         ),
         titleSpacing: 20,
         toolbarHeight: 90,
       ),
-      body: BlocListener<AuthCubit, AuthState>(
-        listener: (context, state) {
+      body: Stack(
+        children: [
+          // Background Blobs
+          Positioned(
+            top: -40,
+            right: -20,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue.withValues(alpha: 0.04),
+                shape: BoxShape.circle,
+              ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+             .moveX(begin: 0, end: -15, duration: 10.seconds, curve: Curves.easeInOut)
+             .moveY(begin: 0, end: 25, duration: 12.seconds, curve: Curves.easeInOut),
+          ),
+          Positioned(
+            bottom: 120,
+            left: -40,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withValues(alpha: 0.03),
+                shape: BoxShape.circle,
+              ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+             .moveX(begin: 0, end: 20, duration: 8.seconds, curve: Curves.easeInOut)
+             .moveY(begin: 0, end: -15, duration: 10.seconds, curve: Curves.easeInOut),
+          ),
+
+          BlocListener<AuthCubit, AuthState>(
+            listener: (context, state) {
           if (state is AuthUnauthenticated) {
             context.go('/login');
           }
@@ -161,7 +193,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-            ).animate().fadeIn().slideY(begin: 0.1),
+            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1)
+             .animate(onPlay: (c) => c.repeat(reverse: true))
+             .moveY(begin: 0, end: -4, duration: 5.seconds, curve: Curves.easeInOut),
             const SizedBox(height: 28).animate(delay: 200.ms).fadeIn(),
             Text('VEHICLE', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 12)).animate(delay: 300.ms).fadeIn().slideX(begin: 0.1),
             const SizedBox(height: 12),
@@ -261,8 +295,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
-  }
+    ],
+  ),
+);
+}
 
   void _showEditDialog(String title, String key, String suffix, {bool isText = false}) {
     HapticFeedback.mediumImpact();

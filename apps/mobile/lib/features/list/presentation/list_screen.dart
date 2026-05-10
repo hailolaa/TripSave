@@ -37,8 +37,8 @@ class _ListScreenState extends State<ListScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('MY LIST', style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
-            Text('Weekly Groceries', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 24, color: AppTheme.textDark)),
+            Text('My List', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 32, color: AppTheme.textDark, letterSpacing: -0.5)),
+            Text('Manage your grocery savings', style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
           ],
         ),
         titleSpacing: 20,
@@ -65,6 +65,36 @@ class _ListScreenState extends State<ListScreen> {
       ),
       body: Stack(
         children: [
+          // Background Blobs
+          Positioned(
+            top: -50,
+            right: -30,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue.withValues(alpha: 0.04),
+                shape: BoxShape.circle,
+              ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+             .moveX(begin: 0, end: -20, duration: 8.seconds, curve: Curves.easeInOut)
+             .moveY(begin: 0, end: 30, duration: 10.seconds, curve: Curves.easeInOut),
+          ),
+          Positioned(
+            bottom: 50,
+            left: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                color: AppTheme.savingsGreen.withValues(alpha: 0.03),
+                shape: BoxShape.circle,
+              ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+             .moveX(begin: 0, end: 30, duration: 7.seconds, curve: Curves.easeInOut)
+             .moveY(begin: 0, end: -20, duration: 9.seconds, curve: Curves.easeInOut),
+          ),
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: Column(
@@ -83,11 +113,11 @@ class _ListScreenState extends State<ListScreen> {
                     style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
                     decoration: InputDecoration(
                       hintText: 'Search products to add...',
-                      hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400),
-                      prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue),
+                      hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 15),
+                      prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue, size: 20),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.grey),
+                              icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
                               onPressed: () {
                                 _searchController.clear();
                                 context.read<ListCubit>().clearSearch();
@@ -99,7 +129,7 @@ class _ListScreenState extends State<ListScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
                   ),
-                ).animate().fadeIn().slideY(begin: 0.1),
+                ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
                 const SizedBox(height: 20),
                 // List Items
                 Expanded(
@@ -133,7 +163,7 @@ class _ListScreenState extends State<ListScreen> {
                     if (state is! ListLoaded || state.items.isEmpty || state.cartSummary == null) {
                       return const SizedBox.shrink();
                     }
-                    return _buildCartSummary(state.cartSummary!).animate().fadeIn().slideY(begin: 0.1, end: 0);
+                    return _buildCartSummary(state.cartSummary!).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -169,7 +199,11 @@ class _ListScreenState extends State<ListScreen> {
                           ],
                         ),
                       ),
-                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2);
+                    ).animate(onPlay: (c) => c.repeat(reverse: true))
+                     .shimmer(delay: 5.seconds, duration: 2.seconds, color: Colors.white24)
+                     .animate()
+                     .fadeIn(delay: 400.ms)
+                     .slideY(begin: 0.2);
                   },
                 )
               ],
@@ -181,7 +215,7 @@ class _ListScreenState extends State<ListScreen> {
             builder: (context, state) {
               if (state is ListLoaded && state.searchResults.isNotEmpty) {
                 return Positioned(
-                  top: 55, 
+                  top: 70, 
                   left: 20,
                   right: 20,
                   child: Material(
@@ -276,8 +310,8 @@ class _ListScreenState extends State<ListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('BEST TOTAL DEAL NEAR YOU', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.savingsGreen, letterSpacing: 0.5)),
-                    Text(store['name'] ?? 'Best Store', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textDark)),
+                    Text('My List', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 32, color: AppTheme.textDark, letterSpacing: -0.5)),
+                    Text('Track your grocery savings', style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
@@ -294,9 +328,11 @@ class _ListScreenState extends State<ListScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSummaryPill(Icons.shopping_bag_outlined, 'Items: \$$basketTotal'),
-              _buildSummaryPill(Icons.local_gas_station_outlined, 'Drive: \$$driveCost'),
-              _buildSummaryPill(Icons.timer_outlined, '${summary['driving_distance'] ?? 0} mi'),
+              Expanded(child: _buildSummaryPill(Icons.shopping_bag_outlined, 'Items: \$$basketTotal')),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSummaryPill(Icons.local_gas_station_outlined, 'Drive: \$$driveCost')),
+              const SizedBox(width: 4),
+              Expanded(child: _buildSummaryPill(Icons.timer_outlined, '${summary['driving_distance'] ?? 0} mi')),
             ],
           ),
         ],
@@ -306,13 +342,20 @@ class _ListScreenState extends State<ListScreen> {
 
   Widget _buildSummaryPill(IconData icon, String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: Colors.grey.shade600),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+          Flexible(
+            child: Text(
+              text, 
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
