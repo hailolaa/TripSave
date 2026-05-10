@@ -133,7 +133,6 @@ export class AggregatorService {
     if (!isGas || isAll) gMapsTypes.push('grocery stores');
 
     // 2. Prepare all scraper promises
-    const SCRAPER_TIMEOUT_MS = 120000;
     const scraperPromises: Promise<any>[] = [
       this.runWithTimeout('Walmart', () => this.walmartScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
       this.runWithTimeout('Target', () => this.targetScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
