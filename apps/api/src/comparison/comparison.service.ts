@@ -325,8 +325,17 @@ export class ComparisonService {
           itemName, userLat, userLng, userMpg, gasPrice, resolvedZip, storeType, isRoundTrip, 'true_cost', false
         );
 
+        // Keep track of which stores we've already added THIS item for.
+        // Since compareItem results are sorted by true_cost, the first match per store is the cheapest.
+        const fulfilledStoreIds = new Set<string>();
+
         for (const result of results) {
           const storeId = result.store.id;
+          
+          if (fulfilledStoreIds.has(storeId)) {
+            continue; // We already added the cheapest version of this item for this store
+          }
+          
           if (!storeMap.has(storeId)) {
             // Initialize this store's cart
             storeMap.set(storeId, {
@@ -343,12 +352,12 @@ export class ComparisonService {
 
           // Add this product to the store's cart
           const storeCart = storeMap.get(storeId);
-          // compareItem returns a list of products (usually 1), we just take the cheapest/first one
           if (result.products && result.products.length > 0) {
             const productMatch = result.products[0];
             storeCart.products.push(productMatch);
             storeCart.item_total += productMatch.price;
             storeCart.items_found += 1;
+            fulfilledStoreIds.add(storeId); // Mark as fulfilled for this store
           }
         }
       } catch (error) {
