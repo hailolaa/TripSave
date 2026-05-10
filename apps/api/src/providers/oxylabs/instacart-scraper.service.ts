@@ -21,16 +21,18 @@ export class InstacartScraperService extends OxylabsBaseService {
     this.logger.log(`Scraping Instacart for "${query}"`);
 
     try {
+      this.logger.log(`Instacart: scraping "${query}" in ZIP ${zip || 'default'}...`);
       const html = await this.scrape('', {
         source: 'instacart_search',
         query,
         render: true,
         geo_location: zip || undefined,
+        render_parameters: { wait: 5000 },
       });
 
       return this.parse(html);
     } catch (err: any) {
-      this.logger.error(`Instacart scrape failed: ${err.message}`);
+      this.logger.error(`Instacart scrape failed: ${err.message} - ${err.response?.data ? JSON.stringify(err.response.data) : ''}`);
       return [];
     }
   }
@@ -167,6 +169,7 @@ export class InstacartScraperService extends OxylabsBaseService {
 
     // Generic HTML fallback (Extremely Loose Regex)
     if (products.length === 0) {
+      this.logger.debug(`Instacart: falling back to loose regex parsing. HTML size: ${html.length}`);
       const looseRegex = /(?:Current price: \$|"price":|itemPrice":)(\d+\.\d{2})[\s\S]{0,300}?(?:alt="([^"]+)"|role="heading"[^>]*>([^<]+)<\/div>|"name":"([^"]+)")/gi;
       let match;
       const seen = new Set();
@@ -186,7 +189,11 @@ export class InstacartScraperService extends OxylabsBaseService {
       }
     }
 
-    this.logger.log(`Instacart: parsed ${products.length} products`);
+    if (products.length === 0) {
+      this.logger.warn(`Instacart: failed to parse any products from ${html.length} chars of HTML. Title: ${html.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1]}`);
+    } else {
+      this.logger.log(`Instacart: successfully parsed ${products.length} products`);
+    }
     return products.slice(0, 20);
   }
 }

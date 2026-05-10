@@ -58,6 +58,7 @@ export class OxylabsBaseService {
     parse?: boolean;
     source?: string;
     query?: string;
+    render_parameters?: any;
   } = {}): Promise<string> {
     const payload: any = {
       source: options.source || 'universal',
@@ -66,10 +67,13 @@ export class OxylabsBaseService {
       render: options.render ? 'html' : undefined,
       parse: options.parse || undefined,
       geo_location: options.geo_location,
+      render_parameters: options.render_parameters,
     };
 
     // Remove undefined keys
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+    this.logger.debug(`Sending Oxylabs request: ${url || options.query}`);
 
     let lastError: any;
     for (let i = 0; i < 2; i++) { // Try up to 2 times
