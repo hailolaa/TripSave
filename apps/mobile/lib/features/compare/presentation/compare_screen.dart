@@ -489,7 +489,12 @@ class _CompareScreenState extends State<CompareScreen> {
                     final p = products[idx];
                     return Padding(
                       padding: const EdgeInsets.only(right: 16),
-                      child: _buildProductThumbnail(p['name'], '\$${p['price']}', p['image']),
+                      child: _buildProductThumbnail(
+                        p['name'], 
+                        '\$${p['price']}', 
+                        imageUrl: p['image'], 
+                        quantity: p['quantity']
+                      ),
                     );
                   },
                 ),
@@ -563,29 +568,57 @@ class _CompareScreenState extends State<CompareScreen> {
     );
   }
 
-  Widget _buildProductThumbnail(String name, String price, [String? imageUrl]) {
+  Widget _buildProductThumbnail(String name, String price, {String? imageUrl, int? quantity}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 70, height: 70,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6), 
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          alignment: Alignment.center,
-          child: (imageUrl != null && imageUrl.isNotEmpty)
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => const Icon(Icons.shopping_basket, color: Colors.grey),
-                    errorWidget: (context, url, error) => const Icon(Icons.shopping_basket, color: Colors.grey),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 70, height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6), 
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              alignment: Alignment.center,
+              child: (imageUrl != null && imageUrl.isNotEmpty)
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Icon(Icons.shopping_basket, color: Colors.grey),
+                        errorWidget: (context, url, error) => const Icon(Icons.shopping_basket, color: Colors.grey),
+                      ),
+                    )
+                  : Text(name.substring(0, 1).toUpperCase(), style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 24)),
+            ),
+            if (quantity != null && quantity > 1)
+              Positioned(
+                top: -6,
+                right: -6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                )
-              : Text(name.substring(0, 1).toUpperCase(), style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 24)),
+                  child: Text(
+                    '${quantity}x', 
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
