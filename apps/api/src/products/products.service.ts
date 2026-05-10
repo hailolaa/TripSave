@@ -168,15 +168,14 @@ export class ProductsService {
       .leftJoinAndSelect('sp.product', 'p')
       .leftJoinAndSelect('sp.store', 's')
       .leftJoinAndSelect('s.chain', 'c')
-      .take(50); // Increased limit for broader coverage
+      .addSelect('(CASE WHEN sp.sale_price IS NOT NULL THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END)', 'savings_score')
+      .orderBy('savings_score', 'DESC')
+      .addOrderBy('sp.last_verified_at', 'DESC')
+      .take(50);
 
     if (zip) {
       query.where('s.zip = :zip', { zip });
     }
-
-    // Order by products with highest savings percentage first, then recent updates
-    query.orderBy('(CASE WHEN sp.sale_price IS NOT NULL THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END)', 'DESC')
-         .addOrderBy('sp.last_verified_at', 'DESC');
     
     const items = await query.getMany();
 
