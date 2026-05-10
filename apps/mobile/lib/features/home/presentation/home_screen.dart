@@ -10,6 +10,8 @@ import 'package:trip_save/features/home/bloc/home_cubit.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/di/injection.dart';
 import '../../auth/auth_repository.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../savings/bloc/savings_cubit.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -644,7 +646,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final store = data['store'];
     final products = data['products'] as List? ?? [];
     
-    return Container(
+    return GestureDetector(
+      onTap: () => _showStoreDetails(context, data, isBest: true),
+      child: Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -770,7 +774,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildStoreListItem(Map<String, dynamic> data, {bool isBest = false}) {
     final store = data['store'];
-    return Container(
+    return GestureDetector(
+      onTap: () => _showStoreDetails(context, data, isBest: isBest),
+      child: Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isBest ? const Color(0xFFF0FDF4).withValues(alpha: 0.5) : Colors.white,
@@ -990,6 +996,196 @@ class _HomeScreenState extends State<HomeScreen> {
           Icon(Icons.image_not_supported_outlined, size: 16, color: color.withValues(alpha: 0.2)),
         ],
       ),
+    );
+  }
+
+  void _showStoreDetails(BuildContext context, Map<String, dynamic> comparison, {bool isBest = false}) {
+    final store = comparison['store'];
+    final chain = store['chain'] ?? {'type': 'grocery'};
+    final isPharmacy = chain['type'] == 'pharmacy';
+    final products = comparison['products'] as List<dynamic>? ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isBest) Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.savingsGreen, borderRadius: BorderRadius.circular(20)),
+                child: Text(comparison['source'] == 'oxylabs' ? 'LIVE PRICE' : 'BEST VALUE NEAR YOU', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+              ),
+              if (!isBest) Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
+                child: Text(comparison['source'] == 'oxylabs' ? 'LIVE SCRAPE' : 'STORE DETAILS', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 10)),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(Icons.verified, color: AppTheme.primaryBlue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(store['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.textDark), overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+              const Text('Best value for your full basket', style: TextStyle(color: Colors.grey, fontSize: 14)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  _buildDetailPill(
+                    Icons.location_on_outlined,
+                    '${((double.tryParse(comparison['driving_distance'].toString()) ?? 0) / 2).toStringAsFixed(1)} mi',
+                  ),
+                  const SizedBox(width: 8),
+                  _buildDetailPill(Icons.directions_car_outlined, '\$${comparison['driving_cost']} drive'),
+                ],
+              ),
+              if (chain['type'] == 'gas' && store['gasPrices'] != null) ...[
+                const SizedBox(height: 24),
+                const Text('FUEL TYPES', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey, letterSpacing: 0.5)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildGasTypeColumn('Regular', store['gasPrices']['regular']),
+                    _buildGasTypeColumn('Mid-grade', store['gasPrices']['midgrade']),
+                    _buildGasTypeColumn('Premium', store['gasPrices']['premium']),
+                    _buildGasTypeColumn('Diesel', store['gasPrices']['diesel']),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 24),
+              Text('PRODUCTS FOUND (${products.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey, letterSpacing: 0.5)),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 110,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: products.length,
+                  itemBuilder: (context, idx) {
+                    final p = products[idx];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: _buildProductThumbnail(p['name'], '\$${p['price']}', p['image']),
+                    );
+                  },
+                ),
+              ),
+              if (comparison['missing_items'] != null && comparison['missing_items'] > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text('${comparison['missing_items']} items from your list are not available at this location.', 
+                          style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w500)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Just take the current item's savings, or 2.50 as fallback if savings not provided
+                    final savings = double.tryParse(comparison['savings']?.toString() ?? '') ?? 2.50;
+
+                    context.read<SavingsCubit>().addSavingsRecord(
+                      storeName: store['name'],
+                      amountSaved: savings,
+                      category: chain['type'].toString().toUpperCase(),
+                      iconName: chain['type'] == 'gas' ? 'gas' : (chain['type'] == 'pharmacy' ? 'pharmacy' : 'grocery'),
+                    );
+                    
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Trip saved! You saved \$${savings.toStringAsFixed(2)}'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: AppTheme.savingsGreen,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.savingsGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('Confirm Trip Selection', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProductThumbnail(String name, String price, [String? imageUrl]) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 70, height: 70,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6), 
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          alignment: Alignment.center,
+          child: (imageUrl != null && imageUrl.isNotEmpty)
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Icon(Icons.shopping_basket, color: Colors.grey),
+                    errorWidget: (context, url, error) => const Icon(Icons.shopping_basket, color: Colors.grey),
+                  ),
+                )
+              : Text(name.substring(0, 1).toUpperCase(), style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 24)),
+        ),
+        const SizedBox(height: 8),
+        Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      ],
+    );
+  }
+
+  Widget _buildGasTypeColumn(String label, dynamic price) {
+    String priceStr = '--';
+    if (price is num) {
+      priceStr = '\$${price.toStringAsFixed(2)}';
+    } else if (price != null) {
+      priceStr = '\$$price';
+    }
+    
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(priceStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      ],
     );
   }
 }

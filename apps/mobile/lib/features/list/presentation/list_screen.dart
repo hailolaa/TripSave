@@ -168,44 +168,7 @@ class _ListScreenState extends State<ListScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Compare Button
-                BlocBuilder<ListCubit, ListState>(
-                  builder: (context, state) {
-                    if (state is! ListLoaded || state.items.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final productIds = state.items.map((i) => i['product_id'] as String).toList();
-                          context.read<ComparisonCubit>().fetchComparisons(productIds);
-                          context.go('/compare');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.savingsGreen,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          elevation: 4,
-                          shadowColor: AppTheme.savingsGreen.withValues(alpha: 0.4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.auto_graph_outlined, color: Colors.white),
-                            const SizedBox(width: 12),
-                            Text('Compare Full List', style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
-                          ],
-                        ),
-                      ),
-                    ).animate(onPlay: (c) => c.repeat(reverse: true))
-                     .shimmer(delay: 5.seconds, duration: 2.seconds, color: Colors.white24)
-                     .animate()
-                     .fadeIn(delay: 400.ms)
-                     .slideY(begin: 0.2);
-                  },
-                )
+
               ],
             ),
           ),

@@ -141,6 +141,23 @@ export class ProductsService {
     }
   }
 
+  private getFallbackImage(query: string): string {
+    const q = query.toLowerCase();
+    if (q.includes('milk')) return 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('egg')) return 'https://images.unsplash.com/photo-1587486913049-53fc88980cfc?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('bread')) return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('cheese')) return 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('meat') || q.includes('chicken') || q.includes('beef')) return 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('fruit') || q.includes('apple') || q.includes('banana')) return 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('veg') || q.includes('carrot') || q.includes('tomato')) return 'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('med') || q.includes('pill') || q.includes('drug') || q.includes('vitamin') || q.includes('tylenol')) return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('clean') || q.includes('soap') || q.includes('wash') || q.includes('detergent')) return 'https://images.unsplash.com/photo-1584820927498-cafe4c1ebf95?auto=format&fit=crop&w=200&q=80';
+    if (q.includes('water') || q.includes('drink') || q.includes('juice') || q.includes('soda')) return 'https://images.unsplash.com/photo-1548839140-29a749e1bc4c?auto=format&fit=crop&w=200&q=80';
+    
+    // Default grocery image
+    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80';
+  }
+
   async searchProducts(query: string): Promise<Product[]> {
     if (!query || query.trim() === '') {
       return [];
@@ -159,8 +176,12 @@ export class ProductsService {
         name: query.trim(), // Keep original casing for display
         normalized_name: cleanQuery,
         category: ProductCategory.OTHER,
-        image_url: '' // Generic products don't have a specific brand image
+        image_url: this.getFallbackImage(cleanQuery)
       });
+    } else if (!genericProduct.image_url) {
+      // Backfill missing image for generic product
+      genericProduct.image_url = this.getFallbackImage(genericProduct.name);
+      await this.productsRepository.save(genericProduct);
     }
 
     // 2. Find other matching products
@@ -173,7 +194,10 @@ export class ProductsService {
     });
 
     // 3. Remove the generic product from dbResults if it's there to avoid duplicates
-    const filteredResults = dbResults.filter(p => p.id !== genericProduct!.id);
+    const filteredResults = dbResults.filter(p => p.id !== genericProduct!.id).map(p => {
+      if (!p.image_url) p.image_url = this.getFallbackImage(p.name);
+      return p;
+    });
 
     // 4. Return generic product at the top
     return [genericProduct, ...filteredResults];
