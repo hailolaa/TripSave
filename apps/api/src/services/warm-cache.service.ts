@@ -77,6 +77,27 @@ export class WarmCacheService {
     'Laundry Detergent',
     'Diapers',
     'Dish Soap',
+    // ── Pharmacy Staples ─────────────────────────────────────────
+    'Tylenol',
+    'Advil',
+    'Ibuprofen',
+    'Claritin',
+    'Zyrtec',
+    'Vitamin C',
+    'Multivitamin',
+    'Fish Oil',
+    'Melatonin',
+    'Digital Thermometer',
+    'Band-Aids',
+    'Aspirin',
+    'Cough Syrup',
+    'Allergy Relief',
+    'Eye Drops',
+    'Antacid',
+    'Probiotics',
+    'Magnesium',
+    'Zinc',
+    'Hand Sanitizer',
   ];
 
   /** Delay between scraping each product (ms) — prevents API rate-limiting */
