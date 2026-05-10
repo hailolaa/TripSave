@@ -182,7 +182,7 @@ export class ComparisonService {
     return products.map((item: any) => {
       const storeName = typeof item.store === 'string' ? item.store : (item.store?.name || '');
       const productName = typeof item.product === 'string' ? item.product : (item.product?.name || '');
-      const itemCategory = (item as any).category || this.aggregatorService.determineCategory('', productName);
+      const itemCategory = (item as any).category || this.aggregatorService.determineCategory('', productName, storeName);
 
       // Find the nearest local store that matches this retailer's name
       const localMatch = nearbyStores.find(ns => 
@@ -367,7 +367,7 @@ export class ComparisonService {
         products: items.map(i => ({ 
           name: i.product.name, 
           price: Number(i.sale_price ?? i.price),
-          category: this.aggregatorService.determineCategory('', i.product.name)
+          category: this.aggregatorService.determineCategory('', i.product.name, matchDbStore.store.name)
         }))
       });
     }

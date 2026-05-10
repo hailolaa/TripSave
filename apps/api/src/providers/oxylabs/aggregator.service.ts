@@ -186,7 +186,7 @@ export class AggregatorService {
           } else {
             const products = (result.value as ScrapedProduct[]).map(p => ({
               ...p,
-              category: p.category || this.determineCategory(query, p.product),
+              category: p.category || this.determineCategory(query, p.product, p.store),
             }));
             allProducts.push(...products);
           }
@@ -401,13 +401,14 @@ export class AggregatorService {
     const q = query.toLowerCase();
     return q.includes('pharmacy') || q.includes('cvs') || q.includes('walgreens') || 
            q.includes('medicine') || q.includes('drug') || q.includes('health') ||
-           q.includes('vitamin') || q.includes('relief') || q.includes('care');
+           q.includes('vitamin') || q.includes('relief') || q.includes('care') ||
+           q.includes('thermometer') || q.includes('test') || q.includes('bandage');
   }
 
-  public determineCategory(query: string, productName: string): 'grocery' | 'gas' | 'pharmacy' {
-    const combined = `${query} ${productName}`.toLowerCase();
+  public determineCategory(query: string, productName: string, storeName?: string): 'grocery' | 'gas' | 'pharmacy' {
+    const combined = `${query} ${productName} ${storeName || ''}`.toLowerCase();
     
-    if (combined.includes('gasoline') || combined.includes('fuel') || combined.includes('diesel')) {
+    if (combined.includes('gasoline') || combined.includes('fuel') || combined.includes('diesel') || combined.includes('gas station')) {
       return 'gas';
     }
     
@@ -415,7 +416,10 @@ export class AggregatorService {
       combined.includes('pharmacy') || combined.includes('medicine') || combined.includes('pill') || 
       combined.includes('health') || combined.includes('drug') || combined.includes('prescription') ||
       combined.includes('tylenol') || combined.includes('advil') || combined.includes('claritin') ||
-      combined.includes('vitamin') || combined.includes('relief') || combined.includes('care')
+      combined.includes('vitamin') || combined.includes('relief') || combined.includes('care') ||
+      combined.includes('thermometer') || combined.includes('bandage') || combined.includes('mask') ||
+      combined.includes('test kit') || combined.includes('cvs') || combined.includes('walgreens') ||
+      combined.includes('rite aid') || combined.includes('pharm')
     ) {
       return 'pharmacy';
     }
