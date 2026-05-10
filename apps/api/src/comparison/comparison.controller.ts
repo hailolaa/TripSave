@@ -109,6 +109,12 @@ export class ComparisonController {
       finalLng = -96.8044;
     }
 
+    let resolvedZip = user?.zip_code;
+    try {
+      const geo = await reverseGeocode(finalLat, finalLng);
+      if (geo && geo.zipCode) resolvedZip = geo.zipCode;
+    } catch {}
+
     return this.comparisonService.getBestTrueCost(
       finalLat,
       finalLng,
@@ -117,7 +123,8 @@ export class ComparisonController {
       gasPriceValue,
       body.storeType,
       body.isRoundTrip ?? true,
-      body.sortBy ?? 'true_cost'
+      body.sortBy ?? 'true_cost',
+      resolvedZip
     );
   }
 
@@ -162,6 +169,12 @@ export class ComparisonController {
       finalLng = -96.8044;
     }
 
+    let resolvedZip = user?.zip_code;
+    try {
+      const geo = await reverseGeocode(finalLat, finalLng);
+      if (geo && geo.zipCode) resolvedZip = geo.zipCode;
+    } catch {}
+
     return this.comparisonService.getBestTrueCost(
       finalLat,
       finalLng,
@@ -170,7 +183,8 @@ export class ComparisonController {
       Number(gasPriceValue),
       body.storeType,
       body.isRoundTrip ?? true,
-      body.sortBy ?? 'true_cost'
+      body.sortBy ?? 'true_cost',
+      resolvedZip
     );
   }
   // @UseGuards(JwtAuthGuard)

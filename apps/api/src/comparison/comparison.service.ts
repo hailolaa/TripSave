@@ -296,11 +296,15 @@ export class ComparisonService {
     gasPrice: number,
     storeType?: StoreChainType,
     isRoundTrip: boolean = true,
-    sortBy: string = 'true_cost'
+    sortBy: string = 'true_cost',
+    zipCode?: string
   ) {
     this.logger.log(`DEBUG: Entering getBestTrueCost with lat: ${userLat}, lng: ${userLng}`);
-    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 50);
-    this.logger.log(`DEBUG: Found ${nearbyStores.length} stores within 50 miles of ${userLat}, ${userLng}`);
+    
+    const resolvedZip = zipCode || '75201'; // Fallback
+    
+    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+    this.logger.log(`DEBUG: Found ${nearbyStores.length} stores within 15 miles of ${userLat}, ${userLng}`);
     
     // We don't filter stores early here anymore to allow "Pharmacy" items 
     // to be found in "Grocery" stores (like Walmart/Kroger) and vice versa.
@@ -324,6 +328,48 @@ export class ComparisonService {
 
     this.logger.log(`DEBUG: Found ${storeProducts.length} price entries for requested products at nearby stores`);
 
+    // SMART SCRAPE: If some products are missing prices nearby, trigger a live scrape
+    const foundProductIds = new Set(storeProducts.map(sp => sp.product_id));
+    const missingProductIds = productIds.filter(id => !foundProductIds.has(id));
+
+    if (missingProductIds.length > 0) {
+      this.logger.log(`Smart Scrape: ${missingProductIds.length} products missing nearby prices. Triggering live scrapes...`);
+      
+      const missingProducts = await this.productRepository.find({
+        where: { id: In(missingProductIds) }
+      });
+
+      // Limit to max 3 parallel scrapes to avoid overwhelming the provider
+      const MAX_PARALLEL_SCRAPES = 3;
+      for (let i = 0; i < missingProducts.length; i += MAX_PARALLEL_SCRAPES) {
+        const chunk = missingProducts.slice(i, i + MAX_PARALLEL_SCRAPES);
+        await Promise.allSettled(chunk.map(async (p) => {
+          try {
+            const result = await this.aggregatorService.search(p.name, resolvedZip);
+            if (result.success && result.data.length > 0) {
+              await this.productsService.upsertScrapedProducts(result.data, resolvedZip);
+            }
+          } catch (e) {
+            this.logger.error(`Smart Scrape failed for ${p.name}: ${e.message}`);
+          }
+        }));
+      }
+
+      // Re-query to get the newly scraped prices
+      const updatedStoreProducts = await this.storeProductsRepository.find({
+        where: {
+          store_id: In(storeIds),
+          product_id: In(productIds),
+        },
+        relations: ['store', 'store.chain', 'product']
+      });
+      
+      // Update the main list
+      storeProducts.length = 0;
+      storeProducts.push(...updatedStoreProducts);
+      this.logger.log(`Smart Scrape complete. Now found ${storeProducts.length} price entries.`);
+    }
+
     const groupedByStore = storeProducts.reduce((acc, curr) => {
       if (!acc[curr.store_id]) acc[curr.store_id] = [];
       acc[curr.store_id].push(curr);
@@ -336,9 +382,9 @@ export class ComparisonService {
       where: { store_id: In(storeIds) }
     });
 
-    for (const storeId of Object.keys(groupedByStore)) {
+    const comparisons = await Promise.all(Object.keys(groupedByStore).map(async (storeId) => {
       const matchDbStore = nearbyStores.find(n => n.store.id === storeId);
-      if (!matchDbStore) continue;
+      if (!matchDbStore) return null;
 
       const stationGas = nearbyGasPrices.find(gp => gp.store_id === storeId);
       const effectiveGasPrice = stationGas?.regular_price ? Number(stationGas.regular_price) : gasPrice;
@@ -352,12 +398,13 @@ export class ComparisonService {
       
       try {
         if (matchDbStore.store.lat !== 0 && matchDbStore.store.lng !== 0) {
+          // Add a small delay or limit to avoid OSRM rate limiting if needed, 
+          // but for now parallel is much faster
           const routeInfo = await this.osrmService.getRouteInfo(userLng, userLat, matchDbStore.store.lng, matchDbStore.store.lat);
           if (routeInfo) {
             distanceMiles = metersToMiles(routeInfo.distanceMeters);
           }
         } else {
-          // If store has no coordinates, assume it's "local" for testing purposes
           const jitter = (matchDbStore.store.name.length % 10) / 5;
           distanceMiles = 1.2 + jitter; 
         }
@@ -368,7 +415,7 @@ export class ComparisonService {
       const drivingCost = calculateDriveCost(distanceMiles, userMpg, effectiveGasPrice, isRoundTrip);
       const trueCost = calculateTrueCost(itemPriceTotal, drivingCost);
 
-      comparisons.push({
+      return {
         store: {
           ...matchDbStore.store,
           gasPrices: stationGas ? {
@@ -389,10 +436,10 @@ export class ComparisonService {
           price: Number(i.sale_price ?? i.price),
           category: this.aggregatorService.determineCategory('', i.product.name, matchDbStore.store.name)
         }))
-      });
-    }
+      };
+    }));
 
-    let filteredResults = comparisons;
+    let filteredResults = comparisons.filter(Boolean);
     if (storeType && storeType !== 'all' as any) {
       const typeStr = (storeType as string).toLowerCase();
       filteredResults = comparisons.filter(c => 
@@ -452,9 +499,9 @@ export class ComparisonService {
 
     const comparisons = [];
 
-    for (const ns of nearbyStores) {
+    const comparisons = await Promise.all(nearbyStores.map(async (ns) => {
       const gp = gasPrices.find(g => g.store_id === ns.store.id);
-      if (!gp) continue;
+      if (!gp) return null;
 
       // Pick the right fuel type price
       const pricePerGallon = Number(
@@ -464,7 +511,7 @@ export class ComparisonService {
         gp.regular_price
       );
 
-      if (!pricePerGallon || pricePerGallon <= 0) continue;
+      if (!pricePerGallon || pricePerGallon <= 0) return null;
 
       // 3. Calculate costs
       const fillUpCost = pricePerGallon * gallons;
@@ -492,7 +539,7 @@ export class ComparisonService {
       const driveCost = calculateDriveCost(distanceMiles, userMpg, userGasPrice, isRoundTrip);
       const trueCost = fillUpCost + driveCost;
 
-      comparisons.push({
+      return {
         store: {
           ...ns.store,
           gasPrices: {
@@ -513,10 +560,10 @@ export class ComparisonService {
         items_found: 1,
         missing_items: 0,
         products: [{ name: `${fuelType.charAt(0).toUpperCase() + fuelType.slice(1)} Gas`, price: pricePerGallon }],
-      });
-    }
+      };
+    }));
 
-    return this.sortComparisons(comparisons, sortBy);
+    return this.sortComparisons(comparisons.filter(Boolean), sortBy);
   }
 
   /**
