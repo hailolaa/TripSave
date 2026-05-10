@@ -182,10 +182,7 @@ class ListCubit extends Cubit<ListState> {
         lng: position.longitude,
         mpg: _settings.mpg,
         gasPrice: _settings.gasCostPerMile * _settings.mpg,
-        productIds: currentState.items
-            .map((item) => item['product_id']?.toString() ?? '')
-            .where((id) => id.isNotEmpty)
-            .toList(),
+        items: currentState.items,
       );
       
       if (state is ListLoaded) {

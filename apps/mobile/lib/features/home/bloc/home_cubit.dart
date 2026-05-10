@@ -154,10 +154,8 @@ class HomeCubit extends Cubit<HomeState> {
         return;
       }
 
-      final productIds = cartItems.map((item) => item['product_id'] as String).toList();
-
       // 3. Fetch comparisons
-      await comparisonCubit.fetchComparisons(productIds, forceRefresh: true);
+      await comparisonCubit.fetchComparisons(cartItems, forceRefresh: true);
       
       if (comparisonCubit.state is ComparisonLoaded) {
         final results = (comparisonCubit.state as ComparisonLoaded).results;

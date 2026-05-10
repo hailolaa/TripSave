@@ -86,7 +86,8 @@ export class ComparisonController {
     @Body() body: { 
       userLat: number; 
       userLng: number; 
-      productIds: string[]; 
+      productIds?: string[]; 
+      items?: { productId: string, quantity: number }[];
       userMpg?: number; 
       gasPrice?: number;
       storeType?: StoreChainType;
@@ -115,10 +116,12 @@ export class ComparisonController {
       if (geo && geo.zipCode) resolvedZip = geo.zipCode;
     } catch {}
 
+    const items = body.items || (body.productIds || []).map(id => ({ productId: id, quantity: 1 }));
+
     return this.comparisonService.getBestTrueCost(
       finalLat,
       finalLng,
-      body.productIds,
+      items,
       mpg,
       gasPriceValue,
       body.storeType,
@@ -136,7 +139,8 @@ export class ComparisonController {
     @Body() body: { 
       userLat: number; 
       userLng: number; 
-      productIds: string[]; 
+      productIds?: string[]; 
+      items?: { productId: string, quantity: number }[];
       userMpg?: number; 
       gasPrice?: number;
       storeType?: StoreChainType;
@@ -148,16 +152,21 @@ export class ComparisonController {
     const mpg = body.userMpg ?? user?.vehicle_mpg ?? 25;
     const gasPriceValue = body.gasPrice ?? user?.default_gas_price ?? 3.50;
 
-    let productIds = body.productIds;
+    let items = body.items || [];
 
-    // If no productIds provided, fetch from user's current cart
-    if (!productIds || productIds.length === 0) {
-      if (!user) return [];
-      const cart = await this.usersService.getCart(user.id);
-      productIds = cart.map(item => item.product_id);
+    // If no items provided, check productIds
+    if (items.length === 0 && body.productIds && body.productIds.length > 0) {
+      items = body.productIds.map(id => ({ productId: id, quantity: 1 }));
     }
 
-    if (productIds.length === 0) return [];
+    // If still no items, fetch from user's current cart
+    if (items.length === 0) {
+      if (!user) return [];
+      const cart = await this.usersService.getCart(user.id);
+      items = cart.map(item => ({ productId: item.product_id, quantity: item.quantity }));
+    }
+
+    if (items.length === 0) return [];
 
     let finalLat = body.userLat;
     let finalLng = body.userLng;
@@ -178,7 +187,7 @@ export class ComparisonController {
     return this.comparisonService.getBestTrueCost(
       finalLat,
       finalLng,
-      productIds,
+      items,
       Number(mpg),
       Number(gasPriceValue),
       body.storeType,

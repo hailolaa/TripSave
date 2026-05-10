@@ -78,8 +78,8 @@ class ComparisonCubit extends Cubit<ComparisonState> {
   /// Whether we already have loaded results (used by the UI to skip initState fetch).
   bool get hasData => state is ComparisonLoaded;
 
-  Future<void> fetchComparisons(List<String> productIds, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip}) async {
-    final key = 'cart:${productIds.join(',')}';
+  Future<void> fetchComparisons(List<dynamic> items, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip}) async {
+    final key = 'cart:${items.map((i) => i['product_id']).join(',')}';
     
     if (sortBy != null) _sortBy = sortBy;
     if (isRoundTrip != null) _isRoundTrip = isRoundTrip;
@@ -98,7 +98,10 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final data = {
         'userLat': userLat,
         'userLng': userLng,
-        'productIds': productIds,
+        'items': items.map((i) => {
+          'productId': i['product_id'],
+          'quantity': i['quantity'] ?? 1,
+        }).toList(),
         'userMpg': settings.mpg,
         'gasPrice': settings.gasCostPerMile * settings.mpg,
       };

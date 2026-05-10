@@ -40,7 +40,7 @@ class ListRepository {
     required double lng,
     required double mpg,
     required double gasPrice,
-    required List<String> productIds,
+    required List<dynamic> items,
   }) async {
     final response = await apiClient.dio.post(
       '/comparison/cart/compare',
@@ -49,7 +49,10 @@ class ListRepository {
         'userLng': lng,
         'userMpg': mpg,
         'gasPrice': gasPrice,
-        'productIds': productIds,
+        'items': items.map((i) => {
+          'productId': i['product_id'],
+          'quantity': i['quantity'] ?? 1,
+        }).toList(),
       },
     );
     final results = List<Map<String, dynamic>>.from(response.data);

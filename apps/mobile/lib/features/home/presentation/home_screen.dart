@@ -755,7 +755,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () => context.push('/compare'),
+                onTap: () => context.go('/list'),
                 child: const Row(
                   children: [
                     Text('View All', style: TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 15)),
@@ -768,8 +768,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
 
   Widget _buildStoreListItem(Map<String, dynamic> data, {bool isBest = false}) {
@@ -840,8 +841,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCategoryPill(IconData icon, String text, bool isSelected, {VoidCallback? onTap}) {
     return GestureDetector(

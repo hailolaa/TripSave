@@ -291,7 +291,7 @@ export class ComparisonService {
   async getBestTrueCost(
     userLat: number, 
     userLng: number, 
-    productIds: string[], 
+    items: { productId: string, quantity: number }[], 
     userMpg: number, 
     gasPrice: number,
     storeType?: StoreChainType,
@@ -303,26 +303,32 @@ export class ComparisonService {
     
     const resolvedZip = zipCode || '75201'; // Fallback
     
-    // 1. Get the names of the products in the cart
+    // 1. Get the products to know their names for generic search
+    const productIds = items.map(i => i.productId);
     const products = await this.productRepository.find({
       where: { id: In(productIds) }
     });
 
     if (products.length === 0) return [];
 
-    // Use normalized names or names for general search
-    const productNames = products.map(p => p.normalized_name || p.name);
-    this.logger.log(`DEBUG: Cart contains generic items: ${productNames.join(', ')}`);
+    // Map items to names and quantities
+    const searchItems = items.map(item => {
+      const p = products.find(prod => prod.id === item.productId);
+      return {
+        name: p?.normalized_name || p?.name || 'Unknown Item',
+        quantity: item.quantity
+      };
+    });
 
-    // 2. Run the compareItem logic for EACH product name to find fresh prices/scrape if needed
+    this.logger.log(`DEBUG: Cart contains items: ${searchItems.map(i => `${i.quantity}x ${i.name}`).join(', ')}`);
+
+    // 2. Run the compareItem logic for EACH item to find fresh prices
     const storeMap = new Map<string, any>();
 
-    // We run them in parallel to be fast, but we bypass the sorting inside compareItem
-    // because we will sort the final aggregated cart.
-    await Promise.all(productNames.map(async (itemName) => {
+    await Promise.all(searchItems.map(async (item) => {
       try {
         const results = await this.compareItem(
-          itemName, userLat, userLng, userMpg, gasPrice, resolvedZip, storeType, isRoundTrip, 'true_cost', false
+          item.name, userLat, userLng, userMpg, gasPrice, resolvedZip, storeType, isRoundTrip, 'true_cost', false
         );
 
         // Keep track of which stores we've already added THIS item for.
@@ -354,8 +360,8 @@ export class ComparisonService {
           const storeCart = storeMap.get(storeId);
           if (result.products && result.products.length > 0) {
             const productMatch = result.products[0];
-            storeCart.products.push(productMatch);
-            storeCart.item_total += productMatch.price;
+            storeCart.products.push({ ...productMatch, quantity: item.quantity });
+            storeCart.item_total += (productMatch.price * item.quantity);
             storeCart.items_found += 1;
             fulfilledStoreIds.add(storeId); // Mark as fulfilled for this store
           }
@@ -366,7 +372,7 @@ export class ComparisonService {
     }));
 
     // 3. Finalize the calculations for each store
-    const totalItemsRequested = productNames.length;
+    const totalItemsRequested = searchItems.length;
     let comparisons = Array.from(storeMap.values()).map(cart => {
       cart.item_total = Number(cart.item_total.toFixed(2));
       cart.true_cost = Number((cart.item_total + cart.driving_cost).toFixed(2));
