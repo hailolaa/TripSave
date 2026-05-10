@@ -45,9 +45,11 @@ export class InstacartScraperService extends OxylabsBaseService {
         const items = html.results || [];
         for (const item of items) {
           const price = this.parsePrice(item.price);
+          let storeName = this.cleanStoreName(item.retailer || 'Instacart');
+          
           if (price > 0 && item.title) {
             products.push({
-              store: item.retailer || 'Instacart',
+              store: storeName,
               product: item.title,
               price,
               image: item.image || '',
@@ -113,7 +115,7 @@ export class InstacartScraperService extends OxylabsBaseService {
             const entry = apolloData[key];
             if (entry?.name && entry?.price && entry?.retailerName) {
               products.push({
-                store: entry.retailerName,
+                store: this.cleanStoreName(entry.retailerName),
                 product: entry.name,
                 price: this.parsePrice(entry.price),
                 image: entry.imageUrl || '',
@@ -148,7 +150,7 @@ export class InstacartScraperService extends OxylabsBaseService {
           }
 
           let storeMatch = html.match(/alt="([^"]+) logo"/);
-          let storeName = storeMatch ? storeMatch[1] : 'Instacart';
+          let storeName = this.cleanStoreName(storeMatch ? storeMatch[1] : 'Instacart');
 
           if (price > 0 && name && !seen.has(name)) {
             seen.add(name);

@@ -111,5 +111,11 @@ export class OxylabsBaseService {
       return parseFloat(cleaned) || 0;
     }
     return 0;
+  /**
+   * Clean a store name by removing trademark symbols and trimming.
+   */
+  protected cleanStoreName(name: string): string {
+    if (!name) return 'Unknown';
+    return name.replace(/[®™©]/g, '').trim();
   }
 }
