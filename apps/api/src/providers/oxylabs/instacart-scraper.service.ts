@@ -83,7 +83,7 @@ export class InstacartScraperService extends OxylabsBaseService {
     }
 
     // Find all item list items
-    $('li[data-testid^="item_list_item"]').each((_, el) => {
+    $('li[data-testid^="item_list_item"]').each((_: number, el: any) => {
       const block = $(el);
       
       // Extract Price (usually in screen-reader-only span)
@@ -116,7 +116,7 @@ export class InstacartScraperService extends OxylabsBaseService {
         if (link) {
           const slugMatch = link.match(/retailerSlug=([^&?]+)/);
           if (slugMatch) {
-            storeName = slugMatch[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            storeName = slugMatch[1].replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
           }
         }
       }
