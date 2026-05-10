@@ -175,7 +175,7 @@ export class ProductsService {
     }
 
     // Order by products with highest savings percentage first, then recent updates
-    query.orderBy('CASE WHEN sp.sale_price IS NOT NULL THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END', 'DESC')
+    query.orderBy('(CASE WHEN sp.sale_price IS NOT NULL THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END)', 'DESC')
          .addOrderBy('sp.last_verified_at', 'DESC');
     
     const items = await query.getMany();
