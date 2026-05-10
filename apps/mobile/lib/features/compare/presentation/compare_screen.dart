@@ -340,18 +340,20 @@ class _CompareScreenState extends State<CompareScreen> {
                           final comparison = results[index];
                           final isBest = index == 0;
                           
+                          final sortBy = state.sortBy;
+                          
                           Widget card;
                           if (isBest) {
                             card = Column(
                               children: [
-                                _buildBestOptionCard(comparison, true),
+                                _buildBestOptionCard(comparison, true, sortBy: sortBy),
                                 const SizedBox(height: 16),
                               ],
                             );
                           } else {
                             card = Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildRegularStoreCard(comparison, false),
+                              child: _buildRegularStoreCard(comparison, false, sortBy: sortBy),
                             );
                           }
 
@@ -581,7 +583,7 @@ class _CompareScreenState extends State<CompareScreen> {
     );
   }
 
-  Widget _buildBestOptionCard(Map<String, dynamic> comparison, bool isBest) {
+  Widget _buildBestOptionCard(Map<String, dynamic> comparison, bool isBest, {String? sortBy}) {
     final store = comparison['store'];
     final chain = store['chain'];
     final isGas = chain['type'] == 'gas';
@@ -636,11 +638,23 @@ class _CompareScreenState extends State<CompareScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildBestOptionMetric('Basket', '\$${comparison['item_total']}'),
+                _buildBestOptionMetric(
+                  'Basket', 
+                  '\$${comparison['item_total']}', 
+                  isPrimary: sortBy == 'item_total'
+                ),
                 Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
-                _buildBestOptionMetric('Drive', '\$${comparison['driving_cost']}'),
+                _buildBestOptionMetric(
+                  'Drive', 
+                  '\$${comparison['driving_cost']}', 
+                  isPrimary: sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance'
+                ),
                 Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
-                _buildBestOptionMetric('Total', '\$${comparison['true_cost']}', isPrimary: true),
+                _buildBestOptionMetric(
+                  'Total', 
+                  '\$${comparison['true_cost']}', 
+                  isPrimary: sortBy == 'true_cost' || sortBy == 'savings' || sortBy == null
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -687,7 +701,7 @@ class _CompareScreenState extends State<CompareScreen> {
     );
   }
 
-  Widget _buildRegularStoreCard(Map<String, dynamic> comparison, bool isBest) {
+  Widget _buildRegularStoreCard(Map<String, dynamic> comparison, bool isBest, {String? sortBy}) {
     final store = comparison['store'];
     final chain = store['chain'];
     final isGas = chain['type'] == 'gas';
@@ -743,8 +757,20 @@ class _CompareScreenState extends State<CompareScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('\$${comparison['true_cost']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark)),
-                    const Text('total', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
+                    Text(
+                      sortBy == 'item_total' ? '\$${comparison['item_total']}' :
+                      (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? '\$${comparison['driving_cost']}' :
+                      sortBy == 'savings' ? 'Save \$${comparison['savings']}' :
+                      '\$${comparison['true_cost']}', 
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark)
+                    ),
+                    Text(
+                      sortBy == 'item_total' ? 'items' :
+                      (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? 'drive' :
+                      sortBy == 'savings' ? 'vs max' :
+                      'total', 
+                      style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)
+                    ),
                     const SizedBox(height: 4),
                     InkWell(
                       onTap: () => _toggleFavoriteStore(storeName),
