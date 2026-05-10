@@ -25,7 +25,8 @@ export class InstacartScraperService extends OxylabsBaseService {
         source: 'instacart_search',
         query,
         render: true,
-        geo_location: zip ? `US-${zip}` : undefined,
+        parse: true, // Let Oxylabs try to parse, but we still have our fallback
+        geo_location: zip || undefined,
       });
 
       return this.parse(html);
@@ -35,10 +36,43 @@ export class InstacartScraperService extends OxylabsBaseService {
     }
   }
 
-  private parse(html: string): ScrapedProduct[] {
+  private parse(html: any): ScrapedProduct[] {
     const products: ScrapedProduct[] = [];
 
-    if (html.includes('captcha') || html.includes('challenge') || html.includes('Press & Hold')) {
+    // 1. Try to handle Oxylabs Structured Results (if parse: true succeeded)
+    if (typeof html === 'object' && html !== null) {
+      try {
+        const items = html.results || [];
+        for (const item of items) {
+          const price = this.parsePrice(item.price);
+          if (price > 0 && item.title) {
+            products.push({
+              store: item.retailer || 'Instacart',
+              product: item.title,
+              price,
+              image: item.image || '',
+              source: 'instacart',
+            });
+          }
+        }
+        if (products.length > 0) {
+          this.logger.log(`Instacart: parsed ${products.length} products from structured data`);
+          return products;
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to parse Instacart structured data: ${e.message}`);
+      }
+      
+      // If structured data failed or was empty, we can't do much more if it's not a string
+      return [];
+    }
+
+    // 2. Handle Raw HTML (our robust manual parser)
+    // Check for real Instacart bot blocks (Press & Hold is their signature challenge)
+    const isBlocked = (html.includes('Press & Hold') || html.includes('px-captcha')) && 
+                     !html.includes('item_list_item'); // If we have items, we aren't blocked!
+
+    if (isBlocked) {
        this.logger.warn(`Instacart returned a Captcha/Challenge page. Oxylabs proxy was blocked.`);
        return [];
     }

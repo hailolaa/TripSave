@@ -64,6 +64,7 @@ export class OxylabsBaseService {
       url: url || undefined, // URL might be empty if using query
       query: options.query,
       render: options.render ? 'html' : undefined,
+      parse: options.parse || undefined,
       geo_location: options.geo_location,
     };
 
