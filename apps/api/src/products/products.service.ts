@@ -146,14 +146,37 @@ export class ProductsService {
       return [];
     }
     
-    // ILike is case-insensitive search
-    return this.productsRepository.find({
+    const cleanQuery = query.trim().toLowerCase();
+    
+    // 1. Ensure a generic product exists for exactly what the user typed
+    let genericProduct = await this.productsRepository.findOne({
+      where: { name: ILike(cleanQuery) }
+    });
+
+    if (!genericProduct) {
+      // Create it if it doesn't exist so it can be added to the cart
+      genericProduct = await this.productsRepository.save({
+        name: query.trim(), // Keep original casing for display
+        normalized_name: cleanQuery,
+        category: ProductCategory.OTHER,
+        image_url: '' // Generic products don't have a specific brand image
+      });
+    }
+
+    // 2. Find other matching products
+    const dbResults = await this.productsRepository.find({
       where: [
-        { name: ILike(`%${query}%`) },
-        { normalized_name: ILike(`%${query}%`) },
+        { name: ILike(`%${cleanQuery}%`) },
+        { normalized_name: ILike(`%${cleanQuery}%`) },
       ],
       take: 20, // limit to 20 results for dropdown autocomplete
     });
+
+    // 3. Remove the generic product from dbResults if it's there to avoid duplicates
+    const filteredResults = dbResults.filter(p => p.id !== genericProduct!.id);
+
+    // 4. Return generic product at the top
+    return [genericProduct, ...filteredResults];
   }
 
   async findByCategory(category: string): Promise<Product[]> {

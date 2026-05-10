@@ -303,150 +303,70 @@ export class ComparisonService {
     
     const resolvedZip = zipCode || '75201'; // Fallback
     
-    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
-    this.logger.log(`DEBUG: Found ${nearbyStores.length} stores within 15 miles of ${userLat}, ${userLng}`);
-    
-    // We don't filter stores early here anymore to allow "Pharmacy" items 
-    // to be found in "Grocery" stores (like Walmart/Kroger) and vice versa.
-    // The filtering will happen at the end based on product categories.
-    this.logger.log(`DEBUG: Found ${nearbyStores.length} stores total. Filtering will be applied to product matches.`);
-    
-    if (!nearbyStores.length) {
-      this.logger.warn(`DEBUG: No stores found nearby for lat: ${userLat}, lng: ${userLng}`);
-      return [];
-    }
-
-    const storeIds = nearbyStores.map(ns => ns.store.id);
-
-    const storeProducts = await this.storeProductsRepository.find({
-      where: {
-        store_id: In(storeIds),
-        product_id: In(productIds),
-      },
-      relations: ['store', 'store.chain', 'product']
+    // 1. Get the names of the products in the cart
+    const products = await this.productRepository.find({
+      where: { id: In(productIds) }
     });
 
-    this.logger.log(`DEBUG: Found ${storeProducts.length} price entries for requested products at nearby stores`);
+    if (products.length === 0) return [];
 
-    // SMART SCRAPE: If some products are missing prices nearby, trigger a live scrape
-    const foundProductIds = new Set(storeProducts.map(sp => sp.product_id));
-    const missingProductIds = productIds.filter(id => !foundProductIds.has(id));
+    // Use normalized names or names for general search
+    const productNames = products.map(p => p.normalized_name || p.name);
+    this.logger.log(`DEBUG: Cart contains generic items: ${productNames.join(', ')}`);
 
-    if (missingProductIds.length > 0) {
-      this.logger.log(`Smart Scrape: ${missingProductIds.length} products missing nearby prices. Triggering live scrapes...`);
-      
-      const missingProducts = await this.productRepository.find({
-        where: { id: In(missingProductIds) }
-      });
+    // 2. Run the compareItem logic for EACH product name to find fresh prices/scrape if needed
+    const storeMap = new Map<string, any>();
 
-      // Limit to max 3 parallel scrapes to avoid overwhelming the provider
-      const MAX_PARALLEL_SCRAPES = 3;
-      for (let i = 0; i < missingProducts.length; i += MAX_PARALLEL_SCRAPES) {
-        const chunk = missingProducts.slice(i, i + MAX_PARALLEL_SCRAPES);
-        await Promise.allSettled(chunk.map(async (p) => {
-          try {
-            const result = await this.aggregatorService.search(p.name, resolvedZip);
-            if (result.success && result.data.length > 0) {
-              await this.productsService.upsertScrapedProducts(result.data, resolvedZip);
-            }
-          } catch (e) {
-            this.logger.error(`Smart Scrape failed for ${p.name}: ${e.message}`);
-          }
-        }));
-      }
-
-      // Re-query to get the newly scraped prices
-      const updatedStoreProducts = await this.storeProductsRepository.find({
-        where: {
-          store_id: In(storeIds),
-          product_id: In(productIds),
-        },
-        relations: ['store', 'store.chain', 'product']
-      });
-      
-      // Update the main list
-      storeProducts.length = 0;
-      storeProducts.push(...updatedStoreProducts);
-      this.logger.log(`Smart Scrape complete. Now found ${storeProducts.length} price entries.`);
-    }
-
-    const groupedByStore = storeProducts.reduce((acc, curr) => {
-      if (!acc[curr.store_id]) acc[curr.store_id] = [];
-      acc[curr.store_id].push(curr);
-      return acc;
-    }, {} as Record<string, StoreProduct[]>);
-
-    const nearbyGasPrices = await this.gasPriceRepository.find({
-      where: { store_id: In(storeIds) }
-    });
-
-    const comparisons = await Promise.all(Object.keys(groupedByStore).map(async (storeId) => {
-      const matchDbStore = nearbyStores.find(n => n.store.id === storeId);
-      if (!matchDbStore) return null;
-
-      const stationGas = nearbyGasPrices.find(gp => gp.store_id === storeId);
-      const effectiveGasPrice = stationGas?.regular_price ? Number(stationGas.regular_price) : gasPrice;
-
-      const items = groupedByStore[storeId];
-      const missingProductsCount = productIds.length - items.length;
-      
-      const itemPriceTotal = items.reduce((sum, item) => sum + Number(item.sale_price ?? item.price), 0);
-
-      let distanceMiles = matchDbStore.distance; 
-      
+    // We run them in parallel to be fast, but we bypass the sorting inside compareItem
+    // because we will sort the final aggregated cart.
+    await Promise.all(productNames.map(async (itemName) => {
       try {
-        if (matchDbStore.store.lat !== 0 && matchDbStore.store.lng !== 0) {
-          // Add a small delay or limit to avoid OSRM rate limiting if needed, 
-          // but for now parallel is much faster
-          const routeInfo = await this.osrmService.getRouteInfo(userLng, userLat, matchDbStore.store.lng, matchDbStore.store.lat);
-          if (routeInfo) {
-            distanceMiles = metersToMiles(routeInfo.distanceMeters);
+        const results = await this.compareItem(
+          itemName, userLat, userLng, userMpg, gasPrice, resolvedZip, storeType, isRoundTrip, 'true_cost', false
+        );
+
+        for (const result of results) {
+          const storeId = result.store.id;
+          if (!storeMap.has(storeId)) {
+            // Initialize this store's cart
+            storeMap.set(storeId, {
+              store: result.store,
+              item_total: 0,
+              driving_distance: result.driving_distance,
+              driving_cost: result.driving_cost,
+              true_cost: 0,
+              items_found: 0,
+              missing_items: 0,
+              products: []
+            });
           }
-        } else {
-          const jitter = (matchDbStore.store.name.length % 10) / 5;
-          distanceMiles = 1.2 + jitter; 
+
+          // Add this product to the store's cart
+          const storeCart = storeMap.get(storeId);
+          // compareItem returns a list of products (usually 1), we just take the cheapest/first one
+          if (result.products && result.products.length > 0) {
+            const productMatch = result.products[0];
+            storeCart.products.push(productMatch);
+            storeCart.item_total += productMatch.price;
+            storeCart.items_found += 1;
+          }
         }
-      } catch (e) {
-         this.logger.warn(`Route API failed for store ${storeId}`);
+      } catch (error) {
+        this.logger.error(`Failed to get comparisons for cart item "${itemName}": ${error.message}`);
       }
-
-      const drivingCost = calculateDriveCost(distanceMiles, userMpg, effectiveGasPrice, isRoundTrip);
-      const trueCost = calculateTrueCost(itemPriceTotal, drivingCost);
-
-      return {
-        store: {
-          ...matchDbStore.store,
-          gasPrices: stationGas ? {
-            regular: stationGas.regular_price,
-            midgrade: stationGas.midgrade_price,
-            premium: stationGas.premium_price,
-            diesel: stationGas.diesel_price,
-          } : undefined
-        },
-        item_total: Number(itemPriceTotal.toFixed(2)),
-        driving_distance: Number((distanceMiles * (isRoundTrip ? 2 : 1)).toFixed(2)),
-        driving_cost: Number(drivingCost.toFixed(2)),
-        true_cost: Number(trueCost.toFixed(2)),
-        items_found: items.length,
-        missing_items: missingProductsCount,
-        products: items.map(i => ({ 
-          name: i.product.name, 
-          price: Number(i.sale_price ?? i.price),
-          category: this.aggregatorService.determineCategory('', i.product.name, matchDbStore.store.name)
-        }))
-      };
     }));
 
-    let filteredResults = comparisons.filter(Boolean) as any[];
-    if (storeType && storeType !== 'all' as any) {
-      const typeStr = (storeType as string).toLowerCase();
-      filteredResults = filteredResults.filter(c => 
-        c.store.chain?.type === storeType || 
-        c.products.some((p: any) => p.category === typeStr)
-      );
-    }
+    // 3. Finalize the calculations for each store
+    const totalItemsRequested = productNames.length;
+    let comparisons = Array.from(storeMap.values()).map(cart => {
+      cart.item_total = Number(cart.item_total.toFixed(2));
+      cart.true_cost = Number((cart.item_total + cart.driving_cost).toFixed(2));
+      cart.missing_items = totalItemsRequested - cart.items_found;
+      return cart;
+    });
 
-    return this.sortComparisons(filteredResults, sortBy);
+    // 4. Sort the final list
+    return this.sortComparisons(comparisons, sortBy);
   }
 
   /**
