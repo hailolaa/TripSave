@@ -16,6 +16,7 @@ import 'features/savings/bloc/savings_cubit.dart';
 import 'features/savings/savings_repository.dart';
 import 'features/deals/bloc/deals_cubit.dart';
 import 'features/deals/deals_repository.dart';
+import 'features/location/bloc/location_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +31,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider<LocationCubit>(
+          create: (_) => LocationCubit(getIt<LocationService>())..init(),
+        ),
         BlocProvider<ComparisonCubit>(
           create: (_) => ComparisonCubit(
             getIt<ApiClient>(), 
@@ -57,6 +61,7 @@ class MyApp extends StatelessWidget {
             comparisonCubit: context.read<ComparisonCubit>(),
             locationService: getIt<LocationService>(),
             listCubit: context.read<ListCubit>(),
+            locationCubit: context.read<LocationCubit>(),
           )..loadDashboard(),
         ),
         BlocProvider<SavingsCubit>(

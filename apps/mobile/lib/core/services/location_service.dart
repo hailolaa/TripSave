@@ -68,9 +68,15 @@ class LocationService {
   }
 
   Future<Position> getCurrentLocation() async {
-    // If user has overridden, return that
+    // 1. If user has manually overridden (e.g. from picker), return that immediately
     if (_overriddenPosition != null) {
       return _overriddenPosition!;
+    }
+
+    // 2. If we already have a successfully auto-detected position, return it
+    // This prevents slow/jittery GPS calls on every screen navigation
+    if (_currentPosition != null) {
+      return _currentPosition!;
     }
 
     if (useMockLocation) {

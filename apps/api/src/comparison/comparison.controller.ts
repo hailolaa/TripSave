@@ -44,7 +44,7 @@ export class ComparisonController {
     // Restriction: USA searches only. If outside, default to Dallas.
     const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
     if (!isUSA) {
-      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Defaulting to Dallas, TX.`);
+      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Force defaulting to Uptown Dallas, TX (75201).`);
       finalLat = 32.7904;
       finalLng = -96.8044;
     }
@@ -104,6 +104,7 @@ export class ComparisonController {
     // Restriction: USA searches only. If outside, default to Dallas.
     const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
     if (!isUSA) {
+      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Force defaulting to Uptown Dallas, TX (75201).`);
       finalLat = 32.7904;
       finalLng = -96.8044;
     }
@@ -203,7 +204,7 @@ export class ComparisonController {
     // Restriction: USA searches only. If outside, default to Dallas.
     const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
     if (!isUSA) {
-      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Defaulting to Dallas, TX.`);
+      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Force defaulting to Uptown Dallas, TX (75201).`);
       finalLat = 32.7904;
       finalLng = -96.8044;
       resolvedLocation = 'Dallas, TX';

@@ -8,6 +8,7 @@ import '../../compare/bloc/comparison_cubit.dart';
 import '../../../core/services/location_service.dart';
 import '../../auth/auth_repository.dart';
 import '../../../core/di/injection.dart';
+import '../../location/bloc/location_cubit.dart';
 
 abstract class HomeState extends Equatable {
   @override
@@ -66,7 +67,9 @@ class HomeCubit extends Cubit<HomeState> {
   final ComparisonCubit comparisonCubit;
   final LocationService locationService;
   final ListCubit listCubit;
+  final LocationCubit locationCubit;
   StreamSubscription? _listSubscription;
+  StreamSubscription? _locationSubscription;
 
   HomeCubit({
     required this.listRepository,
@@ -74,10 +77,25 @@ class HomeCubit extends Cubit<HomeState> {
     required this.comparisonCubit,
     required this.locationService,
     required this.listCubit,
+    required this.locationCubit,
   }) : super(HomeInitial()) {
+    // Listen to shopping list changes
     _listSubscription = listCubit.stream.listen((listState) {
       if (listState is ListLoaded) {
         loadDashboard();
+      }
+    });
+
+    // Listen to location changes (detect startup location or manual overrides)
+    _locationSubscription = locationCubit.stream.listen((locationState) {
+      if (locationState is LocationLoaded) {
+        // Proactively fetch gas stations as soon as location is detected
+        comparisonCubit.searchItem('gas', storeType: 'gas');
+        
+        // Refresh dashboard (only if not already loading)
+        if (state is! HomeLoading) {
+          loadDashboard();
+        }
       }
     });
   }
@@ -85,38 +103,30 @@ class HomeCubit extends Cubit<HomeState> {
   @override
   Future<void> close() {
     _listSubscription?.cancel();
+    _locationSubscription?.cancel();
     return super.close();
   }
 
   /// Update the user's location and refresh dashboard data.
   Future<void> updateLocation(String cityName, {double? lat, double? lng}) async {
-    // Update the location service
-    locationService.setLocation(cityName, lat: lat, lng: lng);
+    // 1. Update the global LocationCubit state
+    locationCubit.updateLocation(cityName, lat: lat, lng: lng);
     
-    // Update the backend profile with the new location
+    // 2. Update the backend profile with the new location
     try {
       final repo = getIt<AuthRepository>();
       final updateData = <String, dynamic>{'location_name': cityName};
       if (lat != null) updateData['location_lat'] = lat;
       if (lng != null) updateData['location_lng'] = lng;
       await repo.updateProfile(updateData);
-    } catch (_) {
-      // Non-critical — location still works locally
-    }
+    } catch (_) {}
 
-    // Quick UI update with new location name
-    if (state is HomeLoaded) {
-      emit((state as HomeLoaded).copyWith(locationName: cityName));
-    }
-
-    // Re-fetch dashboard data for the new location
-    await loadDashboard();
+    // Dashboard refresh will be triggered by the LocationCubit listener in the constructor
   }
 
   /// Reset to auto-detected GPS location.
   Future<void> resetLocation() async {
-    locationService.resetToAutoDetected();
-    await loadDashboard();
+    await locationCubit.resetToAuto();
   }
 
   Future<void> loadDashboard() async {

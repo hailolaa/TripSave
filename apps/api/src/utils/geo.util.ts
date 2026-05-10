@@ -10,6 +10,9 @@ export function haversineDistanceMiles(
   lat1: number, lng1: number,
   lat2: number, lng2: number,
 ): number {
+  if ((lat1 === 0 && lng1 === 0) || (lat2 === 0 && lng2 === 0)) {
+    return 1.5; // Fallback to a small local distance if coords are missing/invalid
+  }
   const EARTH_RADIUS_MILES = 3959;
 
   const dLat = toRadians(lat2 - lat1);
