@@ -122,45 +122,74 @@ export class AggregatorService {
     // Timeout: 120s. Waiting longer gives scrapers more time to finish if the proxy is slow.
     const SCRAPER_TIMEOUT_MS = 120000;
 
-    // Run all scrapers in parallel with individual timeouts
-    const scraperResults = await Promise.allSettled([
+    // 1. Determine which GMaps searches to run
+    const isGas = this.shouldScrapeGas(query);
+    const isPharmacy = this.shouldScrapePharmacy(query);
+    const isAll = query.toLowerCase() === 'all' || query.toLowerCase() === 'stores' || (!isGas && !isPharmacy);
+
+    const gMapsTypes: string[] = [];
+    if (isGas || isAll) gMapsTypes.push('gas stations');
+    if (isPharmacy || isAll) gMapsTypes.push('pharmacies');
+    if (!isGas || isAll) gMapsTypes.push('grocery stores');
+
+    // 2. Prepare all scraper promises
+    const SCRAPER_TIMEOUT_MS = 120000;
+    const scraperPromises: Promise<any>[] = [
       this.runWithTimeout('Walmart', () => this.walmartScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
       this.runWithTimeout('Target', () => this.targetScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
       this.runWithTimeout('Kroger', () => this.krogerScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
       this.runWithTimeout('Instacart', () => this.instacartScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
-      this.runWithTimeout('GoogleMaps', () => {
-        const isGas = this.shouldScrapeGas(query);
-        return this.googleMapsScraper.searchNearbyStores(resolvedZip, isGas ? 'gas stations' : 'grocery stores');
-      }, SCRAPER_TIMEOUT_MS),
-    ]);
+      // Run multiple GMaps searches in parallel if needed
+      Promise.all(gMapsTypes.map(type => 
+        this.runWithTimeout(
+          `GoogleMaps (${type})`,
+          () => this.googleMapsScraper.searchNearbyStores(resolvedZip, type),
+          this.TARGETED_GMAPS_TIMEOUT_MS
+        ).catch(() => [])
+      )).then(results => results.flat())
+    ];
 
-    // Collect all successful results + track scraper status
-    let allProducts: ScrapedProduct[] = [];
     const scraperNames = ['Walmart', 'Target', 'Kroger', 'Instacart', 'GoogleMaps'];
+    const scraperResults = await Promise.allSettled(scraperPromises);
+
+    // 3. Collect and tag results
+    let allProducts: ScrapedProduct[] = [];
     const scraperStatus: Record<string, 'ok' | 'failed' | 'timeout'> = {};
 
     for (let i = 0; i < scraperResults.length; i++) {
       const result = scraperResults[i];
       if (result.status === 'fulfilled') {
-        const productCount = result.value.length;
-        this.logger.log(`${scraperNames[i]}: ${productCount} products`);
         scraperStatus[scraperNames[i]] = 'ok';
-        if (productCount > 0) {
-          if (scraperNames[i] === 'GoogleMaps' && this.shouldScrapeGas(query)) {
+        if (result.value) {
+          if (scraperNames[i] === 'GoogleMaps') {
             const stations = result.value as any[];
-            allProducts.push(...stations.map(gs => ({
-              store: gs.name,
-              product: 'Regular Gasoline',
-              price: gs.prices?.regular || 0,
-              image: gs.logoUrl || '',
-              source: 'google_maps' as const,
-              category: 'gas',
-              address: gs.address,
-              lat: gs.latitude,
-              lng: gs.longitude,
-            })));
-          } else if (scraperNames[i] !== 'GoogleMaps') {
-            allProducts.push(...(result.value as ScrapedProduct[]));
+            allProducts.push(...stations.map(gs => {
+              const name = gs.name.toLowerCase();
+              let category: 'gas' | 'grocery' | 'pharmacy' = 'grocery';
+              if (name.includes('gas') || name.includes('fuel') || name.includes('chevron') || name.includes('shell')) {
+                category = 'gas';
+              } else if (name.includes('pharmacy') || name.includes('cvs') || name.includes('walgreens') || name.includes('rite aid')) {
+                category = 'pharmacy';
+              }
+
+              return {
+                store: gs.name,
+                product: category === 'gas' ? 'Regular Gasoline' : (category === 'pharmacy' ? 'Pharmacy' : 'Grocery Store'),
+                price: gs.prices?.regular || 0,
+                image: gs.logoUrl || '',
+                source: 'google_maps' as const,
+                category,
+                address: gs.address,
+                lat: gs.latitude,
+                lng: gs.longitude,
+              };
+            }));
+          } else {
+            const products = (result.value as ScrapedProduct[]).map(p => ({
+              ...p,
+              category: p.category || this.determineCategory(query, p.product),
+            }));
+            allProducts.push(...products);
           }
         }
       } else {
@@ -367,6 +396,32 @@ export class AggregatorService {
     cleaned.sort((a, b) => a.price - b.price);
 
     return cleaned.slice(0, 30);
+  }
+
+  private shouldScrapePharmacy(query: string): boolean {
+    const q = query.toLowerCase();
+    return q.includes('pharmacy') || q.includes('cvs') || q.includes('walgreens') || 
+           q.includes('medicine') || q.includes('drug') || q.includes('health') ||
+           q.includes('vitamin') || q.includes('relief') || q.includes('care');
+  }
+
+  private determineCategory(query: string, productName: string): 'grocery' | 'gas' | 'pharmacy' {
+    const combined = `${query} ${productName}`.toLowerCase();
+    
+    if (combined.includes('gasoline') || combined.includes('fuel') || combined.includes('diesel')) {
+      return 'gas';
+    }
+    
+    if (
+      combined.includes('pharmacy') || combined.includes('medicine') || combined.includes('pill') || 
+      combined.includes('health') || combined.includes('drug') || combined.includes('prescription') ||
+      combined.includes('tylenol') || combined.includes('advil') || combined.includes('claritin') ||
+      combined.includes('vitamin') || combined.includes('relief') || combined.includes('care')
+    ) {
+      return 'pharmacy';
+    }
+    
+    return 'grocery';
   }
 
   private shouldScrapeGas(query: string): boolean {

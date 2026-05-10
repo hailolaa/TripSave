@@ -67,7 +67,10 @@ export class ComparisonService {
 
       // Apply store type filter if provided
       if (storeType && storeType !== 'all' as any) {
-        items = items.filter(item => item.store.chain.type === storeType);
+        items = items.filter(item => 
+          item.store.chain?.type === storeType || 
+          (item.category && item.category.toLowerCase() === (storeType as string).toLowerCase())
+        );
       }
 
       return items;
@@ -95,7 +98,10 @@ export class ComparisonService {
 
       // Apply store type filter if provided
       if (storeType && storeType !== 'all' as any) {
-        items = items.filter(item => item.store.chain.type === storeType);
+        items = items.filter(item => 
+          item.store.chain?.type === storeType || 
+          (item.category && item.category.toLowerCase() === (storeType as string).toLowerCase())
+        );
       }
 
       return this.sortComparisons(items, sortBy);
@@ -246,8 +252,9 @@ export class ComparisonService {
         true_cost: Number(trueCost.toFixed(2)),
         items_found: 1,
         missing_items: 0,
-        products: [{ name: item.product, price: item.price, image: item.image }],
+        products: [{ name: item.product, price: item.price, image: item.image, category: item.category }],
         source: source === 'database' ? 'database' : item.source,
+        category: item.category || 'grocery',
       };
     });
   }
