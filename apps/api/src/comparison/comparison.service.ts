@@ -120,7 +120,7 @@ export class ComparisonService {
         this.logger.log(`Falling back to stale DB data: ${staleProducts.length} products for "${itemName}".`);
         return this.getBestTrueCost(
           userLat, userLng,
-          staleProducts.map(p => p.id),
+          staleProducts.map(p => ({ productId: p.id, quantity: 1 })),
           userMpg, gasPrice, storeType, isRoundTrip, sortBy
         );
       }
@@ -367,7 +367,7 @@ export class ComparisonService {
           }
         }
       } catch (error) {
-        this.logger.error(`Failed to get comparisons for cart item "${itemName}": ${error.message}`);
+        this.logger.error(`Failed to get comparisons for cart item "${item.name}": ${error.message}`);
       }
     }));
 
