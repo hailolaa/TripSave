@@ -740,15 +740,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         margin: const EdgeInsets.only(right: 12),
                         child: Column(
                           children: [
-                            Container(
-                              height: 60,
-                              width: 60,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8F9FA),
-                                borderRadius: BorderRadius.circular(16),
-                                image: _getProductImage(product['name']),
-                              ),
-                            ),
+                            _buildProductImage(product),
                             const SizedBox(height: 8),
                             Text('\$${product['price']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           ],
@@ -775,14 +767,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  DecorationImage? _getProductImage(String name) {
-    final lowerName = name.toLowerCase();
-    String asset = 'assets/images/milk.png';
-    if (lowerName.contains('bread')) asset = 'assets/images/bread.png';
-    if (lowerName.contains('orange')) asset = 'assets/images/oranges.png';
-    
-    return DecorationImage(image: AssetImage(asset), fit: BoxFit.contain);
-  }
 
   Widget _buildStoreListItem(Map<String, dynamic> data, {bool isBest = false}) {
     final store = data['store'];
@@ -910,8 +894,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Center(
                   child: deal['image_url'] != null
-                      ? Image.network(deal['image_url'], height: 100, fit: BoxFit.contain, errorBuilder: (c, e, s) => _getDealPlaceholder(deal['name']))
-                      : _getDealPlaceholder(deal['name']),
+                      ? Image.network(deal['image_url'], height: 100, fit: BoxFit.contain, errorBuilder: (c, e, s) => _buildDealPlaceholder(deal))
+                      : _buildDealPlaceholder(deal),
                 ),
               ),
               Positioned(
@@ -954,10 +938,58 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _getDealPlaceholder(String name) {
-    final lowerName = name.toLowerCase();
-    String asset = 'assets/images/milk.png';
-    if (lowerName.contains('orange')) asset = 'assets/images/oranges.png';
-    return Image.asset(asset, height: 80, fit: BoxFit.contain);
+  Widget _buildProductImage(Map<String, dynamic> product) {
+    final name = product['name']?.toString().toLowerCase() ?? '';
+    final category = product['category']?.toString().toLowerCase() ?? '';
+    
+    IconData icon = Icons.shopping_basket_rounded;
+    Color color = Colors.grey.shade400;
+
+    if (category.contains('pharmacy') || name.contains('med') || name.contains('pill') || name.contains('drug')) {
+      icon = Icons.medication_rounded;
+      color = const Color(0xFF6A3CE2).withValues(alpha: 0.5);
+    } else if (category.contains('house') || name.contains('clean') || name.contains('soap') || name.contains('wash')) {
+      icon = Icons.inventory_2_rounded;
+      color = Colors.blueGrey.shade300.withValues(alpha: 0.5);
+    } else {
+      color = AppTheme.savingsGreen.withValues(alpha: 0.5);
+    }
+
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: color, size: 28),
+    );
+  }
+
+  Widget _buildDealPlaceholder(Map<String, dynamic> deal) {
+    final name = deal['name']?.toString().toLowerCase() ?? '';
+    final category = deal['category']?.toString().toLowerCase() ?? '';
+    
+    IconData icon = Icons.shopping_cart_rounded;
+    Color color = AppTheme.primaryBlue;
+
+    if (category.contains('pharmacy') || name.contains('med') || name.contains('pill')) {
+      icon = Icons.local_pharmacy_rounded;
+      color = const Color(0xFF6A3CE2);
+    } else if (category.contains('house') || name.contains('clean') || name.contains('home')) {
+      icon = Icons.home_rounded;
+      color = Colors.blueGrey;
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 40, color: color.withValues(alpha: 0.3)),
+          const SizedBox(height: 8),
+          Icon(Icons.image_not_supported_outlined, size: 16, color: color.withValues(alpha: 0.2)),
+        ],
+      ),
+    );
   }
 }

@@ -332,7 +332,7 @@ class _ListScreenState extends State<ListScreen> {
               const SizedBox(width: 4),
               Expanded(child: _buildSummaryPill(Icons.local_gas_station_outlined, 'Drive: \$$driveCost')),
               const SizedBox(width: 4),
-              Expanded(child: _buildSummaryPill(Icons.timer_outlined, '${summary['driving_distance'] ?? 0} mi')),
+              Expanded(child: _buildSummaryPill(Icons.timer_outlined, '${((summary['driving_distance'] ?? 0) / 2).toStringAsFixed(1)} mi')),
             ],
           ),
         ],

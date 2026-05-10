@@ -537,11 +537,13 @@ class _CompareScreenState extends State<CompareScreen> {
                     );
                     
                     Navigator.pop(context);
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Trip saved! You saved \$${savings.toStringAsFixed(2)}'),
                         behavior: SnackBarBehavior.floating,
                         backgroundColor: AppTheme.savingsGreen,
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                   },

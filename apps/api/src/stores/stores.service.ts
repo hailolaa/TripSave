@@ -28,6 +28,7 @@ export class StoresService {
           * sin( radians( store.lat ) ) ) )
       `, 'distance')
       .where('store.is_active = :isActive', { isActive: true })
+      .andWhere('store.lat != 0 AND store.lng != 0')
       .having('distance <= :radiusMiles')
       .orderBy('distance', 'ASC')
       .setParameters({

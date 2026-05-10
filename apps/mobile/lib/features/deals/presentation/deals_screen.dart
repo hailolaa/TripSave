@@ -88,19 +88,28 @@ class _DealsScreenState extends State<DealsScreen> {
                       child: Row(
                         children: [
                           GestureDetector(
-                            onTap: () => setState(() => _selectedTopPill = 0),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setState(() => _selectedTopPill = 0);
+                            },
                             child: _buildPill(Icons.local_offer_outlined, 'All Deals', _selectedTopPill == 0)
                                 .animate().fadeIn(duration: 400.ms).slideX(begin: 0.1),
                           ),
                           const SizedBox(width: 8),
                           GestureDetector(
-                            onTap: () => setState(() => _selectedTopPill = 1),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setState(() => _selectedTopPill = 1);
+                            },
                             child: _buildPill(Icons.percent, 'Clearance', _selectedTopPill == 1, isOrange: true)
                                 .animate(delay: 100.ms).fadeIn(duration: 400.ms).slideX(begin: 0.1),
                           ),
                           const SizedBox(width: 8),
                           GestureDetector(
-                            onTap: () => setState(() => _selectedTopPill = 2),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              setState(() => _selectedTopPill = 2);
+                            },
                             child: _buildPill(Icons.star_border, 'My Saving', _selectedTopPill == 2)
                                 .animate(delay: 200.ms).fadeIn(duration: 400.ms).slideX(begin: 0.1),
                           ),
@@ -212,7 +221,8 @@ class _DealsScreenState extends State<DealsScreen> {
     // 1. Top Pill Filtering
     bool matchesTop = true;
     if (_selectedTopPill == 1) { // Clearance
-      matchesTop = (deal['savings_percentage'] ?? 0) > 0;
+      final savingsPct = num.tryParse(deal['savings_percentage']?.toString() ?? '0') ?? 0;
+      matchesTop = savingsPct > 0;
     } else if (_selectedTopPill == 2) { // My Saving
       final listState = context.read<ListCubit>().state;
       if (listState is ListLoaded) {
@@ -229,18 +239,26 @@ class _DealsScreenState extends State<DealsScreen> {
     if (_selectedFilter == 0) return true;
 
     final category = (deal['category'] ?? '').toString().toLowerCase();
+    final name = (deal['name'] ?? '').toString().toLowerCase();
     final storeType = (deal['store']?['chain']?['type'] ?? '').toString().toLowerCase();
 
     switch (_filters[_selectedFilter].toLowerCase()) {
       case 'grocery':
-        return storeType == 'grocery' || category.contains('grocery') || category.contains('food') || 
-               category.contains('bev') || category.contains('produce');
+        return storeType == 'grocery' || 
+               category.contains('grocery') || category.contains('food') || category.contains('bev') || category.contains('produce') ||
+               name.contains('milk') || name.contains('bread') || name.contains('egg') || name.contains('meat') || 
+               name.contains('fruit') || name.contains('veg') || name.contains('snack') || name.contains('drink') ||
+               name.contains('dairy') || name.contains('pantry') || name.contains('frozen');
       case 'pharmacy':
-        return storeType == 'pharmacy' || category.contains('pharmacy') || category.contains('medicine') || 
-               category.contains('health') || category.contains('wellness');
+        return storeType == 'pharmacy' || 
+               category.contains('pharmacy') || category.contains('medicine') || category.contains('health') || category.contains('wellness') ||
+               name.contains('med') || name.contains('pill') || name.contains('drug') || name.contains('vitamin') || 
+               name.contains('cold') || name.contains('flu') || name.contains('pain') || name.contains('care');
       case 'household':
         return category.contains('house') || category.contains('clean') || category.contains('home') || 
-               category.contains('paper') || category.contains('personal care');
+               category.contains('paper') || category.contains('personal care') ||
+               name.contains('wash') || name.contains('soap') || name.contains('detergent') || name.contains('kitchen') || 
+               name.contains('bath') || name.contains('toilet') || name.contains('towel') || name.contains('bag');
       default:
         return true;
     }
@@ -282,13 +300,13 @@ class _DealsScreenState extends State<DealsScreen> {
                             child: CachedNetworkImage(
                               imageUrl: deal['image_url'], 
                               fit: BoxFit.cover, 
-                              placeholder: (context, url) => const Center(child: Icon(Icons.shopping_basket, color: Colors.grey, size: 20)),
-                              errorWidget: (context, url, error) => const Icon(Icons.fastfood, color: Colors.grey),
+                              placeholder: (context, url) => Center(child: Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 20)),
+                              errorWidget: (context, url, error) => Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 32),
                             ),
                           )
-                        : const Icon(Icons.fastfood, color: Colors.grey),
+                        : Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 32),
                     ),
-                    if (deal['savings_percentage'] > 0)
+                    if (num.tryParse(deal['savings_percentage']?.toString() ?? '0')! > 0)
                       Positioned(
                         top: -6,
                         left: -6,
@@ -339,9 +357,11 @@ class _DealsScreenState extends State<DealsScreen> {
                     await listCubit.addToCart(deal['productId']);
                     homeCubit.loadDashboard();
                     if (context.mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: AppTheme.textDark,
+                          duration: const Duration(seconds: 2),
                           content: Text('${deal['name']} added to your list!', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           behavior: SnackBarBehavior.floating,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -358,13 +378,25 @@ class _DealsScreenState extends State<DealsScreen> {
                     ),
                     child: const Icon(Icons.add_shopping_cart_rounded, color: AppTheme.primaryBlue, size: 20),
                   ),
-                )
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  IconData _getCategoryIcon(Map<String, dynamic> deal) {
+    final name = deal['name']?.toString().toLowerCase() ?? '';
+    final category = deal['category']?.toString().toLowerCase() ?? '';
+
+    if (category.contains('pharmacy') || name.contains('med') || name.contains('pill') || name.contains('drug')) {
+      return Icons.local_pharmacy_rounded;
+    } else if (category.contains('house') || name.contains('clean') || name.contains('home') || name.contains('soap')) {
+      return Icons.home_rounded;
+    }
+    return Icons.shopping_basket_rounded;
   }
 }
 

@@ -7,6 +7,7 @@ import { StoreProduct } from '../products/store-product.entity';
 import { StoreChainType } from '../stores/store-chain.entity';
 import { GasPrice } from '../gas/gas-price.entity';
 import { Product } from '../products/product.entity';
+import { Store } from '../stores/store.entity';
 import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
@@ -30,6 +31,8 @@ export class ComparisonService {
     private gasPriceRepository: Repository<GasPrice>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    @InjectRepository(Store)
+    private storesRepository: Repository<Store>,
   ) {}
 
   /**
@@ -175,6 +178,23 @@ export class ComparisonService {
         const geo = await geocodePlaceNear(storeName, userLat, userLng, 0.35);
         if (geo) {
           storeCoordOverrides.set(storeName.toLowerCase(), { lat: geo.lat, lng: geo.lng, address: geo.displayName });
+          
+          // PERSISTENCE: If we have a store in the DB with 0,0 coords, update it now
+          // so we don't have to geocode it again next time.
+          try {
+            const storeToUpdate = await this.storesRepository.findOne({
+              where: { name: storeName, lat: 0, lng: 0 }
+            });
+            if (storeToUpdate) {
+              this.logger.log(`Fixing 0,0 coordinates for store "${storeName}" -> ${geo.lat}, ${geo.lng}`);
+              storeToUpdate.lat = geo.lat;
+              storeToUpdate.lng = geo.lng;
+              if (!storeToUpdate.address) storeToUpdate.address = geo.displayName;
+              await this.storesRepository.save(storeToUpdate);
+            }
+          } catch (e) {
+            this.logger.warn(`Failed to persist geocoded coordinates for ${storeName}: ${e.message}`);
+          }
         }
       }),
     );
@@ -253,7 +273,7 @@ export class ComparisonService {
       return {
         store: storeData,
         item_total: Number(item.price.toFixed(2)),
-        driving_distance: Number(displayDistance.toFixed(1)),
+        driving_distance: Number((displayDistance * (isRoundTrip ? 2 : 1)).toFixed(2)),
         driving_cost: Number(driveCost.toFixed(2)),
         true_cost: Number(trueCost.toFixed(2)),
         items_found: 1,
@@ -279,8 +299,8 @@ export class ComparisonService {
     sortBy: string = 'true_cost'
   ) {
     this.logger.log(`DEBUG: Entering getBestTrueCost with lat: ${userLat}, lng: ${userLng}`);
-    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
-    this.logger.log(`DEBUG: Found ${nearbyStores.length} stores within 10000 miles of ${userLat}, ${userLng}`);
+    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 50);
+    this.logger.log(`DEBUG: Found ${nearbyStores.length} stores within 50 miles of ${userLat}, ${userLng}`);
     
     // We don't filter stores early here anymore to allow "Pharmacy" items 
     // to be found in "Grocery" stores (like Walmart/Kroger) and vice versa.
