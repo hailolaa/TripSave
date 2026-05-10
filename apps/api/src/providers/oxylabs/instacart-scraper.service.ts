@@ -103,21 +103,30 @@ export class InstacartScraperService extends OxylabsBaseService {
       if (name) name = name.replace(/^Image of /i, '').trim();
 
       // Extract Store/Retailer
-      // Instacart often has a logo img with alt="Store Name logo"
       let storeName = '';
-      const logoAlt = $('img[alt*=" logo"]').first().attr('alt');
-      if (logoAlt) {
-        storeName = logoAlt.replace(/ logo$/i, '');
+      
+      // 1. Try to find retailer slug in the item's own links (most accurate for cross-retailer search)
+      const itemLink = block.find('a[href*="retailerSlug="]').first().attr('href');
+      if (itemLink) {
+        const slugMatch = itemLink.match(/retailerSlug=([^&?]+)/);
+        if (slugMatch) {
+          storeName = slugMatch[1].replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        }
       }
 
-      // If not found globally, try to find retailer slug in links
+      // 2. Fallback: look for a logo img within the block
       if (!storeName) {
-        const link = block.find('a[href*="retailerSlug="]').attr('href');
-        if (link) {
-          const slugMatch = link.match(/retailerSlug=([^&?]+)/);
-          if (slugMatch) {
-            storeName = slugMatch[1].replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-          }
+        const blockLogo = block.find('img[alt*=" logo"]').first().attr('alt');
+        if (blockLogo) {
+          storeName = blockLogo.replace(/ logo$/i, '');
+        }
+      }
+
+      // 3. Last resort: look for a global logo on the page (might be a single-retailer search)
+      if (!storeName) {
+        const globalLogo = $('img[alt*=" logo"]').first().attr('alt');
+        if (globalLogo) {
+          storeName = globalLogo.replace(/ logo$/i, '');
         }
       }
 
