@@ -67,11 +67,12 @@ export class OxylabsBaseService {
       render: options.render ? 'html' : undefined,
       parse: options.parse || undefined,
       geo_location: options.geo_location,
-      render_parameters: options.render_parameters,
     };
 
     // Remove undefined keys
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+    this.logger.debug(`Oxylabs Payload: ${JSON.stringify(payload)}`);
 
     this.logger.debug(`Sending Oxylabs request: ${url || options.query}`);
 

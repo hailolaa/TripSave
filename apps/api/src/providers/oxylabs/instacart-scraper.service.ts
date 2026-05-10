@@ -27,7 +27,6 @@ export class InstacartScraperService extends OxylabsBaseService {
         query,
         render: true,
         geo_location: zip || undefined,
-        render_parameters: { wait: 5000 },
       });
 
       return this.parse(html);
