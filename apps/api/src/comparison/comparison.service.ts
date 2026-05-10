@@ -437,12 +437,12 @@ export class ComparisonService {
       };
     }));
 
-    let filteredResults = comparisons.filter(Boolean);
+    let filteredResults = comparisons.filter(Boolean) as any[];
     if (storeType && storeType !== 'all' as any) {
       const typeStr = (storeType as string).toLowerCase();
-      filteredResults = comparisons.filter(c => 
+      filteredResults = filteredResults.filter(c => 
         c.store.chain?.type === storeType || 
-        c.products.some(p => p.category === typeStr)
+        c.products.some((p: any) => p.category === typeStr)
       );
     }
 
@@ -560,7 +560,7 @@ export class ComparisonService {
       };
     }));
 
-    return this.sortComparisons(comparisons.filter(Boolean), sortBy);
+    return this.sortComparisons(comparisons.filter(Boolean) as any[], sortBy);
   }
 
   /**
