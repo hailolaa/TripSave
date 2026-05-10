@@ -10,6 +10,7 @@ import { ProductsModule } from '../products/products.module';
 import { StoreProduct } from '../products/store-product.entity';
 import { GasPrice } from '../gas/gas-price.entity';
 import { Product } from '../products/product.entity';
+import { Store } from '../stores/store.entity';
 import { AdminModule } from '../admin/admin.module';
 
 @Module({
@@ -20,7 +21,7 @@ import { AdminModule } from '../admin/admin.module';
     ProvidersModule,
     ProductsModule,
     AdminModule,
-    TypeOrmModule.forFeature([StoreProduct, GasPrice, Product])
+    TypeOrmModule.forFeature([StoreProduct, GasPrice, Product, Store])
   ],
   providers: [ComparisonService],
   controllers: [ComparisonController],
