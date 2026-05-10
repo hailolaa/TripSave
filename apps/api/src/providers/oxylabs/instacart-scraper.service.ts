@@ -25,7 +25,6 @@ export class InstacartScraperService extends OxylabsBaseService {
         source: 'instacart_search',
         query,
         render: true,
-        parse: true, // Let Oxylabs try to parse, but we still have our fallback
         geo_location: zip || undefined,
       });
 

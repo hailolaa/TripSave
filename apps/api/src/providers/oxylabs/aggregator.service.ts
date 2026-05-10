@@ -146,12 +146,12 @@ export class AggregatorService {
         this.logger.log(`${scraperNames[i]}: ${productCount} products`);
         scraperStatus[scraperNames[i]] = 'ok';
         if (productCount > 0) {
-          if (scraperNames[i] === 'GoogleMaps') {
+          if (scraperNames[i] === 'GoogleMaps' && this.shouldScrapeGas(query)) {
             const stations = result.value as any[];
             allProducts.push(...stations.map(gs => ({
               store: gs.name,
               product: 'Regular Gasoline',
-              price: gs.prices.regular || 0,
+              price: gs.prices?.regular || 0,
               image: gs.logoUrl || '',
               source: 'google_maps' as const,
               category: 'gas',
@@ -159,7 +159,7 @@ export class AggregatorService {
               lat: gs.latitude,
               lng: gs.longitude,
             })));
-          } else {
+          } else if (scraperNames[i] !== 'GoogleMaps') {
             allProducts.push(...(result.value as ScrapedProduct[]));
           }
         }
