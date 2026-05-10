@@ -411,15 +411,23 @@ export class AggregatorService {
     if (combined.includes('gasoline') || combined.includes('fuel') || combined.includes('diesel') || combined.includes('gas station')) {
       return 'gas';
     }
+
+    // Exempt common grocery items that might trigger pharmacy keywords
+    if (combined.includes('milk') || combined.includes('bread') || combined.includes('egg') || combined.includes('cheese')) {
+      return 'grocery';
+    }
+
+    // Ignore 'vitamin d' and 'vitamin c' (e.g., milk with vitamin D) when checking for generic 'vitamin'
+    const cleanCombined = combined.replace('vitamin d', '').replace('vitamin c', '').replace('health & wellness', '');
     
     if (
-      combined.includes('pharmacy') || combined.includes('medicine') || combined.includes('pill') || 
-      combined.includes('health') || combined.includes('drug') || combined.includes('prescription') ||
-      combined.includes('tylenol') || combined.includes('advil') || combined.includes('claritin') ||
-      combined.includes('vitamin') || combined.includes('relief') || combined.includes('care') ||
-      combined.includes('thermometer') || combined.includes('bandage') || combined.includes('mask') ||
-      combined.includes('test kit') || combined.includes('cvs') || combined.includes('walgreens') ||
-      combined.includes('rite aid') || combined.includes('pharm')
+      cleanCombined.includes('pharmacy') || cleanCombined.includes('medicine') || cleanCombined.includes('pill') || 
+      cleanCombined.includes('health') || cleanCombined.includes('drug') || cleanCombined.includes('prescription') ||
+      cleanCombined.includes('tylenol') || cleanCombined.includes('advil') || cleanCombined.includes('claritin') ||
+      cleanCombined.includes('vitamin') || cleanCombined.includes('relief') || cleanCombined.includes('care') ||
+      cleanCombined.includes('thermometer') || cleanCombined.includes('bandage') || cleanCombined.includes('mask') ||
+      cleanCombined.includes('test kit') || cleanCombined.includes('cvs') || cleanCombined.includes('walgreens') ||
+      cleanCombined.includes('rite aid') || cleanCombined.includes('pharm')
     ) {
       return 'pharmacy';
     }
