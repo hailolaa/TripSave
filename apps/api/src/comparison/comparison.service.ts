@@ -179,7 +179,7 @@ export class ComparisonService {
       }),
     );
 
-    return products.map(item => {
+    return products.map((item: any) => {
       const storeName = typeof item.store === 'string' ? item.store : (item.store?.name || '');
       const productName = typeof item.product === 'string' ? item.product : (item.product?.name || '');
       const itemCategory = (item as any).category || this.aggregatorService.determineCategory('', productName);
