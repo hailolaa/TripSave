@@ -20,7 +20,7 @@ export class WalmartScraperService extends OxylabsBaseService {
     try {
       const html = await this.scrape(url, {
         render: true,
-        geo_location: zip ? `US-${zip}` : undefined,
+        geo_location: zip || undefined,
       });
 
       return this.parse(html);

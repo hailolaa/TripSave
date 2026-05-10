@@ -45,8 +45,8 @@ export class ComparisonController {
     const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
     if (!isUSA) {
       this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Defaulting to Dallas, TX.`);
-      finalLat = 32.7767;
-      finalLng = -96.7970;
+      finalLat = 32.7904;
+      finalLng = -96.8044;
     }
 
     let resolvedZip = user?.zip_code;
@@ -104,8 +104,8 @@ export class ComparisonController {
     // Restriction: USA searches only. If outside, default to Dallas.
     const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
     if (!isUSA) {
-      finalLat = 32.7767;
-      finalLng = -96.7970;
+      finalLat = 32.7904;
+      finalLng = -96.8044;
     }
 
     return this.comparisonService.getBestTrueCost(
@@ -157,8 +157,8 @@ export class ComparisonController {
     // Restriction: USA searches only. If outside, default to Dallas.
     const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
     if (!isUSA) {
-      finalLat = 32.7767;
-      finalLng = -96.7970;
+      finalLat = 32.7904;
+      finalLng = -96.8044;
     }
 
     return this.comparisonService.getBestTrueCost(
@@ -204,8 +204,8 @@ export class ComparisonController {
     const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
     if (!isUSA) {
       this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Defaulting to Dallas, TX.`);
-      finalLat = 32.7767;
-      finalLng = -96.7970;
+      finalLat = 32.7904;
+      finalLng = -96.8044;
       resolvedLocation = 'Dallas, TX';
     }
 
