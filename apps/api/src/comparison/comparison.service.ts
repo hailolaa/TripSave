@@ -180,7 +180,10 @@ export class ComparisonService {
     );
 
     return products.map(item => {
-      const storeName = item.store || '';
+      const storeName = typeof item.store === 'string' ? item.store : (item.store?.name || '');
+      const productName = typeof item.product === 'string' ? item.product : (item.product?.name || '');
+      const itemCategory = (item as any).category || this.aggregatorService.determineCategory('', productName);
+
       // Find the nearest local store that matches this retailer's name
       const localMatch = nearbyStores.find(ns => 
         ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
@@ -190,11 +193,14 @@ export class ComparisonService {
       let distance = 0;
       let driveCost = 0;
       let storeData: any = {
-        name: item.store,
-        chain: { name: item.store, type: item.category || 'grocery' },
-        address: item.address || '',
-        lat: item.lat || 0,
-        lng: item.lng || 0,
+        name: storeName,
+        chain: { 
+          name: storeName, 
+          type: localMatch?.store.chain?.type || itemCategory || 'grocery' 
+        },
+        address: (item as any).address || localMatch?.store.address || '',
+        lat: (item as any).lat || Number(localMatch?.store.lat) || 0,
+        lng: (item as any).lng || Number(localMatch?.store.lng) || 0,
         zip,
       };
 
@@ -252,9 +258,9 @@ export class ComparisonService {
         true_cost: Number(trueCost.toFixed(2)),
         items_found: 1,
         missing_items: 0,
-        products: [{ name: item.product, price: item.price, image: item.image, category: item.category }],
-        source: source === 'database' ? 'database' : item.source,
-        category: item.category || 'grocery',
+        products: [{ name: productName, price: item.price, image: (item as any).image, category: itemCategory }],
+        source: source === 'database' ? 'database' : (item as any).source,
+        category: itemCategory,
       };
     });
   }
