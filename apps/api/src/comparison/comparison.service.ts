@@ -73,7 +73,7 @@ export class ComparisonService {
         );
       }
 
-      return items;
+      return this.sortComparisons(items, sortBy);
     }
 
     // ── Step 2: No fresh DB data — scrape live ──────────────────────
