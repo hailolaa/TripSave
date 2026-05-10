@@ -276,10 +276,10 @@ export class ComparisonService {
     let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 10000);
     this.logger.log(`DEBUG: Found ${nearbyStores.length} stores within 10000 miles of ${userLat}, ${userLng}`);
     
-    if (storeType) {
-      nearbyStores = nearbyStores.filter(ns => ns.store.chain.type === storeType);
-      this.logger.log(`DEBUG: Filtered to ${nearbyStores.length} stores of type ${storeType}`);
-    }
+    // We don't filter stores early here anymore to allow "Pharmacy" items 
+    // to be found in "Grocery" stores (like Walmart/Kroger) and vice versa.
+    // The filtering will happen at the end based on product categories.
+    this.logger.log(`DEBUG: Found ${nearbyStores.length} stores total. Filtering will be applied to product matches.`);
     
     if (!nearbyStores.length) {
       this.logger.warn(`DEBUG: No stores found nearby for lat: ${userLat}, lng: ${userLng}`);
@@ -358,11 +358,24 @@ export class ComparisonService {
         true_cost: Number(trueCost.toFixed(2)),
         items_found: items.length,
         missing_items: missingProductsCount,
-        products: items.map(i => ({ name: i.product.name, price: Number(i.sale_price ?? i.price) }))
+        products: items.map(i => ({ 
+          name: i.product.name, 
+          price: Number(i.sale_price ?? i.price),
+          category: this.aggregatorService.determineCategory('', i.product.name)
+        }))
       });
     }
 
-    return this.sortComparisons(comparisons, sortBy);
+    let filteredResults = comparisons;
+    if (storeType && storeType !== 'all' as any) {
+      const typeStr = (storeType as string).toLowerCase();
+      filteredResults = comparisons.filter(c => 
+        c.store.chain?.type === storeType || 
+        c.products.some(p => p.category === typeStr)
+      );
+    }
+
+    return this.sortComparisons(filteredResults, sortBy);
   }
 
   /**

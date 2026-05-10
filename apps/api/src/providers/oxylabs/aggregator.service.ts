@@ -404,7 +404,7 @@ export class AggregatorService {
            q.includes('vitamin') || q.includes('relief') || q.includes('care');
   }
 
-  private determineCategory(query: string, productName: string): 'grocery' | 'gas' | 'pharmacy' {
+  public determineCategory(query: string, productName: string): 'grocery' | 'gas' | 'pharmacy' {
     const combined = `${query} ${productName}`.toLowerCase();
     
     if (combined.includes('gasoline') || combined.includes('fuel') || combined.includes('diesel')) {
