@@ -13,6 +13,7 @@ import { ComparisonModule } from './comparison/comparison.module';
 import { OsrmModule } from './integrations/osrm/osrm.module';
 import { ProvidersModule } from './providers/providers.module';
 import { AdminModule } from './admin/admin.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { AdminModule } from './admin/admin.module';
     ComparisonModule, 
     OsrmModule,
     ProvidersModule,
-    AdminModule
+    AdminModule,
+    SubscriptionModule
   ],
   controllers: [AppController],
   providers: [AppService],

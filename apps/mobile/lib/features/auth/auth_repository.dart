@@ -107,4 +107,17 @@ class AuthRepository {
   Future<String?> getUserEmail() async {
     return await _storage.read(key: 'user_email');
   }
+
+  Future<void> saveReferral(String source) async {
+    await apiClient.dio.post('/subscription/referral', data: {'source': source});
+  }
+
+  Future<String> createSetupIntent() async {
+    final response = await apiClient.dio.post('/subscription/setup-intent');
+    return response.data['clientSecret'];
+  }
+
+  Future<void> activateTrial(String paymentMethodId) async {
+    await apiClient.dio.post('/subscription/activate-trial', data: {'paymentMethodId': paymentMethodId});
+  }
 }

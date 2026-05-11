@@ -35,6 +35,22 @@ export class User {
   @Column({ nullable: true })
   zip_code: string;
 
+  @Column({ nullable: true })
+  referral_source: string;
+
+  @Column({ nullable: true })
+  stripe_customer_id: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['none', 'trialing', 'active', 'canceled', 'past_due'],
+    default: 'none'
+  })
+  subscription_status: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  trial_end_date: Date;
+
   @Column({ type: 'enum', enum: ['user', 'admin'], default: 'user' })
   role: string;
 

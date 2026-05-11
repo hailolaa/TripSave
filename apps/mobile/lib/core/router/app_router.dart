@@ -13,6 +13,8 @@ import '../../features/home/presentation/category_detail_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
+import '../../features/auth/referral_screen.dart';
+import '../../features/auth/payment_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
@@ -93,6 +95,16 @@ final GoRouter appRouter = GoRouter(
       path: '/onboarding',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const OnboardingScreen(),
+    ),
+    GoRoute(
+      path: '/referral',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ReferralScreen(),
+    ),
+    GoRoute(
+      path: '/payment',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PaymentScreen(),
     ),
   ],
 );

@@ -238,7 +238,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ]).animate(delay: 600.ms).fadeIn().slideX(begin: 0.1),
             const SizedBox(height: 24),
-            Text('ABOUT', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 12)).animate(delay: 700.ms).fadeIn().slideX(begin: 0.1),
+            Text('SUBSCRIPTION', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 12)).animate(delay: 650.ms).fadeIn().slideX(begin: 0.1),
+            const SizedBox(height: 12),
+            _buildSettingsCard([
+              _buildSettingRow(
+                Icons.credit_card, const Color(0xFFE0E7FF), 'Payment Method', 
+                _profile?['subscription_status'] == 'trialing' ? 'Free Trial' : 'Active',
+                onTap: () => context.push('/payment'),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _profile?['trial_end_date'] != null 
+                            ? 'Your free trial ends on ${DateTime.parse(_profile!['trial_end_date']).toLocal().toString().split(' ')[0]}' 
+                            : 'Subscription is active.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ]).animate(delay: 700.ms).fadeIn().slideX(begin: 0.1),
+            const SizedBox(height: 24),
+            Text('ABOUT', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 12)).animate(delay: 750.ms).fadeIn().slideX(begin: 0.1),
             const SizedBox(height: 12),
             _buildSettingsCard([
               _buildSettingRow(Icons.lock_outline, Colors.grey.shade200, 'Privacy Policy', '', onTap: () => _showInfoDialog('Privacy Policy', 'We value your privacy. Your data is encrypted and never sold.')),

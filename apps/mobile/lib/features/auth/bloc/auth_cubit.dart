@@ -16,6 +16,8 @@ class AuthAuthenticated extends AuthState {
   List<Object?> get props => [userName];
 }
 class AuthOnboardingRequired extends AuthState {}
+class AuthReferralRequired extends AuthState {}
+class AuthPaymentRequired extends AuthState {}
 class AuthUnauthenticated extends AuthState {}
 class AuthError extends AuthState {
   final String message;
@@ -31,7 +33,35 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> checkAuth() async {
     final isLoggedIn = await authRepository.isLoggedIn();
-    emit(isLoggedIn ? AuthAuthenticated() : AuthUnauthenticated());
+    if (!isLoggedIn) {
+      emit(AuthUnauthenticated());
+      return;
+    }
+
+    try {
+      final profile = await authRepository.getProfile();
+      if (profile == null) {
+        emit(AuthUnauthenticated());
+        return;
+      }
+
+      _resolveAuthState(profile);
+    } catch (e) {
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  void _resolveAuthState(Map<String, dynamic> profile) {
+    final referralSource = profile['referral_source'];
+    final subStatus = profile['subscription_status'];
+
+    if (referralSource == null || (referralSource as String).isEmpty) {
+      emit(AuthReferralRequired());
+    } else if (subStatus == 'none') {
+      emit(AuthPaymentRequired());
+    } else {
+      emit(AuthAuthenticated(userName: profile['name'] ?? ''));
+    }
   }
 
   Future<void> login(String email, String password) async {
@@ -54,8 +84,13 @@ class AuthCubit extends Cubit<AuthState> {
 
     emit(AuthLoading());
     try {
-      await authRepository.login(email, password);
-      emit(AuthAuthenticated());
+      final response = await authRepository.login(email, password);
+      final user = response['user'];
+      if (user != null) {
+        _resolveAuthState(user);
+      } else {
+        emit(AuthAuthenticated());
+      }
     } catch (e) {
       final msg = _parseError(e);
       emit(AuthError(msg));
@@ -93,7 +128,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
     try {
       await authRepository.register(name, email, password);
-      emit(AuthOnboardingRequired());
+      emit(AuthReferralRequired());
     } catch (e) {
       final msg = _parseError(e);
       emit(AuthError(msg));
@@ -126,10 +161,35 @@ class AuthCubit extends Cubit<AuthState> {
         'vehicle_mpg': mpg,
         'default_gas_price': gasPrice,
       });
-      final name = await authRepository.getUserName();
-      emit(AuthAuthenticated(userName: name ?? ''));
+      final profile = await authRepository.getProfile();
+      if (profile != null) {
+        _resolveAuthState(profile);
+      }
     } catch (e) {
       emit(AuthError('Failed to save vehicle details'));
+    }
+  }
+
+  Future<void> submitReferral(String source) async {
+    emit(AuthLoading());
+    try {
+      await authRepository.saveReferral(source);
+      emit(AuthPaymentRequired());
+    } catch (e) {
+      emit(AuthError('Failed to save referral source'));
+    }
+  }
+
+  Future<void> submitPayment(String paymentMethodId) async {
+    emit(AuthLoading());
+    try {
+      await authRepository.activateTrial(paymentMethodId);
+      final profile = await authRepository.getProfile();
+      if (profile != null) {
+        _resolveAuthState(profile);
+      }
+    } catch (e) {
+      emit(AuthError('Failed to activate trial. Please check your card info.'));
     }
   }
 }
