@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:flutter/foundation.dart';
 import 'bloc/auth_cubit.dart';
 import 'auth_repository.dart';
 import '../../core/di/injection.dart';
@@ -115,19 +116,41 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white12),
                 ),
-                child: Column(
-                  children: [
-                    CardField(
-                      controller: controller,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                      onCardChanged: (card) {
-                        setState(() {
-                          _isReady = card?.complete ?? false;
-                        });
-                      },
+                child: kIsWeb 
+                  ? Column(
+                      children: [
+                        const Icon(Icons.computer, color: Colors.amber, size: 48),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Stripe Card Form is mobile-only',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'For security, the custom card field is only available on Android and iOS apps. On Web, please use the "Test Bypass" below to continue development.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () => context.read<AuthCubit>().submitPayment('pm_card_visa'),
+                          child: const Text('Bypass Payment (Test Mode)'),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        CardField(
+                          controller: controller,
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          onCardChanged: (card) {
+                            setState(() {
+                              _isReady = card?.complete ?? false;
+                            });
+                          },
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               ),
               const SizedBox(height: 24),
               Row(

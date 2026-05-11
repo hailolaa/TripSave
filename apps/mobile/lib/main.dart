@@ -20,12 +20,16 @@ import 'features/location/bloc/location_cubit.dart';
 
 import 'package:flutter_stripe/flutter_stripe.dart';
 
+import 'package:flutter/foundation.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize Stripe
   Stripe.publishableKey = "pk_test_51TVzJnRX4uhAy7vXWJ9PkTXZ0bHpC0UYNSc6bUYD4SIkUKWZOOF8zEb2SGHG2mHrRhM0nfkvpd5GyyZGWZ92jGYO00RStIawoh";
-  await Stripe.instance.applySettings();
+  if (!kIsWeb) {
+    await Stripe.instance.applySettings();
+  }
 
   await setupDependencies();
   runApp(const MyApp());
