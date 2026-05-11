@@ -8,13 +8,13 @@ import Stripe from 'stripe';
 @Injectable()
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
-  private stripe: Stripe;
+  private stripe: any;
 
   constructor(
     private readonly configService: ConfigService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {
-    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY') || '';
     this.stripe = new Stripe(secretKey, {
       apiVersion: '2025-01-27.acacia' as any,
     });
@@ -45,7 +45,7 @@ export class SubscriptionService {
       payment_method_types: ['card'],
     });
 
-    return { clientSecret: setupIntent.client_secret };
+    return { clientSecret: setupIntent.client_secret || '' };
   }
 
   async saveReferral(userId: string, source: string): Promise<void> {
@@ -86,7 +86,9 @@ export class SubscriptionService {
     });
 
     user.subscription_status = 'trialing';
-    user.trial_end_date = new Date(subscription.trial_end * 1000);
+    if (subscription.trial_end) {
+      user.trial_end_date = new Date(subscription.trial_end * 1000);
+    }
     await this.userRepo.save(user);
   }
 
@@ -102,8 +104,8 @@ export class SubscriptionService {
   }
 
   async handleWebhook(signature: string, payload: Buffer): Promise<void> {
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
-    let event: Stripe.Event;
+    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
+    let event: any;
 
     try {
       event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
@@ -117,11 +119,11 @@ export class SubscriptionService {
     switch (event.type) {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as any;
         await this.updateUserSubscriptionStatus(subscription);
         break;
       case 'invoice.payment_failed':
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as any;
         if (invoice.subscription) {
           const sub = await this.stripe.subscriptions.retrieve(invoice.subscription as string);
           await this.updateUserSubscriptionStatus(sub);
@@ -130,7 +132,7 @@ export class SubscriptionService {
     }
   }
 
-  private async updateUserSubscriptionStatus(subscription: Stripe.Subscription): Promise<void> {
+  private async updateUserSubscriptionStatus(subscription: any): Promise<void> {
     const customerId = subscription.customer as string;
     const user = await this.userRepo.findOne({ where: { stripe_customer_id: customerId } });
     if (!user) return;
@@ -142,3 +144,4 @@ export class SubscriptionService {
     await this.userRepo.save(user);
   }
 }
+

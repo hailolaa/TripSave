@@ -50,8 +50,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // 1. Confirm the setup intent on the client side
       final setupIntent = await Stripe.instance.confirmSetupIntent(
         paymentIntentClientSecret: _clientSecret!,
-        params: const SetupPaymentMethodParams.card(
-          params: CardDetails(),
+        params: PaymentMethodParams.card(
+          paymentMethodData: PaymentMethodData(),
         ),
       );
 
