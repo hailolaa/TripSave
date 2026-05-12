@@ -8,10 +8,10 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   password_hash: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   name: string | null;
 
   @Column('decimal', { precision: 5, scale: 1, default: 25.0 })
@@ -29,16 +29,16 @@ export class User {
   @Column('decimal', { precision: 10, scale: 7, nullable: true })
   location_lng: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   location_name: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   zip_code: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   referral_source: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   stripe_customer_id: string | null;
 
   @Column({
@@ -54,13 +54,13 @@ export class User {
   @Column({ default: false })
   onboarding_completed: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   google_id: string | null;
 
   @Column({ default: false })
   is_email_verified: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   verification_code: string | null;
 
   @Column({ type: 'enum', enum: ['user', 'admin'], default: 'user' })
