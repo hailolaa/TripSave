@@ -48,11 +48,14 @@ export class SubscriptionService {
     return { clientSecret: setupIntent.client_secret || '' };
   }
 
-  async saveReferral(userId: string, source: string): Promise<void> {
+  async saveReferral(userId: string, source: string, referrerName?: string): Promise<void> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
     user.referral_source = source;
+    if (referrerName) {
+      user.referrer_name = referrerName;
+    }
     await this.userRepo.save(user);
   }
 

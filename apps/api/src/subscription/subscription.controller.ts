@@ -8,8 +8,11 @@ export class SubscriptionController {
 
   @UseGuards(JwtAuthGuard)
   @Post('referral')
-  async saveReferral(@Request() req: any, @Body('source') source: string) {
-    await this.subscriptionService.saveReferral(req.user.userId, source);
+  async saveReferral(
+    @Request() req: any, 
+    @Body() body: { source: string, referrer_name?: string }
+  ) {
+    await this.subscriptionService.saveReferral(req.user.userId, body.source, body.referrer_name);
     return { success: true };
   }
 

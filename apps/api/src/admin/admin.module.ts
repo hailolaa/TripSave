@@ -17,6 +17,7 @@ import { StoreChain } from '../stores/store-chain.entity';
 import { Product } from '../products/product.entity';
 import { DataSyncLog } from '../models/data-sync-log.entity';
 import { User } from '../users/user.entity';
+import { AdminUiController } from './admin-ui.controller';
 
 /**
  * Admin module — wires admin endpoints, sync services, and cron jobs.
@@ -37,7 +38,7 @@ import { User } from '../users/user.entity';
       User,
     ]),
   ],
-  controllers: [AdminController],
+  controllers: [AdminController, AdminUiController],
   providers: [
     AdminService,
     AdminRoleGuard,

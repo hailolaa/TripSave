@@ -39,6 +39,9 @@ export class User {
   referral_source: string | null;
 
   @Column({ type: 'varchar', nullable: true })
+  referrer_name: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   stripe_customer_id: string | null;
 
   @Column({

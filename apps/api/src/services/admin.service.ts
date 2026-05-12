@@ -9,6 +9,12 @@ import { DataSource } from '../common/enums/data-source.enum';
  * Admin service for manual data management.
  * Provides endpoints for price overrides, data corrections, and diagnostics.
  */
+import { User } from '../users/user.entity';
+
+/**
+ * Admin service for manual data management.
+ * Provides endpoints for price overrides, data corrections, and diagnostics.
+ */
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
@@ -16,7 +22,21 @@ export class AdminService {
   constructor(
     @InjectRepository(StoreProduct) private readonly storeProductRepo: Repository<StoreProduct>,
     @InjectRepository(GasPrice) private readonly gasPriceRepo: Repository<GasPrice>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
+
+  /** Get ranked list of referrers and their counts */
+  async getReferralRanking() {
+    return this.userRepo
+      .createQueryBuilder('user')
+      .select('user.referrer_name', 'name')
+      .addSelect('COUNT(*)', 'count')
+      .where('user.referrer_name IS NOT NULL')
+      .andWhere("user.referrer_name != ''")
+      .groupBy('user.referrer_name')
+      .orderBy('count', 'DESC')
+      .getRawMany();
+  }
 
   /** Update a store product's price manually */
   async updateProductPrice(storeProductId: string, newPrice: number): Promise<StoreProduct> {

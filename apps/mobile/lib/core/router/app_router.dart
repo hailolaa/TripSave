@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -16,25 +17,63 @@ import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/referral_screen.dart';
 import '../../features/auth/presentation/verification_screen.dart';
 import '../../features/auth/payment_screen.dart';
+import '../di/injection.dart';
+import '../../features/auth/auth_repository.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
 
+class RouterNotifier extends ChangeNotifier {
+  final AuthRepository _repository;
+  RouterNotifier(this._repository);
+
+  void notify() => notifyListeners();
+}
+
+final RouterNotifier routerNotifier = RouterNotifier(getIt<AuthRepository>());
+
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
+  refreshListenable: routerNotifier,
   redirect: (context, state) async {
     final storage = const FlutterSecureStorage();
     final token = await storage.read(key: 'jwt');
     final isLoggedIn = token != null && token.isNotEmpty;
-    final isAuthRoute = state.matchedLocation == '/login' || state.matchedLocation == '/register';
-
-    if (!isLoggedIn && !isAuthRoute) {
-      return '/login';
+    
+    final isAuthRoute = state.matchedLocation == '/login' || 
+                        state.matchedLocation == '/register' || 
+                        state.matchedLocation == '/verify-email';
+    
+    if (!isLoggedIn) {
+      return isAuthRoute ? null : '/login';
     }
-    if (isLoggedIn && isAuthRoute) {
+    
+    // If logged in, check onboarding status
+    final onboardingCompleted = (await storage.read(key: 'onboarding_completed')) == 'true';
+    final referralSource = await storage.read(key: 'referral_source');
+    final subStatus = await storage.read(key: 'subscription_status');
+    
+    final isOnboardingRoute = state.matchedLocation == '/onboarding' || 
+                              state.matchedLocation == '/referral' || 
+                              state.matchedLocation == '/payment';
+
+    if (!onboardingCompleted) {
+      return state.matchedLocation == '/onboarding' ? null : '/onboarding';
+    }
+    
+    if (referralSource == null || referralSource.isEmpty || referralSource == 'null') {
+      return state.matchedLocation == '/referral' ? null : '/referral';
+    }
+    
+    if (subStatus == 'none' || subStatus == 'null' || subStatus == null) {
+      return state.matchedLocation == '/payment' ? null : '/payment';
+    }
+
+    if (isAuthRoute || isOnboardingRoute) {
       return '/home';
     }
+    
     return null;
   },
   routes: [

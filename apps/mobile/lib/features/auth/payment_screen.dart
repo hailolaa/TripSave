@@ -92,24 +92,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
             );
           }
         },
-        child: Stack(
-          children: [
-            // Center Faint Blob behind the text
-            Positioned(
-              top: 50,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  width: 350,
-                  height: 350,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFF1F5F9).withValues(alpha: 0.6),
+        child: BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) {
+            if (state is AuthPaymentSuccess) {
+              return _buildSuccessUI();
+            }
+            return Stack(
+              children: [
+                Positioned(
+                  top: 50,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      width: 350,
+                      height: 350,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFF1F5F9).withValues(alpha: 0.6),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -286,8 +290,53 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 },
               ),
             ),
-          ],
+              ],
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessUI() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Color(0xFF10B981),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 64),
+          ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+          const SizedBox(height: 32),
+          const Text(
+            'Trial Activated!',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF111827),
+            ),
+          ).animate().fadeIn(delay: 400.ms),
+          const SizedBox(height: 16),
+          const Text(
+            'Welcome to TripSave Premium.\nYour 7-day free trial has started.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF6B7280),
+              height: 1.5,
+            ),
+          ).animate().fadeIn(delay: 600.ms),
+          const SizedBox(height: 48),
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF19409B)),
+          ).animate().fadeIn(delay: 800.ms),
+        ],
       ),
     );
   }

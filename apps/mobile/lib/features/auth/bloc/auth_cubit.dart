@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../auth_repository.dart';
 import '../../../core/services/settings_service.dart';
+import '../../../core/router/app_router.dart';
 
 abstract class AuthState extends Equatable {
   @override
@@ -25,6 +26,7 @@ class AuthEmailVerificationRequired extends AuthState {
   @override
   List<Object?> get props => [email];
 }
+class AuthPaymentSuccess extends AuthState {}
 class AuthUnauthenticated extends AuthState {}
 class AuthError extends AuthState {
   final String message;
@@ -38,7 +40,17 @@ class AuthCubit extends Cubit<AuthState> {
   final SettingsService settingsService;
   final List<void Function()>? onLogout;
 
-  AuthCubit(this.authRepository, this.settingsService, {this.onLogout}) : super(AuthInitial());
+  AuthCubit(this.authRepository, this.settingsService, {this.onLogout}) : super(AuthInitial()) {
+    stream.listen((state) {
+      if (state is AuthAuthenticated || 
+          state is AuthUnauthenticated || 
+          state is AuthOnboardingRequired || 
+          state is AuthReferralRequired || 
+          state is AuthPaymentRequired) {
+        routerNotifier.notify();
+      }
+    });
+  }
 
   Future<void> checkAuth() async {
     final isLoggedIn = await authRepository.isLoggedIn();
@@ -64,6 +76,7 @@ class AuthCubit extends Cubit<AuthState> {
 
       _resolveAuthState(profile);
     } catch (e) {
+      emit(AuthError('Session expired. Please sign in again.'));
       emit(AuthUnauthenticated());
     }
   }
@@ -81,14 +94,20 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     final referralSource = profile['referral_source'];
-    final subStatus = profile['subscription_status'];
-    final onboardingCompleted = profile['onboarding_completed'] ?? false;
+    final subStatus = profile['subscription_status']?.toString().toLowerCase() ?? 'none';
+    
+    // Robust boolean parsing
+    final rawOnboarding = profile['onboarding_completed'];
+    final onboardingCompleted = rawOnboarding == true || 
+                                rawOnboarding.toString() == 'true' || 
+                                rawOnboarding.toString() == '1' ||
+                                rawOnboarding.toString() == 'yes';
 
     if (!onboardingCompleted) {
       emit(AuthOnboardingRequired());
-    } else if (referralSource == null || (referralSource as String).isEmpty) {
+    } else if (referralSource == null || referralSource.toString().isEmpty || referralSource.toString() == 'null') {
       emit(AuthReferralRequired());
-    } else if (subStatus == 'none') {
+    } else if (subStatus == 'none' || subStatus == 'null') {
       emit(AuthPaymentRequired());
     } else {
       emit(AuthAuthenticated(userName: profile['name'] ?? ''));
@@ -239,10 +258,10 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  Future<void> submitReferral(String source) async {
+  Future<void> submitReferral(String source, [String? referrerName]) async {
     emit(AuthLoading());
     try {
-      await authRepository.saveReferral(source);
+      await authRepository.saveReferral(source, referrerName);
       final profile = await authRepository.getProfile();
       if (profile != null) {
         _resolveAuthState(profile);
@@ -256,6 +275,9 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
     try {
       await authRepository.activateTrial(paymentMethodId);
+      emit(AuthPaymentSuccess());
+      // Wait a bit to show success before going home
+      await Future.delayed(const Duration(seconds: 2));
       final profile = await authRepository.getProfile();
       if (profile != null) {
         _resolveAuthState(profile);

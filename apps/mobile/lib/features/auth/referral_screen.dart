@@ -13,6 +13,7 @@ class ReferralScreen extends StatefulWidget {
 
 class _ReferralScreenState extends State<ReferralScreen> {
   String? _selectedSource;
+  final TextEditingController _nameController = TextEditingController();
   final List<Map<String, dynamic>> _sources = [
     {'title': 'App Store / Google Play', 'icon': Icons.storefront_rounded},
     {'title': 'Friend or Family', 'icon': Icons.people_outline_rounded},
@@ -20,6 +21,12 @@ class _ReferralScreenState extends State<ReferralScreen> {
     {'title': 'YouTube', 'icon': Icons.play_circle_outline_rounded},
     {'title': 'Other', 'icon': Icons.more_horiz_rounded},
   ];
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,62 +133,93 @@ class _ReferralScreenState extends State<ReferralScreen> {
                         final icon = sourceData['icon'] as IconData;
                         final isSelected = _selectedSource == title;
 
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedSource = title),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                            decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF9FAFB),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isSelected ? const Color(0xFF19409B).withValues(alpha: 0.3) : Colors.transparent,
-                                width: 1.5,
+                        return Column(
+                          children: [
+                            GestureDetector(
+                              onTap: () => setState(() => _selectedSource = title),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF9FAFB),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFF19409B).withValues(alpha: 0.3) : Colors.transparent,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? const Color(0xFFDBEAFE) : Colors.transparent,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        icon,
+                                        color: isSelected ? const Color(0xFF19409B) : const Color(0xFF9CA3AF),
+                                        size: 24,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Text(
+                                        title,
+                                        style: TextStyle(
+                                          color: isSelected ? const Color(0xFF19409B) : const Color(0xFF111827),
+                                          fontSize: 16,
+                                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isSelected ? const Color(0xFF19409B) : Colors.transparent,
+                                        border: Border.all(
+                                          color: isSelected ? const Color(0xFF19409B) : const Color(0xFFD1D5DB),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+                                          : null,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFFDBEAFE) : Colors.transparent,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    icon,
-                                    color: isSelected ? const Color(0xFF19409B) : const Color(0xFF9CA3AF),
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(
-                                    title,
-                                    style: TextStyle(
-                                      color: isSelected ? const Color(0xFF19409B) : const Color(0xFF111827),
-                                      fontSize: 16,
-                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                            if (isSelected && title == 'Friend or Family')
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12, left: 8, right: 8),
+                                child: TextField(
+                                  controller: _nameController,
+                                  decoration: InputDecoration(
+                                    hintText: "Enter friend's full name",
+                                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFF19409B), width: 1.5),
                                     ),
                                   ),
-                                ),
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isSelected ? const Color(0xFF19409B) : Colors.transparent,
-                                    border: Border.all(
-                                      color: isSelected ? const Color(0xFF19409B) : const Color(0xFFD1D5DB),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: isSelected
-                                      ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
-                                      : null,
-                                ),
-                              ],
-                            ),
-                          ),
+                                  onChanged: (v) => setState(() {}),
+                                ).animate().fadeIn().slideY(begin: -0.1, end: 0),
+                              ),
+                          ],
                         ).animate().fadeIn(delay: (400 + (100 * index)).ms).slideX(begin: 0.1, end: 0);
                       },
                     ),
@@ -196,9 +234,9 @@ class _ReferralScreenState extends State<ReferralScreen> {
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: (isLoading || _selectedSource == null) 
+                            onPressed: (isLoading || _selectedSource == null || (_selectedSource == 'Friend or Family' && _nameController.text.trim().isEmpty)) 
                               ? null 
-                              : () => context.read<AuthCubit>().submitReferral(_selectedSource!),
+                              : () => context.read<AuthCubit>().submitReferral(_selectedSource!, _nameController.text.trim()),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF19409B),
                               disabledBackgroundColor: const Color(0xFF19409B).withValues(alpha: 0.5),

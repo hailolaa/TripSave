@@ -83,6 +83,12 @@ export class AdminController {
     };
   }
 
+  /** View referral rankings */
+  @Get('referrals')
+  async getReferrals() {
+    return this.adminService.getReferralRanking();
+  }
+
   /** Fix gas station 0,0 coordinates */
   @Post('fix-gas-coords')
   @HttpCode(200)

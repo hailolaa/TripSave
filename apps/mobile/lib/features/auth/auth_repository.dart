@@ -27,6 +27,8 @@ class AuthRepository {
       await _storage.write(key: 'user_email', value: user['email'] ?? '');
       await _storage.write(key: 'user_id', value: user['id'] ?? '');
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
+      await _storage.write(key: 'referral_source', value: user['referral_source']?.toString() ?? '');
+      await _storage.write(key: 'subscription_status', value: user['subscription_status']?.toString() ?? 'none');
       await _storage.write(key: 'vehicle_mpg', value: (user['vehicle_mpg'] ?? 25.0).toString());
       await _storage.write(key: 'default_gas_price', value: (user['default_gas_price'] ?? 3.50).toString());
     }
@@ -41,7 +43,18 @@ class AuthRepository {
       'password': password,
     });
 
-    // Don't store token yet, wait for email verification
+    final token = response.data['access_token'];
+    if (token != null) {
+      await _storage.write(key: 'jwt', value: token);
+      await _storage.write(key: 'remember_me', value: 'true');
+      
+      await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
+      await _storage.write(key: 'referral_source', value: user['referral_source']?.toString() ?? '');
+      await _storage.write(key: 'subscription_status', value: user['subscription_status']?.toString() ?? 'none');
+      await _storage.write(key: 'vehicle_mpg', value: (user['vehicle_mpg'] ?? 25.0).toString());
+      await _storage.write(key: 'default_gas_price', value: (user['default_gas_price'] ?? 3.50).toString());
+    }
+
     return response.data;
   }
 
@@ -105,6 +118,8 @@ class AuthRepository {
       await _storage.write(key: 'user_email', value: data['email'] ?? '');
       await _storage.write(key: 'user_id', value: data['id'] ?? '');
       await _storage.write(key: 'onboarding_completed', value: (data['onboarding_completed'] ?? false).toString());
+      await _storage.write(key: 'referral_source', value: data['referral_source']?.toString() ?? '');
+      await _storage.write(key: 'subscription_status', value: data['subscription_status']?.toString() ?? 'none');
       await _storage.write(key: 'vehicle_mpg', value: (data['vehicle_mpg'] ?? 25.0).toString());
       await _storage.write(key: 'default_gas_price', value: (data['default_gas_price'] ?? 3.50).toString());
       return data;
@@ -156,6 +171,8 @@ class AuthRepository {
     await _storage.delete(key: 'user_email');
     await _storage.delete(key: 'user_id');
     await _storage.delete(key: 'onboarding_completed');
+    await _storage.delete(key: 'referral_source');
+    await _storage.delete(key: 'subscription_status');
     await _storage.delete(key: 'remember_me');
     await _storage.delete(key: 'vehicle_mpg');
     await _storage.delete(key: 'default_gas_price');
@@ -174,8 +191,11 @@ class AuthRepository {
     return await _storage.read(key: 'user_email');
   }
 
-  Future<void> saveReferral(String source) async {
-    await apiClient.dio.post('/subscription/referral', data: {'source': source});
+  Future<void> saveReferral(String source, [String? referrerName]) async {
+    await apiClient.dio.post('/subscription/referral', data: {
+      'source': source,
+      'referrer_name': referrerName,
+    });
   }
 
   Future<String> createSetupIntent() async {
