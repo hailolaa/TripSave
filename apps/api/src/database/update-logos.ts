@@ -14,19 +14,21 @@ const AppDataSource = new DataSource({
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
 });
 
+const token = process.env.LOGO_DEV_TOKEN || 'pk_NT76m5_3Sj6iI8ZJp0Q5_g';
+
 const logoMappings = [
-  { key: 'walmart', logo: 'https://logo.clearbit.com/walmart.com' },
-  { key: 'target', logo: 'https://logo.clearbit.com/target.com' },
-  { key: 'aldi', logo: 'https://logo.clearbit.com/aldi.us' },
-  { key: 'costco', logo: 'https://logo.clearbit.com/costco.com' },
-  { key: 'kroger', logo: 'https://logo.clearbit.com/kroger.com' },
-  { key: 'wholefoods', logo: 'https://logo.clearbit.com/wholefoodsmarket.com' },
-  { key: 'publix', logo: 'https://logo.clearbit.com/publix.com' },
-  { key: 'heb', logo: 'https://logo.clearbit.com/heb.com' },
-  { key: 'cvs', logo: 'https://logo.clearbit.com/cvs.com' },
-  { key: 'walgreens', logo: 'https://logo.clearbit.com/walgreens.com' },
-  { key: 'shell', logo: 'https://logo.clearbit.com/shell.com' },
-  { key: 'exxon', logo: 'https://logo.clearbit.com/exxon.com' },
+  { key: 'walmart', logo: `https://img.logo.dev/walmart.com?token=${token}` },
+  { key: 'target', logo: `https://img.logo.dev/target.com?token=${token}` },
+  { key: 'aldi', logo: `https://img.logo.dev/aldi.us?token=${token}` },
+  { key: 'costco', logo: `https://img.logo.dev/costco.com?token=${token}` },
+  { key: 'kroger', logo: `https://img.logo.dev/kroger.com?token=${token}` },
+  { key: 'wholefoods', logo: `https://img.logo.dev/wholefoodsmarket.com?token=${token}` },
+  { key: 'publix', logo: `https://img.logo.dev/publix.com?token=${token}` },
+  { key: 'heb', logo: `https://img.logo.dev/heb.com?token=${token}` },
+  { key: 'cvs', logo: `https://img.logo.dev/cvs.com?token=${token}` },
+  { key: 'walgreens', logo: `https://img.logo.dev/walgreens.com?token=${token}` },
+  { key: 'shell', logo: `https://img.logo.dev/shell.com?token=${token}` },
+  { key: 'exxon', logo: `https://img.logo.dev/exxon.com?token=${token}` },
 ];
 
 async function runUpdate() {

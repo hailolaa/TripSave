@@ -543,21 +543,29 @@ export class ComparisonService {
    */
   private resolveLogoUrl(name: string): string | null {
     const n = name.toLowerCase();
-    if (n.includes('walmart')) return 'https://logo.clearbit.com/walmart.com';
-    if (n.includes('target')) return 'https://logo.clearbit.com/target.com';
-    if (n.includes('aldi')) return 'https://logo.clearbit.com/aldi.us';
-    if (n.includes('costco')) return 'https://logo.clearbit.com/costco.com';
-    if (n.includes('kroger')) return 'https://logo.clearbit.com/kroger.com';
-    if (n.includes('whole foods')) return 'https://logo.clearbit.com/wholefoodsmarket.com';
-    if (n.includes('publix')) return 'https://logo.clearbit.com/publix.com';
-    if (n.includes('heb') || n.includes('h-e-b')) return 'https://logo.clearbit.com/heb.com';
-    if (n.includes('cvs')) return 'https://logo.clearbit.com/cvs.com';
-    if (n.includes('walgreens')) return 'https://logo.clearbit.com/walgreens.com';
-    if (n.includes('shell')) return 'https://logo.clearbit.com/shell.com';
-    if (n.includes('exxon')) return 'https://logo.clearbit.com/exxon.com';
-    if (n.includes('chevron')) return 'https://logo.clearbit.com/chevron.com';
-    if (n.includes('mobil')) return 'https://logo.clearbit.com/exxonmobil.com';
-    if (n.includes('7-eleven')) return 'https://logo.clearbit.com/7-eleven.com';
+    const token = process.env.LOGO_DEV_TOKEN || 'pk_NT76m5_3Sj6iI8ZJp0Q5_g'; // Default placeholder or user token
+    const baseUrl = `https://img.logo.dev`;
+    
+    let domain = '';
+    if (n.includes('walmart')) domain = 'walmart.com';
+    else if (n.includes('target')) domain = 'target.com';
+    else if (n.includes('aldi')) domain = 'aldi.us';
+    else if (n.includes('costco')) domain = 'costco.com';
+    else if (n.includes('kroger')) domain = 'kroger.com';
+    else if (n.includes('whole foods')) domain = 'wholefoodsmarket.com';
+    else if (n.includes('publix')) domain = 'publix.com';
+    else if (n.includes('heb') || n.includes('h-e-b')) domain = 'heb.com';
+    else if (n.includes('cvs')) domain = 'cvs.com';
+    else if (n.includes('walgreens')) domain = 'walgreens.com';
+    else if (n.includes('shell')) domain = 'shell.com';
+    else if (n.includes('exxon')) domain = 'exxon.com';
+    else if (n.includes('chevron')) domain = 'chevron.com';
+    else if (n.includes('mobil')) domain = 'exxonmobil.com';
+    else if (n.includes('7-eleven')) domain = '7-eleven.com';
+    
+    if (domain) {
+      return `${baseUrl}/${domain}?token=${token}`;
+    }
     
     return null;
   }

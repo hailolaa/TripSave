@@ -31,23 +31,42 @@ async function runSeeder() {
   // 1. Seed Chains
   const chainRepo = AppDataSource.getRepository(StoreChain);
   
+  const token = process.env.LOGO_DEV_TOKEN || 'pk_NT76m5_3Sj6iI8ZJp0Q5_g';
+
+  const logoMappings = [
+    { key: 'walmart', logo: `https://img.logo.dev/walmart.com?token=${token}` },
+    { key: 'target', logo: `https://img.logo.dev/target.com?token=${token}` },
+    { key: 'aldi', logo: `https://img.logo.dev/aldi.us?token=${token}` },
+    { key: 'costco', logo: `https://img.logo.dev/costco.com?token=${token}` },
+    { key: 'kroger', logo: `https://img.logo.dev/kroger.com?token=${token}` },
+    { key: 'wholefoods', logo: `https://img.logo.dev/wholefoodsmarket.com?token=${token}` },
+    { key: 'publix', logo: `https://img.logo.dev/publix.com?token=${token}` },
+    { key: 'heb', logo: `https://img.logo.dev/heb.com?token=${token}` },
+    { key: 'cvs', logo: `https://img.logo.dev/cvs.com?token=${token}` },
+    { key: 'walgreens', logo: `https://img.logo.dev/walgreens.com?token=${token}` },
+    { key: 'shell', logo: `https://img.logo.dev/shell.com?token=${token}` },
+    { key: 'exxon', logo: `https://img.logo.dev/exxon.com?token=${token}` },
+  ];
+
+  const getLogo = (slug: string) => logoMappings.find(m => m.key === slug)?.logo || '';
+
   // Grocery
-  const walmartInfo = chainRepo.create({ name: 'Walmart', slug: 'walmart', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/walmart.com' });
-  const targetInfo = chainRepo.create({ name: 'Target', slug: 'target', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/target.com' });
-  const aldiInfo = chainRepo.create({ name: 'Aldi', slug: 'aldi', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/aldi.us' });
-  const costcoInfo = chainRepo.create({ name: 'Costco', slug: 'costco', type: StoreChainType.WAREHOUSE, logo_url: 'https://logo.clearbit.com/costco.com', is_membership_required: true });
-  const krogerInfo = chainRepo.create({ name: 'Kroger', slug: 'kroger', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/kroger.com' });
-  const wholefoodsInfo = chainRepo.create({ name: 'Whole Foods', slug: 'wholefoods', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/wholefoodsmarket.com' });
-  const publixInfo = chainRepo.create({ name: 'Publix', slug: 'publix', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/publix.com' });
-  const hebInfo = chainRepo.create({ name: 'H-E-B', slug: 'heb', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/heb.com' });
+  const walmartInfo = chainRepo.create({ name: 'Walmart', slug: 'walmart', type: StoreChainType.GROCERY, logo_url: getLogo('walmart') });
+  const targetInfo = chainRepo.create({ name: 'Target', slug: 'target', type: StoreChainType.GROCERY, logo_url: getLogo('target') });
+  const aldiInfo = chainRepo.create({ name: 'Aldi', slug: 'aldi', type: StoreChainType.GROCERY, logo_url: getLogo('aldi') });
+  const costcoInfo = chainRepo.create({ name: 'Costco', slug: 'costco', type: StoreChainType.WAREHOUSE, logo_url: getLogo('costco'), is_membership_required: true });
+  const krogerInfo = chainRepo.create({ name: 'Kroger', slug: 'kroger', type: StoreChainType.GROCERY, logo_url: getLogo('kroger') });
+  const wholefoodsInfo = chainRepo.create({ name: 'Whole Foods', slug: 'wholefoods', type: StoreChainType.GROCERY, logo_url: getLogo('wholefoods') });
+  const publixInfo = chainRepo.create({ name: 'Publix', slug: 'publix', type: StoreChainType.GROCERY, logo_url: getLogo('publix') });
+  const hebInfo = chainRepo.create({ name: 'H-E-B', slug: 'heb', type: StoreChainType.GROCERY, logo_url: getLogo('heb') });
   
   // Pharmacy
-  const cvsInfo = chainRepo.create({ name: 'CVS Pharmacy', slug: 'cvs', type: StoreChainType.PHARMACY, logo_url: 'https://logo.clearbit.com/cvs.com' });
-  const walgreensInfo = chainRepo.create({ name: 'Walgreens', slug: 'walgreens', type: StoreChainType.PHARMACY, logo_url: 'https://logo.clearbit.com/walgreens.com' });
+  const cvsInfo = chainRepo.create({ name: 'CVS Pharmacy', slug: 'cvs', type: StoreChainType.PHARMACY, logo_url: getLogo('cvs') });
+  const walgreensInfo = chainRepo.create({ name: 'Walgreens', slug: 'walgreens', type: StoreChainType.PHARMACY, logo_url: getLogo('walgreens') });
 
   // Gas
-  const shellInfo = chainRepo.create({ name: 'Shell', slug: 'shell', type: StoreChainType.GAS, logo_url: 'https://logo.clearbit.com/shell.com' });
-  const exxonInfo = chainRepo.create({ name: 'Exxon', slug: 'exxon', type: StoreChainType.GAS, logo_url: 'https://logo.clearbit.com/exxon.com' });
+  const shellInfo = chainRepo.create({ name: 'Shell', slug: 'shell', type: StoreChainType.GAS, logo_url: `https://img.logo.dev/shell.com?token=${token}` });
+  const exxonInfo = chainRepo.create({ name: 'Exxon', slug: 'exxon', type: StoreChainType.GAS, logo_url: `https://img.logo.dev/exxon.com?token=${token}` });
   
   await chainRepo.save([
     walmartInfo, targetInfo, aldiInfo, costcoInfo, krogerInfo, 

@@ -101,19 +101,27 @@ class StoreLogo extends StatelessWidget {
   }
 
   String? _guessLogoUrl(String name) {
-    if (name.contains('walmart')) return 'https://logo.clearbit.com/walmart.com';
-    if (name.contains('target')) return 'https://logo.clearbit.com/target.com';
-    if (name.contains('aldi')) return 'https://logo.clearbit.com/aldi.us';
-    if (name.contains('costco')) return 'https://logo.clearbit.com/costco.com';
-    if (name.contains('kroger')) return 'https://logo.clearbit.com/kroger.com';
-    if (name.contains('whole foods')) return 'https://logo.clearbit.com/wholefoodsmarket.com';
-    if (name.contains('publix')) return 'https://logo.clearbit.com/publix.com';
-    if (name.contains('heb') || name.contains('h-e-b')) return 'https://logo.clearbit.com/heb.com';
-    if (name.contains('cvs')) return 'https://logo.clearbit.com/cvs.com';
-    if (name.contains('walgreens')) return 'https://logo.clearbit.com/walgreens.com';
-    if (name.contains('shell')) return 'https://logo.clearbit.com/shell.com';
-    if (name.contains('exxon')) return 'https://logo.clearbit.com/exxon.com';
-    if (name.contains('7-eleven')) return 'https://logo.clearbit.com/7-eleven.com';
+    const token = 'pk_UUfT4NowQ-GmCHtVoknvfg'; // Use your Logo.dev token here
+    const baseUrl = 'https://img.logo.dev';
+    
+    String? domain;
+    if (name.contains('walmart')) domain = 'walmart.com';
+    else if (name.contains('target')) domain = 'target.com';
+    else if (name.contains('aldi')) domain = 'aldi.us';
+    else if (name.contains('costco')) domain = 'costco.com';
+    else if (name.contains('kroger')) domain = 'kroger.com';
+    else if (name.contains('whole foods')) domain = 'wholefoodsmarket.com';
+    else if (name.contains('publix')) domain = 'publix.com';
+    else if (name.contains('heb') || name.contains('h-e-b')) domain = 'heb.com';
+    else if (name.contains('cvs')) domain = 'cvs.com';
+    else if (name.contains('walgreens')) domain = 'walgreens.com';
+    else if (name.contains('shell')) domain = 'shell.com';
+    else if (name.contains('exxon')) domain = 'exxon.com';
+    else if (name.contains('7-eleven')) domain = '7-eleven.com';
+    
+    if (domain != null) {
+      return '$baseUrl/$domain?token=$token';
+    }
     return null;
   }
 
