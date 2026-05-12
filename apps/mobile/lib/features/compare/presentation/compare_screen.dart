@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'compare_map_view.dart';
 import '../bloc/comparison_cubit.dart';
 import '../../savings/bloc/savings_cubit.dart';
+import '../../../core/widgets/store_logo.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/services/favorite_store_service.dart';
@@ -699,6 +700,8 @@ class _CompareScreenState extends State<CompareScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
+                StoreLogo(chain: chain, size: 56, padding: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     storeName,
@@ -806,18 +809,7 @@ class _CompareScreenState extends State<CompareScreen> {
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isGas ? const Color(0xFFEFF6FF) : (isPharmacy ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9)),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    isGas ? Icons.local_gas_station : (isPharmacy ? Icons.local_pharmacy : Icons.shopping_cart_rounded), 
-                    color: isGas ? const Color(0xFF2563EB) : (isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.primaryBlue),
-                    size: 20,
-                  ),
-                ),
+                StoreLogo(chain: chain, size: 44, padding: 10),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(

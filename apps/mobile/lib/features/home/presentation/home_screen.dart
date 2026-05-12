@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/widgets/store_logo.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shopsave_logo.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -700,8 +701,8 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 24),
           Row(
             children: [
-              const Icon(Icons.verified, color: AppTheme.primaryBlue, size: 24),
-              const SizedBox(width: 8),
+              StoreLogo(chain: data['store']['chain'], size: 48, padding: 10),
+              const SizedBox(width: 12),
               Flexible(
                 child: Text(
                   store['name'],
@@ -805,19 +806,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F9FA),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: store['chain']?['logo_url'] != null
-                      ? Image.network(store['chain']['logo_url'], width: 32, height: 32, errorBuilder: (c,e,s) => const Icon(Icons.store, color: AppTheme.primaryBlue))
-                      : const Icon(Icons.store, color: AppTheme.primaryBlue, size: 24),
-                ),
-              ),
+              StoreLogo(chain: store['chain'], size: 48, padding: 10),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

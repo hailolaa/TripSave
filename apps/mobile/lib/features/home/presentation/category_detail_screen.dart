@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/store_logo.dart';
 import '../../../core/services/location_service.dart';
 import '../../list/list_repository.dart';
 import '../../../core/services/settings_service.dart';
@@ -8,7 +9,7 @@ import '../../../core/di/injection.dart';
 
 class CategoryDetailScreen extends StatefulWidget {
   final String categoryType;
-
+  
   const CategoryDetailScreen({super.key, required this.categoryType});
 
   @override
@@ -306,15 +307,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(14)),
-            child: Icon(
-              isGas ? Icons.local_gas_station : (isPharmacy ? Icons.local_pharmacy : Icons.shopping_cart),
-              color: iconColor,
-              size: 20,
-            ),
-          ),
+          StoreLogo(chain: store['chain'], size: 44, padding: 10),
           const SizedBox(width: 16),
           Expanded(
             child: Column(

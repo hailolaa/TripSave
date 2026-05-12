@@ -33,7 +33,12 @@ async function runSeeder() {
   
   // Grocery
   const walmartInfo = chainRepo.create({ name: 'Walmart', slug: 'walmart', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/walmart.com' });
+  const targetInfo = chainRepo.create({ name: 'Target', slug: 'target', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/target.com' });
+  const aldiInfo = chainRepo.create({ name: 'Aldi', slug: 'aldi', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/aldi.us' });
+  const costcoInfo = chainRepo.create({ name: 'Costco', slug: 'costco', type: StoreChainType.WAREHOUSE, logo_url: 'https://logo.clearbit.com/costco.com', is_membership_required: true });
   const krogerInfo = chainRepo.create({ name: 'Kroger', slug: 'kroger', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/kroger.com' });
+  const wholefoodsInfo = chainRepo.create({ name: 'Whole Foods', slug: 'wholefoods', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/wholefoodsmarket.com' });
+  const publixInfo = chainRepo.create({ name: 'Publix', slug: 'publix', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/publix.com' });
   const hebInfo = chainRepo.create({ name: 'H-E-B', slug: 'heb', type: StoreChainType.GROCERY, logo_url: 'https://logo.clearbit.com/heb.com' });
   
   // Pharmacy
@@ -44,7 +49,11 @@ async function runSeeder() {
   const shellInfo = chainRepo.create({ name: 'Shell', slug: 'shell', type: StoreChainType.GAS, logo_url: 'https://logo.clearbit.com/shell.com' });
   const exxonInfo = chainRepo.create({ name: 'Exxon', slug: 'exxon', type: StoreChainType.GAS, logo_url: 'https://logo.clearbit.com/exxon.com' });
   
-  await chainRepo.save([walmartInfo, krogerInfo, hebInfo, cvsInfo, walgreensInfo, shellInfo, exxonInfo]);
+  await chainRepo.save([
+    walmartInfo, targetInfo, aldiInfo, costcoInfo, krogerInfo, 
+    wholefoodsInfo, publixInfo, hebInfo, cvsInfo, walgreensInfo, 
+    shellInfo, exxonInfo
+  ]);
   console.log('Chains seeded.');
 
   // 2. Seed Stores (Dallas Area)
@@ -67,6 +76,24 @@ async function runSeeder() {
       state: 'TX',
       lat: 32.8100,
       lng: -96.7800,
+      source: StoreSource.MANUAL
+    }),
+    storeRepo.create({
+      chain_id: targetInfo.id,
+      name: 'Target',
+      city: 'Dallas',
+      state: 'TX',
+      lat: 32.8200,
+      lng: -96.7900,
+      source: StoreSource.MANUAL
+    }),
+    storeRepo.create({
+      chain_id: aldiInfo.id,
+      name: 'Aldi',
+      city: 'Dallas',
+      state: 'TX',
+      lat: 32.8300,
+      lng: -96.8000,
       source: StoreSource.MANUAL
     }),
     // Pharmacy
