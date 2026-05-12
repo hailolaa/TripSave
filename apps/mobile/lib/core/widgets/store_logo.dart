@@ -74,18 +74,47 @@ class StoreLogo extends StatelessWidget {
   }
 
   Widget _buildRemoteOrFallback(String? logoUrl, String? type) {
+    // If we have a URL from the backend, use it
     if (logoUrl != null && logoUrl.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: logoUrl,
-        width: size - (padding * 2),
-        height: size - (padding * 2),
-        fit: BoxFit.contain,
-        placeholder: (context, url) => _buildTypeIcon(type),
-        errorWidget: (context, url, error) => _buildTypeIcon(type),
-      );
+      return _buildCachedImage(logoUrl, type);
+    }
+
+    // NEW: Client-side "guess" based on store name if logo_url is missing
+    final name = chain!['name']?.toString().toLowerCase() ?? '';
+    final guessedUrl = _guessLogoUrl(name);
+    if (guessedUrl != null) {
+      return _buildCachedImage(guessedUrl, type);
     }
 
     return _buildTypeIcon(type);
+  }
+
+  Widget _buildCachedImage(String url, String? type) {
+    return CachedNetworkImage(
+      imageUrl: url,
+      width: size - (padding * 2),
+      height: size - (padding * 2),
+      fit: BoxFit.contain,
+      placeholder: (context, url) => _buildTypeIcon(type),
+      errorWidget: (context, url, error) => _buildTypeIcon(type),
+    );
+  }
+
+  String? _guessLogoUrl(String name) {
+    if (name.contains('walmart')) return 'https://logo.clearbit.com/walmart.com';
+    if (name.contains('target')) return 'https://logo.clearbit.com/target.com';
+    if (name.contains('aldi')) return 'https://logo.clearbit.com/aldi.us';
+    if (name.contains('costco')) return 'https://logo.clearbit.com/costco.com';
+    if (name.contains('kroger')) return 'https://logo.clearbit.com/kroger.com';
+    if (name.contains('whole foods')) return 'https://logo.clearbit.com/wholefoodsmarket.com';
+    if (name.contains('publix')) return 'https://logo.clearbit.com/publix.com';
+    if (name.contains('heb') || name.contains('h-e-b')) return 'https://logo.clearbit.com/heb.com';
+    if (name.contains('cvs')) return 'https://logo.clearbit.com/cvs.com';
+    if (name.contains('walgreens')) return 'https://logo.clearbit.com/walgreens.com';
+    if (name.contains('shell')) return 'https://logo.clearbit.com/shell.com';
+    if (name.contains('exxon')) return 'https://logo.clearbit.com/exxon.com';
+    if (name.contains('7-eleven')) return 'https://logo.clearbit.com/7-eleven.com';
+    return null;
   }
 
   Widget _buildTypeIcon(String? type) {

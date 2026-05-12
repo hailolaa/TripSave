@@ -216,7 +216,8 @@ export class ComparisonService {
         name: storeName,
         chain: { 
           name: storeName, 
-          type: localMatch?.store.chain?.type || itemCategory || 'grocery' 
+          type: localMatch?.store.chain?.type || itemCategory || 'grocery',
+          logo_url: localMatch?.store.chain?.logo_url || this.resolveLogoUrl(storeName)
         },
         address: (item as any).address || localMatch?.store.address || '',
         lat: (item as any).lat || Number(localMatch?.store.lat) || 0,
@@ -226,7 +227,13 @@ export class ComparisonService {
 
       if (localMatch) {
         distance = localMatch.distance;
-        storeData = localMatch.store;
+        storeData = {
+          ...localMatch.store,
+          chain: {
+            ...localMatch.store.chain,
+            logo_url: localMatch.store.chain?.logo_url || this.resolveLogoUrl(storeName)
+          }
+        };
       } else {
         const override = storeCoordOverrides.get(item.store.toLowerCase());
         if (override && (storeData.lat === 0 || storeData.lng === 0)) {
@@ -474,6 +481,10 @@ export class ComparisonService {
       return {
         store: {
           ...ns.store,
+          chain: {
+            ...ns.store.chain,
+            logo_url: ns.store.chain?.logo_url || this.resolveLogoUrl(ns.store.name)
+          },
           gasPrices: {
             regular: gp.regular_price ? Number(gp.regular_price) : null,
             midgrade: gp.midgrade_price ? Number(gp.midgrade_price) : null,
@@ -525,5 +536,29 @@ export class ComparisonService {
       default:
         return results.sort((a, b) => a.true_cost - b.true_cost);
     }
+  }
+
+  /**
+   * Helper to resolve a logo URL based on store name
+   */
+  private resolveLogoUrl(name: string): string | null {
+    const n = name.toLowerCase();
+    if (n.includes('walmart')) return 'https://logo.clearbit.com/walmart.com';
+    if (n.includes('target')) return 'https://logo.clearbit.com/target.com';
+    if (n.includes('aldi')) return 'https://logo.clearbit.com/aldi.us';
+    if (n.includes('costco')) return 'https://logo.clearbit.com/costco.com';
+    if (n.includes('kroger')) return 'https://logo.clearbit.com/kroger.com';
+    if (n.includes('whole foods')) return 'https://logo.clearbit.com/wholefoodsmarket.com';
+    if (n.includes('publix')) return 'https://logo.clearbit.com/publix.com';
+    if (n.includes('heb') || n.includes('h-e-b')) return 'https://logo.clearbit.com/heb.com';
+    if (n.includes('cvs')) return 'https://logo.clearbit.com/cvs.com';
+    if (n.includes('walgreens')) return 'https://logo.clearbit.com/walgreens.com';
+    if (n.includes('shell')) return 'https://logo.clearbit.com/shell.com';
+    if (n.includes('exxon')) return 'https://logo.clearbit.com/exxon.com';
+    if (n.includes('chevron')) return 'https://logo.clearbit.com/chevron.com';
+    if (n.includes('mobil')) return 'https://logo.clearbit.com/exxonmobil.com';
+    if (n.includes('7-eleven')) return 'https://logo.clearbit.com/7-eleven.com';
+    
+    return null;
   }
 }
