@@ -31,7 +31,7 @@ async function runSeeder() {
   // 1. Seed Chains
   const chainRepo = AppDataSource.getRepository(StoreChain);
   
-  const token = process.env.LOGO_DEV_TOKEN || 'pk_NT76m5_3Sj6iI8ZJp0Q5_g';
+  const token = process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg';
 
   const logoMappings = [
     { key: 'walmart', logo: `https://img.logo.dev/walmart.com?token=${token}` },
