@@ -134,7 +134,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: InkWell(
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        final cubit = ctx.mounted ? null : null;  // just for context
                         // Use the parent context to read HomeCubit
                         final homeCubit = BlocProvider.of<HomeCubit>(this.context);
                         homeCubit.resetLocation();
@@ -555,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: _buildDealCard(context, deal),
                       ).animate(onPlay: (c) => c.repeat(reverse: true))
                        .moveY(begin: 0, end: index % 2 == 0 ? 5 : -5, duration: (2000 + index * 200).ms, curve: Curves.easeInOut);
-                    }).toList(),
+                    }),
                     // Add some extra padding at the end so the arrow doesn't cover the last card too much
                     const SizedBox(width: 40),
                   ],

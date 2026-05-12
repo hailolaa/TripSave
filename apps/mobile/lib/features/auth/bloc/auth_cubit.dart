@@ -19,6 +19,12 @@ class AuthAuthenticated extends AuthState {
 class AuthOnboardingRequired extends AuthState {}
 class AuthReferralRequired extends AuthState {}
 class AuthPaymentRequired extends AuthState {}
+class AuthEmailVerificationRequired extends AuthState {
+  final String email;
+  AuthEmailVerificationRequired(this.email);
+  @override
+  List<Object?> get props => [email];
+}
 class AuthUnauthenticated extends AuthState {}
 class AuthError extends AuthState {
   final String message;
@@ -106,7 +112,6 @@ class AuthCubit extends Cubit<AuthState> {
       emit(AuthError('Password must be at least 6 characters'));
       return;
     }
-
     emit(AuthLoading());
     try {
       final response = await authRepository.login(email, password, rememberMe: rememberMe);
@@ -119,6 +124,36 @@ class AuthCubit extends Cubit<AuthState> {
     } catch (e) {
       final msg = _parseError(e);
       emit(AuthError(msg));
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    emit(AuthLoading());
+    try {
+      final response = await authRepository.signInWithGoogle();
+      final user = response['user'];
+      if (user != null) {
+        _resolveAuthState(user);
+      }
+    } catch (e) {
+      if (e.toString().contains('cancelled')) {
+        emit(AuthUnauthenticated());
+      } else {
+        emit(AuthError('Google Sign-In failed'));
+      }
+    }
+  }
+
+  Future<void> verifyEmail(String email, String code) async {
+    emit(AuthLoading());
+    try {
+      final response = await authRepository.verifyEmail(email, code);
+      final user = response['user'];
+      if (user != null) {
+        _resolveAuthState(user);
+      }
+    } catch (e) {
+      emit(AuthError('Invalid verification code'));
     }
   }
 

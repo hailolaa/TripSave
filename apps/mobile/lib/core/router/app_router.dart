@@ -14,6 +14,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/referral_screen.dart';
+import '../../features/auth/presentation/verification_screen.dart';
 import '../../features/auth/payment_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -105,6 +106,14 @@ final GoRouter appRouter = GoRouter(
       path: '/payment',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const PaymentScreen(),
+    ),
+    GoRoute(
+      path: '/verify-email',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return VerificationScreen(email: email);
+      },
     ),
   ],
 );

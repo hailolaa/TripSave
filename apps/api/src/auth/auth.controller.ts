@@ -69,6 +69,22 @@ export class AuthController {
     }
   }
 
+  @Post('google')
+  async googleLogin(@Body('idToken') idToken: string) {
+    if (!idToken) {
+      throw new BadRequestException('Google ID token is required');
+    }
+    return this.authService.googleLogin(idToken);
+  }
+
+  @Post('verify-email')
+  async verifyEmail(@Body() body: { email: string, code: string }) {
+    if (!body.email || !body.code) {
+      throw new BadRequestException('Email and verification code are required');
+    }
+    return this.authService.verifyEmail(body.email, body.code);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async getProfile(@Request() req: any) {

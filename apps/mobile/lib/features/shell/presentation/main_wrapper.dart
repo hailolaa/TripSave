@@ -49,7 +49,9 @@ class _MainWrapperState extends State<MainWrapper> {
 
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
-        if (state is AuthOnboardingRequired) {
+        if (state is AuthEmailVerificationRequired) {
+          context.push('/verify-email', extra: state.email);
+        } else if (state is AuthOnboardingRequired) {
           context.go('/onboarding');
         } else if (state is AuthReferralRequired) {
           context.go('/referral');

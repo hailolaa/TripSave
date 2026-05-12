@@ -8,38 +8,38 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
-  password_hash: string;
+  @Column({ nullable: true })
+  password_hash: string | null;
 
   @Column({ nullable: true })
-  name: string;
+  name: string | null;
 
   @Column('decimal', { precision: 5, scale: 1, default: 25.0 })
   vehicle_mpg: number;
 
   @Column('decimal', { precision: 5, scale: 3, nullable: true })
-  default_gas_price: number;
+  default_gas_price: number | null;
 
   @Column({ type: 'enum', enum: ['miles', 'km'], default: 'miles' })
   preferred_distance_unit: string;
 
   @Column('decimal', { precision: 10, scale: 7, nullable: true })
-  location_lat: number;
+  location_lat: number | null;
 
   @Column('decimal', { precision: 10, scale: 7, nullable: true })
-  location_lng: number;
+  location_lng: number | null;
 
   @Column({ nullable: true })
-  location_name: string;
+  location_name: string | null;
 
   @Column({ nullable: true })
-  zip_code: string;
+  zip_code: string | null;
 
   @Column({ nullable: true })
-  referral_source: string;
+  referral_source: string | null;
 
   @Column({ nullable: true })
-  stripe_customer_id: string;
+  stripe_customer_id: string | null;
 
   @Column({
     type: 'enum',
@@ -49,10 +49,19 @@ export class User {
   subscription_status: string;
 
   @Column({ type: 'timestamp', nullable: true })
-  trial_end_date: Date;
+  trial_end_date: Date | null;
 
   @Column({ default: false })
   onboarding_completed: boolean;
+
+  @Column({ nullable: true })
+  google_id: string | null;
+
+  @Column({ default: false })
+  is_email_verified: boolean;
+
+  @Column({ nullable: true })
+  verification_code: string | null;
 
   @Column({ type: 'enum', enum: ['user', 'admin'], default: 'user' })
   role: string;

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shopsave_logo.dart';
 import '../bloc/auth_cubit.dart';
 
@@ -72,6 +71,8 @@ class _LoginScreenState extends State<LoginScreen> {
             context.go('/home');
           } else if (state is AuthOnboardingRequired) {
             context.go('/onboarding');
+          } else if (state is AuthEmailVerificationRequired) {
+            context.push('/verify-email', extra: state.email);
           } else if (state is AuthReferralRequired) {
             context.go('/referral');
           } else if (state is AuthPaymentRequired) {
@@ -96,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 400,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFF1F5F9).withOpacity(0.7),
+                  color: const Color(0xFFF1F5F9).withValues(alpha: 0.7),
                 ),
               ),
             ),
@@ -110,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 500,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFF1F5F9).withOpacity(0.5),
+                  color: const Color(0xFFF1F5F9).withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -137,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(32),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
+                                color: Colors.black.withValues(alpha: 0.03),
                                 blurRadius: 40,
                                 offset: const Offset(0, 10),
                                 spreadRadius: 0,
@@ -256,6 +257,45 @@ class _LoginScreenState extends State<LoginScreen> {
                                               fontSize: 16,
                                             ),
                                           ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  Expanded(child: Divider(color: Colors.grey.shade200)),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Text('OR', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w600, fontSize: 12)),
+                                  ),
+                                  Expanded(child: Divider(color: Colors.grey.shade200)),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              BlocBuilder<AuthCubit, AuthState>(
+                                builder: (context, state) {
+                                  final isLoading = state is AuthLoading;
+                                  return SizedBox(
+                                    width: double.infinity,
+                                    height: 52,
+                                    child: OutlinedButton(
+                                      onPressed: isLoading ? null : () => context.read<AuthCubit>().signInWithGoogle(),
+                                      style: OutlinedButton.styleFrom(
+                                        side: BorderSide(color: Colors.grey.shade300),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.login, size: 20, color: Color(0xFF374151)), // Placeholder for Google Icon
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Continue with Google',
+                                            style: TextStyle(color: Color(0xFF374151), fontWeight: FontWeight.w600, fontSize: 15),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   );
                                 },

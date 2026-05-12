@@ -1,18 +1,24 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
+import { MailService } from '../mail/mail.service';
+import { OAuth2Client } from 'google-auth-library';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
+  private googleClient = new OAuth2Client();
+
   constructor(
     private usersService: UsersService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findOneByEmail(email);
-    if (user && await bcrypt.compare(pass, user.password_hash)) {
+    if (!user) return null;
+    if (user.password_hash && await bcrypt.compare(pass, user.password_hash)) {
       const { password_hash, ...result } = user;
       return result;
     }
@@ -25,7 +31,8 @@ export class AuthService {
       access_token: this.jwtService.sign(payload),
       user: {
         ...user,
-        onboarding_completed: user.onboarding_completed
+        onboarding_completed: user.onboarding_completed,
+        is_email_verified: user.is_email_verified,
       },
     };
   }
@@ -33,13 +40,82 @@ export class AuthService {
   async register(registerDto: any) {
     const existingUser = await this.usersService.findOneByEmail(registerDto.email);
     if (existingUser) {
-        throw new UnauthorizedException('User already exists');
+      throw new BadRequestException('User already exists');
     }
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
     const user = await this.usersService.create({
-        email: registerDto.email,
-        password_hash: registerDto.password, // hashed inside service
-        name: registerDto.name
+      email: registerDto.email,
+      password_hash: registerDto.password,
+      name: registerDto.name,
+      verification_code: verificationCode,
+      is_email_verified: true, // Auto-verify for now as requested
     });
+
+    // Optional: still send the email in background but don't wait/block
+    this.mailService.sendVerificationCode(user.email, verificationCode).catch(() => {});
+
     return this.login(user);
+  }
+
+  async verifyEmail(email: string, code: string) {
+    const user = await this.usersService.findOneByEmail(email);
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.verification_code !== code) {
+      throw new BadRequestException('Invalid verification code');
+    }
+
+    const updatedUser = await this.usersService.updateUser(user.id, {
+      is_email_verified: true,
+      verification_code: null as any,
+    });
+
+    return this.login(updatedUser);
+  }
+
+  async googleLogin(idToken: string) {
+    try {
+      const ticket = (await this.googleClient.verifyIdToken({
+        idToken,
+        audience: [
+          process.env.GOOGLE_CLIENT_ID_ANDROID,
+          process.env.GOOGLE_CLIENT_ID_IOS,
+          process.env.GOOGLE_CLIENT_ID_WEB,
+        ].filter((id): id is string => !!id),
+      })) as any;
+
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('Invalid Google token');
+      }
+
+      const { sub: googleId, email, name, picture } = payload;
+
+      let user = await this.usersService.findOneByGoogleId(googleId);
+
+      if (!user) {
+        // Check if user exists by email but not linked to Google
+        user = await this.usersService.findOneByEmail(email);
+        if (user) {
+          user = await this.usersService.updateUser(user.id, { google_id: googleId, is_email_verified: true });
+        } else {
+          user = await this.usersService.create({
+            email,
+            name,
+            google_id: googleId,
+            is_email_verified: true, // Google emails are pre-verified
+            password_hash: null as any, // No password for Google users
+          });
+        }
+      }
+
+      return this.login(user);
+    } catch (e) {
+      throw new UnauthorizedException('Google authentication failed');
+    }
   }
 }

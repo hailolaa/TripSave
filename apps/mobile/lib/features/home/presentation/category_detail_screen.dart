@@ -24,8 +24,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   bool _isLoading = true;
   String? _error;
   String _searchQuery = '';
-  String _selectedFuelType = 'regular';
-  int _gallons = 15;
+  final String _selectedFuelType = 'regular';
+  final int _gallons = 15;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -293,8 +293,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   Widget _buildListItem(Map<String, dynamic> data, {bool isBest = false}) {
     final store = data['store'];
-    final bgColor = isGas ? const Color(0xFFF1F5F9) : (isPharmacy ? const Color(0xFFF3E8FF) : const Color(0xFFF1F5F9));
-    final iconColor = isGas ? Colors.grey.shade600 : (isPharmacy ? const Color(0xFF6A3CE2) : Colors.grey.shade600);
     final price = isGas ? (data['price_per_gallon'] ?? data['products'][0]['price']) : data['true_cost'];
     final distance = (data['driving_distance'] / 2).toStringAsFixed(1);
     

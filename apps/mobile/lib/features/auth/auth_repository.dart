@@ -1,9 +1,13 @@
 import '../../core/network/api_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthRepository {
   final ApiClient apiClient;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+  );
 
   AuthRepository(this.apiClient);
 
@@ -13,13 +17,12 @@ class AuthRepository {
       'password': password,
     });
 
-    final token = response.data['access_token'];
-    await _storage.write(key: 'jwt', value: token);
-    await _storage.write(key: 'remember_me', value: rememberMe.toString());
-
-    // Store user info locally
     final user = response.data['user'];
-    if (user != null) {
+    if (user != null && user['is_email_verified'] == true) {
+      final token = response.data['access_token'];
+      await _storage.write(key: 'jwt', value: token);
+      await _storage.write(key: 'remember_me', value: rememberMe.toString());
+
       await _storage.write(key: 'user_name', value: user['name'] ?? '');
       await _storage.write(key: 'user_email', value: user['email'] ?? '');
       await _storage.write(key: 'user_id', value: user['id'] ?? '');
@@ -38,19 +41,56 @@ class AuthRepository {
       'password': password,
     });
 
+    // Don't store token yet, wait for email verification
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> verifyEmail(String email, String code) async {
+    final response = await apiClient.dio.post('/auth/verify-email', data: {
+      'email': email,
+      'code': code,
+    });
+
     final token = response.data['access_token'];
     await _storage.write(key: 'jwt', value: token);
-    await _storage.write(key: 'remember_me', value: 'true'); // Default to true on register
+    await _storage.write(key: 'remember_me', value: 'true');
 
     final user = response.data['user'];
     if (user != null) {
-      await _storage.write(key: 'user_name', value: user['name'] ?? name);
-      await _storage.write(key: 'user_email', value: user['email'] ?? email);
+      await _storage.write(key: 'user_name', value: user['name'] ?? '');
+      await _storage.write(key: 'user_email', value: user['email'] ?? '');
       await _storage.write(key: 'user_id', value: user['id'] ?? '');
-      await _storage.write(key: 'onboarding_completed', value: 'false');
-    } else {
-      await _storage.write(key: 'user_name', value: name);
-      await _storage.write(key: 'user_email', value: email);
+      await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
+    }
+
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> signInWithGoogle() async {
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) throw Exception('Google sign-in cancelled');
+
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final String? idToken = googleAuth.idToken;
+
+    if (idToken == null) throw Exception('Failed to get Google ID token');
+
+    final response = await apiClient.dio.post('/auth/google', data: {
+      'idToken': idToken,
+    });
+
+    final token = response.data['access_token'];
+    await _storage.write(key: 'jwt', value: token);
+    await _storage.write(key: 'remember_me', value: 'true');
+
+    final user = response.data['user'];
+    if (user != null) {
+      await _storage.write(key: 'user_name', value: user['name'] ?? '');
+      await _storage.write(key: 'user_email', value: user['email'] ?? '');
+      await _storage.write(key: 'user_id', value: user['id'] ?? '');
+      await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
+      await _storage.write(key: 'vehicle_mpg', value: (user['vehicle_mpg'] ?? 25.0).toString());
+      await _storage.write(key: 'default_gas_price', value: (user['default_gas_price'] ?? 3.50).toString());
     }
 
     return response.data;

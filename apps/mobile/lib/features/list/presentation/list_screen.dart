@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../bloc/list_cubit.dart';
-import '../../compare/bloc/comparison_cubit.dart';
 import '../../home/bloc/home_cubit.dart';
 
 class ListScreen extends StatefulWidget {
@@ -243,7 +241,6 @@ class _ListScreenState extends State<ListScreen> {
   }
 
   Widget _buildCartSummary(Map<String, dynamic> summary) {
-    final store = summary['store'];
     final itemsFound = summary['items_found'] ?? 0;
     final basketTotal = summary['item_total'] ?? 0.0;
     final driveCost = summary['driving_cost'] ?? 0.0;

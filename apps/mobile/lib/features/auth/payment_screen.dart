@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'bloc/auth_cubit.dart';
 import 'auth_repository.dart';
 import '../../core/di/injection.dart';
-import '../../core/theme/app_theme.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -58,12 +57,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
       );
 
-      if (setupIntent.status == PaymentIntentsStatus.Succeeded) {
+      if (setupIntent.status.toString() == PaymentIntentsStatus.Succeeded.toString()) {
         final paymentMethodId = setupIntent.paymentMethodId;
-        if (paymentMethodId != null) {
-          if (mounted) {
-            await context.read<AuthCubit>().submitPayment(paymentMethodId);
-          }
+        if (mounted) {
+          await context.read<AuthCubit>().submitPayment(paymentMethodId);
         }
       }
     } catch (e) {

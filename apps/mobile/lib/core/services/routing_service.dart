@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -33,7 +34,7 @@ class RoutingService {
       }
     } catch (e) {
       // Silently fail – the map will just not show a route
-      print('Routing error: $e');
+      debugPrint('Routing error: $e');
     }
     return null;
   }

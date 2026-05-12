@@ -18,6 +18,14 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
+  async findOneByGoogleId(googleId: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { google_id: googleId } });
+  }
+
+  async findOne(id: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { id } });
+  }
+
   async create(userData: Partial<User>): Promise<User> {
     const saltOrRounds = 10;
     const password_hash = await bcrypt.hash(userData.password_hash || '', saltOrRounds);

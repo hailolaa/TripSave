@@ -105,19 +105,33 @@ class StoreLogo extends StatelessWidget {
     const baseUrl = 'https://img.logo.dev';
     
     String? domain;
-    if (name.contains('walmart')) domain = 'walmart.com';
-    else if (name.contains('target')) domain = 'target.com';
-    else if (name.contains('aldi')) domain = 'aldi.us';
-    else if (name.contains('costco')) domain = 'costco.com';
-    else if (name.contains('kroger')) domain = 'kroger.com';
-    else if (name.contains('whole foods')) domain = 'wholefoodsmarket.com';
-    else if (name.contains('publix')) domain = 'publix.com';
-    else if (name.contains('heb') || name.contains('h-e-b')) domain = 'heb.com';
-    else if (name.contains('cvs')) domain = 'cvs.com';
-    else if (name.contains('walgreens')) domain = 'walgreens.com';
-    else if (name.contains('shell')) domain = 'shell.com';
-    else if (name.contains('exxon')) domain = 'exxon.com';
-    else if (name.contains('7-eleven')) domain = '7-eleven.com';
+    if (name.contains('walmart')) {
+      domain = 'walmart.com';
+    } else if (name.contains('target')) {
+      domain = 'target.com';
+    } else if (name.contains('aldi')) {
+      domain = 'aldi.us';
+    } else if (name.contains('costco')) {
+      domain = 'costco.com';
+    } else if (name.contains('kroger')) {
+      domain = 'kroger.com';
+    } else if (name.contains('whole foods')) {
+      domain = 'wholefoodsmarket.com';
+    } else if (name.contains('publix')) {
+      domain = 'publix.com';
+    } else if (name.contains('heb') || name.contains('h-e-b')) {
+      domain = 'heb.com';
+    } else if (name.contains('cvs')) {
+      domain = 'cvs.com';
+    } else if (name.contains('walgreens')) {
+      domain = 'walgreens.com';
+    } else if (name.contains('shell')) {
+      domain = 'shell.com';
+    } else if (name.contains('exxon')) {
+      domain = 'exxon.com';
+    } else if (name.contains('7-eleven')) {
+      domain = '7-eleven.com';
+    }
     
     if (domain != null) {
       return '$baseUrl/$domain?token=$token';

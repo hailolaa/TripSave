@@ -792,7 +792,6 @@ class _CompareScreenState extends State<CompareScreen> {
     final store = comparison['store'];
     final chain = store['chain'];
     final isGas = chain['type'] == 'gas';
-    final isPharmacy = chain['type'] == 'pharmacy';
     final storeName = store['name']?.toString() ?? '';
     final isFavorite = _isFavoriteStore(storeName);
 

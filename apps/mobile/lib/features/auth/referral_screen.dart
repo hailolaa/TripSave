@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'bloc/auth_cubit.dart';
-import '../../core/theme/app_theme.dart';
 
 class ReferralScreen extends StatefulWidget {
   const ReferralScreen({super.key});
