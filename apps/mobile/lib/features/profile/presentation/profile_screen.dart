@@ -26,6 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _notificationsEnabled = true;
   bool _locationAccessEnabled = true;
   String _currentLocationName = 'Detecting...';
+  Map<String, dynamic>? _paymentMethod;
   final SettingsService _settingsService = getIt<SettingsService>();
   final FavoriteStoreService _favoriteStoreService = getIt<FavoriteStoreService>();
   final LocationService _locationService = getIt<LocationService>();
@@ -58,6 +59,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profile = profile;
       });
       await _syncSettingsFromProfile();
+      _loadPaymentMethod();
+    }
+  }
+
+  Future<void> _loadPaymentMethod() async {
+    final repo = getIt<AuthRepository>();
+    final pm = await repo.getPaymentMethod();
+    if (mounted) {
+      setState(() {
+        _paymentMethod = pm;
+      });
     }
   }
 
@@ -123,6 +135,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             listener: (context, state) {
           if (state is AuthUnauthenticated) {
             context.go('/login');
+          } else if (state is AuthError) {
+             ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+            );
           }
         },
         child: ListView(
@@ -242,10 +258,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 12),
             _buildSettingsCard([
               _buildSettingRow(
-                Icons.credit_card, const Color(0xFFE0E7FF), 'Payment Method', 
+                Icons.credit_card, const Color(0xFFE0E7FF), 
+                _paymentMethod != null ? '${_paymentMethod!['brand'].toString().toUpperCase()} •••• ${_paymentMethod!['last4']}' : 'Payment Method', 
                 _profile?['subscription_status'] == 'trialing' ? 'Free Trial' : 'Active',
-                onTap: () => context.push('/payment'),
+                onTap: () => context.push('/payment?isUpdating=true'),
               ),
+              if (_profile?['subscription_status'] != 'none' && _profile?['subscription_status'] != 'canceled')
+                const Divider(height: 1),
+              if (_profile?['subscription_status'] != 'none' && _profile?['subscription_status'] != 'canceled')
+                _buildSettingRow(
+                  Icons.cancel_outlined, const Color(0xFFFEF2F2), 'Stop Subscription', null,
+                  onTap: _showStopSubscriptionDialog,
+                ),
               const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -255,7 +279,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _profile?['trial_end_date'] != null 
+                        _profile?['subscription_status'] == 'canceled' 
+                          ? 'Your subscription has been canceled.'
+                          : _profile?['trial_end_date'] != null 
                             ? 'Your free trial ends on ${DateTime.parse(_profile!['trial_end_date']).toLocal().toString().split(' ')[0]}' 
                             : 'Subscription is active.',
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
@@ -366,6 +392,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
             child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStopSubscriptionDialog() {
+    HapticFeedback.warningImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Stop Subscription', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: const Text('Stopping your subscription will cancel all premium features. You will be signed out automatically.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Keep it')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthCubit>().cancelSubscription();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+            child: const Text('Stop & Sign Out'),
           ),
         ],
       ),

@@ -271,6 +271,16 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  Future<void> cancelSubscription() async {
+    emit(AuthLoading());
+    try {
+      await authRepository.cancelSubscription();
+      await logout(); // Automatic logout as requested
+    } catch (e) {
+      emit(AuthError('Failed to cancel subscription'));
+    }
+  }
+
   Future<void> submitPayment(String paymentMethodId) async {
     emit(AuthLoading());
     try {

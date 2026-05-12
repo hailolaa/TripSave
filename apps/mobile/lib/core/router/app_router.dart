@@ -144,7 +144,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/payment',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const PaymentScreen(),
+      builder: (context, state) {
+        final isUpdating = state.uri.queryParameters['isUpdating'] == 'true';
+        return PaymentScreen(isUpdating: isUpdating);
+      },
     ),
     GoRoute(
       path: '/verify-email',

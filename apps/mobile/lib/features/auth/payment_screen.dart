@@ -9,7 +9,8 @@ import 'auth_repository.dart';
 import '../../core/di/injection.dart';
 
 class PaymentScreen extends StatefulWidget {
-  const PaymentScreen({super.key});
+  final bool isUpdating;
+  const PaymentScreen({super.key, this.isUpdating = false});
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -125,16 +126,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF19409B), borderRadius: BorderRadius.circular(2))),
-                          const SizedBox(width: 8),
-                          Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF19409B), borderRadius: BorderRadius.circular(2))),
-                          const SizedBox(width: 8),
-                          Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(2))),
+                          if (!widget.isUpdating)
+                            Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF19409B), borderRadius: BorderRadius.circular(2))),
+                          if (!widget.isUpdating)
+                            const SizedBox(width: 8),
+                          if (!widget.isUpdating)
+                            Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF19409B), borderRadius: BorderRadius.circular(2))),
+                          if (!widget.isUpdating)
+                            const SizedBox(width: 8),
+                          if (!widget.isUpdating)
+                            Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(2))),
                         ],
                       ).animate().fadeIn(),
+                      if (widget.isUpdating)
+                         Row(
+                           children: [
+                             IconButton(
+                               icon: const Icon(Icons.arrow_back, color: Color(0xFF111827)),
+                               onPressed: () => context.pop(),
+                             ),
+                           ],
+                         ),
                       SizedBox(height: isShort ? 20 : 32),
                       Text(
-                        '7-Day Free Trial',
+                        widget.isUpdating ? 'Update Payment' : '7-Day Free Trial',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: isShort ? 28 : 32,
@@ -144,7 +159,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
                       SizedBox(height: isShort ? 8 : 12),
                       Text(
-                        'Experience premium savings risk-free.\nThen just \$1.99/month.',
+                        widget.isUpdating 
+                          ? 'Update your preferred payment method\nfor your TripSave subscription.'
+                          : 'Experience premium savings risk-free.\nThen just \$1.99/month.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: const Color(0xFF6B7280),
@@ -273,7 +290,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 child: isLoading
                                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                   : Text(
-                                      'Start My Free Trial',
+                                      widget.isUpdating ? 'Update Payment Method' : 'Start My Free Trial',
                                       style: TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: isShort ? 15 : 16,
@@ -315,7 +332,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 32),
           const Text(
-            'Trial Activated!',
+            'Success!',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
@@ -323,10 +340,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ).animate().fadeIn(delay: 400.ms),
           const SizedBox(height: 16),
-          const Text(
-            'Welcome to TripSave Premium.\nYour 7-day free trial has started.',
+          Text(
+            widget.isUpdating 
+              ? 'Your payment method has been updated.'
+              : 'Welcome to TripSave Premium.\nYour 7-day free trial has started.',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16,
               color: Color(0xFF6B7280),
               height: 1.5,

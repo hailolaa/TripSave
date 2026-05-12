@@ -30,6 +30,19 @@ export class SubscriptionController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('cancel')
+  async cancelSubscription(@Request() req: any) {
+    await this.subscriptionService.cancelSubscription(req.user.userId);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('payment-method')
+  async getPaymentMethod(@Request() req: any) {
+    return this.subscriptionService.getSavedPaymentMethod(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('status')
   async getStatus(@Request() req: any) {
     return this.subscriptionService.getSubscriptionStatus(req.user.userId);

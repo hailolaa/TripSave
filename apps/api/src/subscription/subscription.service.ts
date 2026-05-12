@@ -95,6 +95,53 @@ export class SubscriptionService {
     await this.userRepo.save(user);
   }
 
+  async cancelSubscription(userId: string): Promise<void> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const customerId = await this.getOrCreateCustomer(user);
+    const subscriptions = await this.stripe.subscriptions.list({
+      customer: customerId,
+      status: 'active',
+      limit: 1,
+    });
+
+    const trialingSubscriptions = await this.stripe.subscriptions.list({
+      customer: customerId,
+      status: 'trialing',
+      limit: 1,
+    });
+
+    const sub = subscriptions.data[0] || trialingSubscriptions.data[0];
+
+    if (sub) {
+      await this.stripe.subscriptions.cancel(sub.id);
+    }
+
+    user.subscription_status = 'canceled';
+    await this.userRepo.save(user);
+  }
+
+  async getSavedPaymentMethod(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const customerId = await this.getOrCreateCustomer(user);
+    const customer = await this.stripe.customers.retrieve(customerId, {
+      expand: ['invoice_settings.default_payment_method'],
+    });
+
+    const pm = customer.invoice_settings?.default_payment_method as Stripe.PaymentMethod;
+    if (!pm || !pm.card) return null;
+
+    return {
+      brand: pm.card.brand,
+      last4: pm.card.last4,
+      exp_month: pm.card.exp_month,
+      exp_year: pm.card.exp_year,
+    };
+  }
+
   async getSubscriptionStatus(userId: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
