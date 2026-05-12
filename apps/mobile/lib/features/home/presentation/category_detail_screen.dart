@@ -153,7 +153,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                         ),
                       ),
                     ),
-                    if (isGas) _buildGasControls(primaryColor),
                     if (_results.isNotEmpty) _buildHeroCard(_results.first, primaryColor),
                     if (_results.isEmpty)
                       Padding(
@@ -187,99 +186,92 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     final savings = data['savings'] ?? 0;
     final products = (data['products'] as List?) ?? const [];
     final fallbackFuelPrice = products.isNotEmpty ? products.first['price'] : '0.00';
+    final distance = (data['driving_distance'] / 2).toStringAsFixed(1);
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: primaryColor,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))],
+        color: isPharmacy ? const Color(0xFF6A3CE2) : const Color(0xFF2563EB),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: (isPharmacy ? const Color(0xFF6A3CE2) : const Color(0xFF2563EB)).withValues(alpha: 0.3), 
+            blurRadius: 30, 
+            offset: const Offset(0, 15)
+          )
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(isGas ? 'BEST GAS DEAL NEARBY' : 'BEST PHARMACY NEARBY', 
-                    style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.5)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                  isGas ? 'BEST DEAL' : 'TOP RATED',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.5),
+                ),
               ),
               if (savings > 0) Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                child: Text('Save \$${savings.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                  'Save \$${savings.toStringAsFixed(2)}',
+                  style: TextStyle(color: isPharmacy ? const Color(0xFF6A3CE2) : const Color(0xFF2563EB), fontWeight: FontWeight.bold, fontSize: 11),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+          Text(
+            isGas ? "${store['name']}\$${data['price_per_gallon'] ?? fallbackFuelPrice}/Regular" : store['name'],
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: -0.5),
+          ),
+          const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Icon(isGas ? Icons.local_gas_station_outlined : Icons.local_pharmacy_outlined, color: Colors.white, size: 24),
-              const SizedBox(width: 8),
-              Flexible(child: Text(store['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24), overflow: TextOverflow.ellipsis)),
+              Text(
+                isGas ? '\$${data['price_per_gallon'] ?? fallbackFuelPrice}' : '\$${data['true_cost']}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 48, letterSpacing: -1.5),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10, left: 4),
+                child: Text(
+                  isGas ? '/gal' : 'total',
+                  style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 20),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
           if (isGas) ...[
-            // Gas: show price/gal prominently
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('\$${data['price_per_gallon'] ?? fallbackFuelPrice}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 44, letterSpacing: -1)),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Text('/gal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
-                ),
-                const Spacer(),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Gas fill-up breakdown
+            const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildBreakdownCol('Fill-up', '\$${data['fill_up_cost'] ?? data['item_total']}', '${data['gallons'] ?? 15} gal'),
-                  Container(height: 30, width: 1, color: Colors.white30),
-                  _buildBreakdownCol('Drive', '\$${data['driving_cost']}', '${(data['driving_distance'] / 2).toStringAsFixed(1)} mi'),
-                  Container(height: 30, width: 1, color: Colors.white30),
+                  Container(height: 32, width: 1, color: Colors.white24),
+                  _buildBreakdownCol('Driving', '\$${data['driving_cost']}', '$distance mi'),
+                  Container(height: 32, width: 1, color: Colors.white24),
                   _buildBreakdownCol('True Cost', '\$${data['true_cost']}', 'total'),
                 ],
               ),
             ),
           ],
-          if (!isGas) ...[
-            const Text('True Total', style: TextStyle(color: Colors.white70, fontSize: 13)),
-            Text('\$${data['true_cost']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 44, letterSpacing: -1)),
-          ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined, color: Colors.white, size: 14),
-                    const SizedBox(width: 6),
-                    Text('${(data['driving_distance'] / 2).toStringAsFixed(1)} mi away', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                child: Row(
-                  children: [
-                    Icon(Icons.directions_car_outlined, color: Colors.white.withValues(alpha: 0.8), size: 14),
-                    const SizedBox(width: 6),
-                    Text('\$${data['driving_cost']} fuel', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
-                  ],
-                ),
-              ),
+              const Icon(Icons.location_on, color: Colors.white70, size: 16),
+              const SizedBox(width: 4),
+              Text('$distance miles away', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+              const Spacer(),
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
             ],
           )
         ],
@@ -298,90 +290,29 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
-  Widget _buildGasControls(Color primaryColor) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              initialValue: _selectedFuelType,
-              decoration: const InputDecoration(
-                labelText: 'Fuel Type',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: const [
-                DropdownMenuItem(value: 'regular', child: Text('Regular')),
-                DropdownMenuItem(value: 'midgrade', child: Text('Mid-grade')),
-                DropdownMenuItem(value: 'premium', child: Text('Premium')),
-                DropdownMenuItem(value: 'diesel', child: Text('Diesel')),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _selectedFuelType = value);
-                _fetchData();
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: DropdownButtonFormField<int>(
-              initialValue: _gallons,
-              decoration: const InputDecoration(
-                labelText: 'Gallons',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              items: const [10, 15, 20, 25]
-                  .map((g) => DropdownMenuItem(value: g, child: Text('$g gal')))
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _gallons = value);
-                _fetchData();
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: _fetchData,
-            icon: Icon(Icons.refresh, color: primaryColor),
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildListItem(Map<String, dynamic> data, {bool isBest = false}) {
     final store = data['store'];
-    final bgColor = isGas ? const Color(0xFFEFF6FF) : (isPharmacy ? const Color(0xFFF3E8FF) : const Color(0xFFE8F0FE));
-    final iconColor = isGas ? const Color(0xFF2563EB) : (isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.primaryBlue);
+    final bgColor = isGas ? const Color(0xFFF1F5F9) : (isPharmacy ? const Color(0xFFF3E8FF) : const Color(0xFFF1F5F9));
+    final iconColor = isGas ? Colors.grey.shade600 : (isPharmacy ? const Color(0xFF6A3CE2) : Colors.grey.shade600);
     final price = isGas ? (data['price_per_gallon'] ?? data['products'][0]['price']) : data['true_cost'];
+    final distance = (data['driving_distance'] / 2).toStringAsFixed(1);
     
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(14)),
             child: Icon(
-              isGas ? Icons.local_gas_station_outlined : (isPharmacy ? Icons.local_pharmacy_outlined : Icons.shopping_cart_outlined),
+              isGas ? Icons.local_gas_station : (isPharmacy ? Icons.local_pharmacy : Icons.shopping_cart),
               color: iconColor,
-              size: 24,
+              size: 20,
             ),
           ),
           const SizedBox(width: 16),
@@ -389,39 +320,28 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(child: Text(store['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18), overflow: TextOverflow.ellipsis)),
-                    if (isBest) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: AppTheme.savingsGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                        child: const Text('Best', style: TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.bold, fontSize: 10)),
-                      )
-                    ]
-                  ],
+                Text(
+                  isGas ? "${store['name']}\$${data['price_per_gallon'] ?? data['products'][0]['price']}/Regular" : store['name'],
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppTheme.textDark),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     const Icon(Icons.location_on_outlined, size: 12, color: Colors.grey),
                     const SizedBox(width: 4),
-                    Text('${(data['driving_distance'] / 2).toStringAsFixed(1)} mi \u00B7 \$${data['driving_cost']} trip', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    Text('$distance mi \u00B7 \$${data['driving_cost']} trip', style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
                   ],
                 ),
-                if (isGas) ...[
-                   const SizedBox(height: 4),
-                   Text('Fill-up total: \$${data['true_cost']}', style: TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.bold, fontSize: 12)),
-                ]
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('\$$price', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark)),
-              Text(isGas ? '/gal' : 'total', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text('\$$price', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppTheme.textDark)),
+              Text(isGas ? '/gal' : 'total', style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
             ],
           )
         ],
