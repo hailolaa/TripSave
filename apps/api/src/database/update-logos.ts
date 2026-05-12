@@ -15,18 +15,18 @@ const AppDataSource = new DataSource({
 });
 
 const logoMappings = [
-  { slug: 'walmart', logo: 'https://logo.clearbit.com/walmart.com' },
-  { slug: 'target', logo: 'https://logo.clearbit.com/target.com' },
-  { slug: 'aldi', logo: 'https://logo.clearbit.com/aldi.us' },
-  { slug: 'costco', logo: 'https://logo.clearbit.com/costco.com' },
-  { slug: 'kroger', logo: 'https://logo.clearbit.com/kroger.com' },
-  { slug: 'wholefoods', logo: 'https://logo.clearbit.com/wholefoodsmarket.com' },
-  { slug: 'publix', logo: 'https://logo.clearbit.com/publix.com' },
-  { slug: 'heb', logo: 'https://logo.clearbit.com/heb.com' },
-  { slug: 'cvs', logo: 'https://logo.clearbit.com/cvs.com' },
-  { slug: 'walgreens', logo: 'https://logo.clearbit.com/walgreens.com' },
-  { slug: 'shell', logo: 'https://logo.clearbit.com/shell.com' },
-  { slug: 'exxon', logo: 'https://logo.clearbit.com/exxon.com' },
+  { key: 'walmart', logo: 'https://logo.clearbit.com/walmart.com' },
+  { key: 'target', logo: 'https://logo.clearbit.com/target.com' },
+  { key: 'aldi', logo: 'https://logo.clearbit.com/aldi.us' },
+  { key: 'costco', logo: 'https://logo.clearbit.com/costco.com' },
+  { key: 'kroger', logo: 'https://logo.clearbit.com/kroger.com' },
+  { key: 'wholefoods', logo: 'https://logo.clearbit.com/wholefoodsmarket.com' },
+  { key: 'publix', logo: 'https://logo.clearbit.com/publix.com' },
+  { key: 'heb', logo: 'https://logo.clearbit.com/heb.com' },
+  { key: 'cvs', logo: 'https://logo.clearbit.com/cvs.com' },
+  { key: 'walgreens', logo: 'https://logo.clearbit.com/walgreens.com' },
+  { key: 'shell', logo: 'https://logo.clearbit.com/shell.com' },
+  { key: 'exxon', logo: 'https://logo.clearbit.com/exxon.com' },
 ];
 
 async function runUpdate() {
@@ -35,23 +35,27 @@ async function runUpdate() {
     console.log('DB Connection initialized.');
 
     const chainRepo = AppDataSource.getRepository(StoreChain);
+    const allChains = await chainRepo.find();
     
-    console.log('Updating logo URLs...');
+    console.log(`Found ${allChains.length} total chains. Starting fuzzy match update...`);
     
+    let updatedCount = 0;
+
     for (const mapping of logoMappings) {
-      const result = await chainRepo.update(
-        { slug: mapping.slug },
-        { logo_url: mapping.logo }
+      // Find all chains that contain the key in their name or slug
+      const matches = allChains.filter(c => 
+        c.slug.toLowerCase().includes(mapping.key) || 
+        c.name.toLowerCase().includes(mapping.key)
       );
       
-      if (result.affected && result.affected > 0) {
-        console.log(`✅ Updated logo for: ${mapping.slug}`);
-      } else {
-        console.log(`ℹ️ No chain found with slug: ${mapping.slug} (skipping)`);
+      for (const match of matches) {
+        await chainRepo.update(match.id, { logo_url: mapping.logo });
+        console.log(`✅ Updated: ${match.name} (Slug: ${match.slug}) -> ${mapping.logo}`);
+        updatedCount++;
       }
     }
 
-    console.log('Update COMPLETE 🚀');
+    console.log(`\nUpdate COMPLETE 🚀 | Total updated: ${updatedCount}`);
     process.exit(0);
   } catch (err) {
     console.error('Update failed:', err);
