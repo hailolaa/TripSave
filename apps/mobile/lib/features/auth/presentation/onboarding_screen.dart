@@ -78,7 +78,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 40),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: AppTheme.textDark),
+                      onPressed: () => context.read<AuthCubit>().logout(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 Center(
                   child: Container(
                     padding: const EdgeInsets.all(20),

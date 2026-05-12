@@ -84,7 +84,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       body: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            context.go('/home');
+            if (widget.isUpdating) {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/profile');
+              }
+            } else {
+              context.go('/home');
+            }
           } else if (state is AuthOnboardingRequired) {
             context.go('/onboarding');
           } else if (state is AuthError) {
@@ -138,16 +146,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(2))),
                         ],
                       ).animate().fadeIn(),
-                      if (widget.isUpdating)
-                         Row(
-                           children: [
-                             IconButton(
-                               icon: const Icon(Icons.arrow_back, color: Color(0xFF111827)),
-                               onPressed: () => context.pop(),
-                             ),
-                           ],
-                         ),
-                      SizedBox(height: isShort ? 20 : 32),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Color(0xFF111827)),
+                            onPressed: () {
+                              if (widget.isUpdating) {
+                                context.pop();
+                              } else {
+                                context.go('/referral');
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: isShort ? 8 : 12),
                       Text(
                         widget.isUpdating ? 'Update Payment' : '7-Day Free Trial',
                         style: TextStyle(

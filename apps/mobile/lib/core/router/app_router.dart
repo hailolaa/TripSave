@@ -53,15 +53,18 @@ final GoRouter appRouter = GoRouter(
                               state.matchedLocation == '/payment';
 
     if (!onboardingCompleted) {
-      return state.matchedLocation == '/onboarding' ? null : '/onboarding';
+      if (state.matchedLocation == '/onboarding') return null;
+      return '/onboarding';
     }
     
     if (referralSource == null || referralSource.isEmpty || referralSource == 'null') {
-      return state.matchedLocation == '/referral' ? null : '/referral';
+      if (state.matchedLocation == '/onboarding' || state.matchedLocation == '/referral') return null;
+      return '/referral';
     }
     
     if (subStatus == 'none' || subStatus == 'null' || subStatus == null) {
-      return state.matchedLocation == '/payment' ? null : '/payment';
+      if (state.matchedLocation == '/onboarding' || state.matchedLocation == '/referral' || state.matchedLocation == '/payment') return null;
+      return '/payment';
     }
 
     if (isAuthRoute || isOnboardingRoute) {

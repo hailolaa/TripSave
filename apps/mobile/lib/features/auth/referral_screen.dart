@@ -68,6 +68,14 @@ class _ReferralScreenState extends State<ReferralScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Color(0xFF111827)),
+                        onPressed: () => context.go('/onboarding'),
+                      ),
+                    ],
+                  ),
                   // Stepper Indicator
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

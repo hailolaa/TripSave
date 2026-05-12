@@ -209,10 +209,12 @@ class AuthRepository {
 
   Future<void> activateTrial(String paymentMethodId) async {
     await apiClient.dio.post('/subscription/activate-trial', data: {'paymentMethodId': paymentMethodId});
+    await _storage.write(key: 'subscription_status', value: 'trialing');
   }
 
   Future<void> cancelSubscription() async {
     await apiClient.dio.post('/subscription/cancel');
+    await _storage.write(key: 'subscription_status', value: 'canceled');
   }
 
   Future<Map<String, dynamic>?> getPaymentMethod() async {
