@@ -3,8 +3,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/routing_service.dart';
+import '../../../core/widgets/store_logo.dart';
 
-class CompareMapView extends StatelessWidget {
+class CompareMapView extends StatefulWidget {
   final List<dynamic> results;
   final LatLng userLocation;
   final Function(Map<String, dynamic>) onStoreTap;
@@ -17,108 +19,265 @@ class CompareMapView extends StatelessWidget {
   });
 
   @override
+  State<CompareMapView> createState() => _CompareMapViewState();
+}
+
+class _CompareMapViewState extends State<CompareMapView> with TickerProviderStateMixin {
+  final MapController _mapController = MapController();
+  List<LatLng> _routePoints = [];
+  int? _selectedStoreIndex;
+  bool _isLoadingRoute = false;
+  RouteResult? _currentRoute;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-select the best store (index 0) and show its route
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.results.isNotEmpty) {
+        _selectStore(0);
+      }
+    });
+  }
+
+  Future<void> _selectStore(int index) async {
+    final result = widget.results[index];
+    final store = result['store'];
+    final lat = double.tryParse(store['lat'].toString()) ?? 0;
+    final lng = double.tryParse(store['lng'].toString()) ?? 0;
+
+    if (lat == 0 && lng == 0) return;
+
+    setState(() {
+      _selectedStoreIndex = index;
+      _isLoadingRoute = true;
+    });
+
+    final route = await RoutingService.getRoute(
+      widget.userLocation,
+      LatLng(lat, lng),
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoadingRoute = false;
+        _currentRoute = route;
+        _routePoints = route?.points ?? [];
+      });
+
+      // Fit the map to show the entire route
+      if (_routePoints.isNotEmpty) {
+        final bounds = LatLngBounds.fromPoints([
+          widget.userLocation,
+          LatLng(lat, lng),
+          ..._routePoints,
+        ]);
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.all(60),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FlutterMap(
-      options: MapOptions(
-        initialCenter: userLocation,
-        initialZoom: 13.0,
-      ),
+    return Stack(
       children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.tripsave.app',
-        ),
-        MarkerLayer(
-          markers: [
-            // User Location Marker
-            Marker(
-              point: userLocation,
-              width: 40,
-              height: 40,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.primaryBlue, width: 2),
+        // Map
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: widget.userLocation,
+            initialZoom: 13.0,
+          ),
+          children: [
+            // Map tiles
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.tripsave.app',
+            ),
+
+            // Route polyline
+            if (_routePoints.isNotEmpty)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: _routePoints,
+                    color: AppTheme.primaryBlue,
+                    strokeWidth: 5.0,
+                    borderColor: AppTheme.primaryBlue.withValues(alpha: 0.3),
+                    borderStrokeWidth: 2.0,
+                  ),
+                ],
+              ),
+
+            // Markers
+            MarkerLayer(
+              markers: [
+                // User Location Marker
+                Marker(
+                  point: widget.userLocation,
+                  width: 48,
+                  height: 48,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.primaryBlue, width: 3),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.my_location, color: AppTheme.primaryBlue, size: 22),
+                    ),
+                  ),
                 ),
-                child: const Center(
-                  child: Icon(Icons.person_pin_circle, color: AppTheme.primaryBlue, size: 24),
+                // Store Markers
+                ...widget.results.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final result = entry.value;
+                  final store = result['store'];
+                  final isSelected = index == _selectedStoreIndex;
+                  final isCheapest = index == 0;
+
+                  final lat = double.tryParse(store['lat'].toString()) ?? 0;
+                  final lng = double.tryParse(store['lng'].toString()) ?? 0;
+
+                  if (lat == 0 && lng == 0) return null;
+
+                  return Marker(
+                    point: LatLng(lat, lng),
+                    width: isSelected ? 160 : 140,
+                    height: isSelected ? 100 : 90,
+                    child: GestureDetector(
+                      onTap: () {
+                        _selectStore(index);
+                        widget.onStoreTap(result);
+                      },
+                      child: _buildStoreMarker(result, index, isCheapest, isSelected),
+                    ),
+                  );
+                }).whereType<Marker>(),
+              ],
+            ),
+          ],
+        ),
+
+        // Route info card (bottom)
+        if (_currentRoute != null && _selectedStoreIndex != null)
+          Positioned(
+            bottom: 16,
+            left: 16,
+            right: 16,
+            child: _buildRouteInfoCard(),
+          ),
+
+        // Loading indicator
+        if (_isLoadingRoute)
+          Positioned(
+            top: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryBlue),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('Finding route...', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w500)),
+                  ],
                 ),
               ),
             ),
-            // Store Markers
-            ...results.asMap().entries.map((entry) {
-              final index = entry.key;
-              final result = entry.value;
-              final store = result['store'];
-              final isCheapest = index == 0; // Results are sorted by backend
-              
-              final lat = double.tryParse(store['lat'].toString()) ?? 0;
-              final lng = double.tryParse(store['lng'].toString()) ?? 0;
-
-              // Skip invalid coordinates
-              if (lat == 0 && lng == 0) return null;
-
-              return Marker(
-                point: LatLng(lat, lng),
-                width: 140,
-                height: 90,
-                child: GestureDetector(
-                  onTap: () => onStoreTap(result),
-                  child: _buildStoreMarker(result, isCheapest),
-                ),
-              );
-            }).whereType<Marker>(),
-          ],
-        ),
+          ),
       ],
     );
   }
 
-  Widget _buildStoreMarker(Map<String, dynamic> result, bool isCheapest) {
+  Widget _buildStoreMarker(Map<String, dynamic> result, int index, bool isCheapest, bool isSelected) {
     final store = result['store'];
     final chain = store['chain'];
-    final isGas = chain['type'] == 'gas';
-    final primaryColor = isGas ? const Color(0xFF2563EB) : AppTheme.savingsGreen;
-    final markerIcon = isGas ? Icons.local_gas_station : Icons.shopping_basket_outlined;
+    final isGas = chain?['type'] == 'gas';
+    final primaryColor = isSelected
+        ? AppTheme.primaryBlue
+        : isCheapest
+            ? AppTheme.savingsGreen
+            : (isGas ? const Color(0xFF2563EB) : AppTheme.savingsGreen);
+
     final oneWayDistance = ((double.tryParse(result['driving_distance'].toString()) ?? 0) / 2).toStringAsFixed(1);
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (isCheapest)
+        if (isCheapest && !isSelected)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            margin: const EdgeInsets.only(bottom: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.savingsGreen,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
+            ),
+            child: Text(
+              'BEST VALUE',
+              style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+            ),
+          ),
+        if (isSelected)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             margin: const EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
               color: AppTheme.primaryBlue,
               borderRadius: BorderRadius.circular(8),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4)],
             ),
-            child: const Text(
-              'BEST VALUE',
-              style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+            child: Text(
+              'ROUTE',
+              style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
             ),
           ),
-        Container(
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isSelected ? AppTheme.primaryBlue.withValues(alpha: 0.05) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6, spreadRadius: 1),
+              BoxShadow(
+                color: isSelected
+                    ? AppTheme.primaryBlue.withValues(alpha: 0.3)
+                    : Colors.black.withValues(alpha: 0.15),
+                blurRadius: isSelected ? 10 : 6,
+                spreadRadius: isSelected ? 2 : 1,
+              ),
             ],
-            border: Border.all(color: isCheapest ? AppTheme.primaryBlue : primaryColor.withValues(alpha: 0.3), width: 1.5),
+            border: Border.all(
+              color: isSelected ? AppTheme.primaryBlue : primaryColor.withValues(alpha: 0.3),
+              width: isSelected ? 2.5 : 1.5,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(markerIcon, size: 14, color: primaryColor),
+              // Store Logo
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: StoreLogo(chain: chain, size: 28, padding: 2),
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -127,7 +286,7 @@ class CompareMapView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      store['name'],
+                      store['name'] ?? '',
                       style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 10),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -138,7 +297,7 @@ class CompareMapView extends StatelessWidget {
                         Text(
                           '\$${result['true_cost'] ?? '0.00'}',
                           style: TextStyle(
-                            color: isCheapest ? AppTheme.primaryBlue : AppTheme.textDark,
+                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textDark,
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -156,9 +315,96 @@ class CompareMapView extends StatelessWidget {
             ],
           ),
         ),
-        // Pin tip
-        Icon(Icons.arrow_drop_down, color: isCheapest ? AppTheme.primaryBlue : primaryColor.withValues(alpha: 0.5), size: 16),
+        Icon(
+          Icons.arrow_drop_down,
+          color: isSelected ? AppTheme.primaryBlue : primaryColor.withValues(alpha: 0.5),
+          size: 16,
+        ),
       ],
+    );
+  }
+
+  Widget _buildRouteInfoCard() {
+    final result = widget.results[_selectedStoreIndex!];
+    final store = result['store'];
+    final chain = store['chain'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 12, spreadRadius: 2),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Store logo
+          StoreLogo(chain: chain, size: 48, padding: 8),
+          const SizedBox(width: 12),
+          // Store info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  store['name'] ?? '',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.directions_car, size: 14, color: Colors.grey.shade600),
+                    const SizedBox(width: 4),
+                    Text(
+                      _currentRoute!.distanceText,
+                      style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                    const SizedBox(width: 4),
+                    Text(
+                      _currentRoute!.durationText,
+                      style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Navigate button
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.primaryBlue, Color(0xFF1E40AF)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => widget.onStoreTap(result),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.navigation, color: Colors.white, size: 16),
+                      const SizedBox(width: 4),
+                      Text('Go', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
