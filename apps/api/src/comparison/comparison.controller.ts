@@ -110,7 +110,7 @@ export class ComparisonController {
       finalLng = -96.8044;
     }
 
-    let resolvedZip = user?.zip_code;
+    let resolvedZip = user?.zip_code || '75201';
     try {
       const geo = await reverseGeocode(finalLat, finalLng);
       if (geo && geo.zipCode) resolvedZip = geo.zipCode;
@@ -178,7 +178,7 @@ export class ComparisonController {
       finalLng = -96.8044;
     }
 
-    let resolvedZip = user?.zip_code;
+    let resolvedZip = user?.zip_code || '75201';
     try {
       const geo = await reverseGeocode(finalLat, finalLng);
       if (geo && geo.zipCode) resolvedZip = geo.zipCode;
