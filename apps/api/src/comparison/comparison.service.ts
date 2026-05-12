@@ -543,7 +543,7 @@ export class ComparisonService {
    */
   private resolveLogoUrl(name: string): string | null {
     const n = name.toLowerCase();
-    const token = process.env.LOGO_DEV_TOKEN || 'pk_NT76m5_3Sj6iI8ZJp0Q5_g'; // Default placeholder or user token
+    const token = process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg'; // Use your Logo.dev token here
     const baseUrl = `https://img.logo.dev`;
     
     let domain = '';
