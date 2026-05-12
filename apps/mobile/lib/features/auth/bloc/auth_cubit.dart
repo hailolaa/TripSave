@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../auth_repository.dart';
+import '../../../core/services/settings_service.dart';
 
 abstract class AuthState extends Equatable {
   @override
@@ -28,9 +29,10 @@ class AuthError extends AuthState {
 
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository authRepository;
+  final SettingsService settingsService;
   final List<void Function()>? onLogout;
 
-  AuthCubit(this.authRepository, {this.onLogout}) : super(AuthInitial());
+  AuthCubit(this.authRepository, this.settingsService, {this.onLogout}) : super(AuthInitial());
 
   Future<void> checkAuth() async {
     final isLoggedIn = await authRepository.isLoggedIn();
@@ -61,6 +63,17 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   void _resolveAuthState(Map<String, dynamic> profile) {
+    // Sync settings locally
+    final mpg = double.tryParse(profile['vehicle_mpg']?.toString() ?? '');
+    final gasPrice = double.tryParse(profile['default_gas_price']?.toString() ?? '');
+    
+    if (mpg != null && mpg > 0) {
+      settingsService.setMpg(mpg);
+    }
+    if (gasPrice != null && gasPrice > 0) {
+      settingsService.setGasPrice(gasPrice);
+    }
+
     final referralSource = profile['referral_source'];
     final subStatus = profile['subscription_status'];
     final onboardingCompleted = profile['onboarding_completed'] ?? false;
@@ -151,6 +164,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> logout() async {
     await authRepository.logout();
+    await settingsService.clear();
     if (onLogout != null) {
       for (var clearFn in onLogout!) {
         clearFn();

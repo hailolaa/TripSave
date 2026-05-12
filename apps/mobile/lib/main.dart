@@ -55,6 +55,7 @@ class MyApp extends StatelessWidget {
         BlocProvider<AuthCubit>(
           create: (context) => AuthCubit(
             getIt<AuthRepository>(),
+            getIt<SettingsService>(),
             onLogout: [
               () => context.read<ListCubit>().clear(),
               () => context.read<HomeCubit>().clear(),

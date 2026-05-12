@@ -64,12 +64,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _syncSettingsFromProfile() async {
     if (_profile == null) return;
     final mpg = double.tryParse(_profile?['vehicle_mpg']?.toString() ?? '');
-    final gasCostPerMile = double.tryParse(_profile?['gas_cost_per_mile']?.toString() ?? '');
+    final gasPrice = double.tryParse(_profile?['default_gas_price']?.toString() ?? '');
     if (mpg != null && mpg > 0) {
       await _settingsService.setMpg(mpg);
     }
-    if (gasCostPerMile != null && gasCostPerMile > 0) {
-      await _settingsService.setGasCostPerMile(gasCostPerMile);
+    if (gasPrice != null && gasPrice > 0) {
+      await _settingsService.setGasPrice(gasPrice);
     }
   }
 
@@ -206,8 +206,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const Divider(height: 1),
               _buildSettingRow(
-                Icons.local_gas_station, const Color(0xFFFDECB5), 'Gas Cost per Mile', '\$${_profile?['gas_cost_per_mile'] ?? '0.10'}',
-                onTap: () => _showEditDialog('Gas Cost per Mile', 'gas_cost_per_mile', '\$'),
+                Icons.local_gas_station, const Color(0xFFFDECB5), 'Gas Price', '\$${_profile?['default_gas_price'] ?? '3.50'}',
+                onTap: () => _showEditDialog('Gas Price', 'default_gas_price', '\$'),
               ),
             ]).animate(delay: 400.ms).fadeIn().slideX(begin: 0.1),
             const SizedBox(height: 24),
