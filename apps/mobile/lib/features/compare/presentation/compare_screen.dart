@@ -716,28 +716,30 @@ class _CompareScreenState extends State<CompareScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildBestOptionMetric(
-                  'Basket', 
-                  '\$${comparison['item_total']}', 
-                  isPrimary: sortBy == 'item_total'
-                ),
-                Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
-                _buildBestOptionMetric(
-                  'Drive', 
-                  '\$${comparison['driving_cost']}', 
-                  isPrimary: sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance'
-                ),
-                Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
-                _buildBestOptionMetric(
-                  'Total', 
-                  '\$${comparison['true_cost']}', 
-                  isPrimary: sortBy == 'true_cost' || sortBy == 'savings' || sortBy == null
-                ),
-              ],
-            ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildBestOptionMetric(
+                    'Basket', 
+                    '\$${comparison['item_total']}', 
+                    isPrimary: sortBy == 'item_total'
+                  ),
+                  Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
+                  _buildBestOptionMetric(
+                    'Drive', 
+                    '\$${comparison['driving_cost']}', 
+                    isPrimary: sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance'
+                  ),
+                  Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
+                  _buildBestOptionMetric(
+                    isGas ? 'Price' : 'Total', 
+                    isGas 
+                        ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}/gal'
+                        : '\$${comparison['true_cost']}', 
+                    isPrimary: sortBy == 'true_cost' || sortBy == 'savings' || sortBy == null
+                  ),
+                ],
+              ),
             const SizedBox(height: 24),
             if (comparison['savings'] != null && comparison['savings'] > 0)
               Container(
@@ -836,23 +838,23 @@ class _CompareScreenState extends State<CompareScreen> {
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      sortBy == 'item_total' ? '\$${comparison['item_total']}' :
-                      (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? '\$${comparison['driving_cost']}' :
-                      sortBy == 'savings' ? 'Save \$${comparison['savings']}' :
-                      '\$${comparison['true_cost']}', 
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppTheme.textDark)
-                    ),
-                    Text(
-                      sortBy == 'item_total' ? 'items' :
-                      (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? 'drive' :
-                      sortBy == 'savings' ? 'vs max' :
-                      'total', 
-                      style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        sortBy == 'item_total' ? '\$${comparison['item_total']}' :
+                        (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? '\$${comparison['driving_cost']}' :
+                        sortBy == 'savings' ? 'Save \$${comparison['savings']}' :
+                        (isGas ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}' : '\$${comparison['true_cost']}'), 
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppTheme.textDark)
+                      ),
+                      Text(
+                        sortBy == 'item_total' ? 'items' :
+                        (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? 'drive' :
+                        sortBy == 'savings' ? 'vs max' :
+                        (isGas ? 'per gal' : 'total'), 
+                        style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)
+                      ),
                     const SizedBox(height: 4),
                     InkWell(
                       onTap: () => _toggleFavoriteStore(storeName),
