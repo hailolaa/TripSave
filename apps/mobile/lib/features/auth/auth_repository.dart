@@ -47,7 +47,11 @@ class AuthRepository {
     if (token != null) {
       await _storage.write(key: 'jwt', value: token);
       await _storage.write(key: 'remember_me', value: 'true');
-      
+
+      final user = response.data['user'] ?? {};
+      await _storage.write(key: 'user_name', value: user['name'] ?? '');
+      await _storage.write(key: 'user_email', value: user['email'] ?? '');
+      await _storage.write(key: 'user_id', value: user['id'] ?? '');
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
       await _storage.write(key: 'referral_source', value: user['referral_source']?.toString() ?? '');
       await _storage.write(key: 'subscription_status', value: user['subscription_status']?.toString() ?? 'none');

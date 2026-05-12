@@ -399,7 +399,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showStopSubscriptionDialog() {
-    HapticFeedback.warningImpact();
+    HapticFeedback.heavyImpact();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

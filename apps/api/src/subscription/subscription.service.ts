@@ -131,7 +131,7 @@ export class SubscriptionService {
       expand: ['invoice_settings.default_payment_method'],
     });
 
-    const pm = customer.invoice_settings?.default_payment_method as Stripe.PaymentMethod;
+    const pm = customer.invoice_settings?.default_payment_method as any;
     if (!pm || !pm.card) return null;
 
     return {

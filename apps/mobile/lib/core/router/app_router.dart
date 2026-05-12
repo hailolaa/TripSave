@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -17,20 +16,15 @@ import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/referral_screen.dart';
 import '../../features/auth/presentation/verification_screen.dart';
 import '../../features/auth/payment_screen.dart';
-import '../di/injection.dart';
-import '../../features/auth/auth_repository.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
 
 class RouterNotifier extends ChangeNotifier {
-  final AuthRepository _repository;
-  RouterNotifier(this._repository);
-
   void notify() => notifyListeners();
 }
 
-final RouterNotifier routerNotifier = RouterNotifier(getIt<AuthRepository>());
+final RouterNotifier routerNotifier = RouterNotifier();
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
