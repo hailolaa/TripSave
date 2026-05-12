@@ -164,6 +164,10 @@ class ListCubit extends Cubit<ListState> {
     }
   }
 
+  void clear() {
+    emit(ListInitial());
+  }
+
   void clearSearch() {
     if (state is ListLoaded) {
       emit((state as ListLoaded).copyWith(searchResults: [], isSearching: false));

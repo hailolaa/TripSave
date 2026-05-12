@@ -43,4 +43,8 @@ class SavingsCubit extends Cubit<SavingsState> {
     await _repository.addRecord(record);
     loadSavings();
   }
+
+  void clear() {
+    emit(SavingsInitial());
+  }
 }

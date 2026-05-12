@@ -50,7 +50,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_validate()) {
       final mpg = double.parse(_mpgController.text);
       final gasPrice = double.parse(_gasPriceController.text.replaceAll('\$', ''));
-      context.read<AuthCubit>().updateVehicleInfo(mpg, gasPrice);
+      context.read<AuthCubit>().completeOnboarding(mpg, gasPrice);
     }
   }
 
@@ -62,6 +62,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         listener: (context, state) {
           if (state is AuthAuthenticated) {
             context.go('/home');
+          } else if (state is AuthReferralRequired) {
+            context.go('/referral');
+          } else if (state is AuthPaymentRequired) {
+            context.go('/payment');
           } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message), backgroundColor: Colors.red),
@@ -147,7 +151,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: TextButton(
                     onPressed: () {
                       // Skip with defaults
-                      context.read<AuthCubit>().updateVehicleInfo(25.0, 3.50);
+                      context.read<AuthCubit>().completeOnboarding(25.0, 3.50);
                     },
                     child: Text('Skip for now', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
                   ),

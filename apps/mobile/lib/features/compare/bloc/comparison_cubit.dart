@@ -191,4 +191,10 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       emit(ComparisonError(e.toString()));
     }
   }
+
+  void clear() {
+    _lastQuery = null;
+    _lastStoreType = null;
+    emit(ComparisonInitial());
+  }
 }

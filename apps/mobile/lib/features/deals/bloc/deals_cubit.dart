@@ -40,4 +40,8 @@ class DealsCubit extends Cubit<DealsState> {
       emit(DealsError('Failed to load deals: ${e.toString()}'));
     }
   }
+
+  void clear() {
+    emit(DealsInitial());
+  }
 }

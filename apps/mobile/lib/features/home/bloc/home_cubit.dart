@@ -185,4 +185,8 @@ class HomeCubit extends Cubit<HomeState> {
       emit(HomeError(message));
     }
   }
+
+  void clear() {
+    emit(HomeInitial());
+  }
 }

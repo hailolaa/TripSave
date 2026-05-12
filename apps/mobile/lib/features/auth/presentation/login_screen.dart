@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = true;
   String? _emailError;
   String? _passwordError;
 
@@ -190,19 +191,36 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onChanged: (_) => _clearFieldErrors(),
                               ),
                               SizedBox(height: isSmall ? 8 : 12),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: GestureDetector(
-                                  onTap: () {},
-                                  child: const Text(
-                                    'Forgot Password?',
-                                    style: TextStyle(
-                                      color: Color(0xFF19409B),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: Checkbox(
+                                      value: _rememberMe,
+                                      onChanged: (val) => setState(() => _rememberMe = val ?? true),
+                                      activeColor: const Color(0xFF19409B),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                                     ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Remember Me',
+                                    style: TextStyle(color: Color(0xFF4B5563), fontSize: 13, fontWeight: FontWeight.w500),
+                                  ),
+                                  const Spacer(),
+                                  GestureDetector(
+                                    onTap: () {},
+                                    child: const Text(
+                                      'Forgot Password?',
+                                      style: TextStyle(
+                                        color: Color(0xFF19409B),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               SizedBox(height: isSmall ? 16 : 24),
                               BlocBuilder<AuthCubit, AuthState>(
@@ -217,6 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           context.read<AuthCubit>().login(
                                             _emailController.text.trim(),
                                             _passwordController.text,
+                                            rememberMe: _rememberMe,
                                           );
                                         }
                                       },

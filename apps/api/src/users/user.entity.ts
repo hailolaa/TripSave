@@ -51,6 +51,9 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   trial_end_date: Date;
 
+  @Column({ default: false })
+  onboarding_completed: boolean;
+
   @Column({ type: 'enum', enum: ['user', 'admin'], default: 'user' })
   role: string;
 

@@ -7,7 +7,7 @@ class AuthRepository {
 
   AuthRepository(this.apiClient);
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password, {bool rememberMe = true}) async {
     final response = await apiClient.dio.post('/auth/login', data: {
       'email': email,
       'password': password,
@@ -15,6 +15,7 @@ class AuthRepository {
 
     final token = response.data['access_token'];
     await _storage.write(key: 'jwt', value: token);
+    await _storage.write(key: 'remember_me', value: rememberMe.toString());
 
     // Store user info locally
     final user = response.data['user'];
@@ -22,6 +23,7 @@ class AuthRepository {
       await _storage.write(key: 'user_name', value: user['name'] ?? '');
       await _storage.write(key: 'user_email', value: user['email'] ?? '');
       await _storage.write(key: 'user_id', value: user['id'] ?? '');
+      await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
     }
 
     return response.data;
@@ -36,12 +38,14 @@ class AuthRepository {
 
     final token = response.data['access_token'];
     await _storage.write(key: 'jwt', value: token);
+    await _storage.write(key: 'remember_me', value: 'true'); // Default to true on register
 
     final user = response.data['user'];
     if (user != null) {
       await _storage.write(key: 'user_name', value: user['name'] ?? name);
       await _storage.write(key: 'user_email', value: user['email'] ?? email);
       await _storage.write(key: 'user_id', value: user['id'] ?? '');
+      await _storage.write(key: 'onboarding_completed', value: 'false');
     } else {
       await _storage.write(key: 'user_name', value: name);
       await _storage.write(key: 'user_email', value: email);
@@ -58,18 +62,32 @@ class AuthRepository {
       await _storage.write(key: 'user_name', value: data['name'] ?? '');
       await _storage.write(key: 'user_email', value: data['email'] ?? '');
       await _storage.write(key: 'user_id', value: data['id'] ?? '');
+      await _storage.write(key: 'onboarding_completed', value: (data['onboarding_completed'] ?? false).toString());
       return data;
     } catch (e) {
       return null;
     }
   }
 
+  Future<void> completeOnboarding() async {
+    await apiClient.dio.patch('/users/me', data: {'onboarding_completed': true});
+    await _storage.write(key: 'onboarding_completed', value: 'true');
+  }
+
+  Future<bool> isOnboardingCompleted() async {
+    final val = await _storage.read(key: 'onboarding_completed');
+    return val == 'true';
+  }
+
+  Future<bool> isRememberMeEnabled() async {
+    final val = await _storage.read(key: 'remember_me');
+    return val != 'false'; // Default to true
+  }
+
   Future<Map<String, dynamic>?> updateProfile(Map<String, dynamic> data) async {
     try {
       final response = await apiClient.dio.patch('/users/me', data: data);
       final updatedData = Map<String, dynamic>.from(response.data);
-      // We don't necessarily need to store MPG locally if we always fetch it, 
-      // but let's keep the user_name / email updated if they changed
       if (updatedData.containsKey('name')) {
         await _storage.write(key: 'user_name', value: updatedData['name']);
       }
@@ -93,6 +111,8 @@ class AuthRepository {
     await _storage.delete(key: 'user_name');
     await _storage.delete(key: 'user_email');
     await _storage.delete(key: 'user_id');
+    await _storage.delete(key: 'onboarding_completed');
+    await _storage.delete(key: 'remember_me');
   }
 
   Future<bool> isLoggedIn() async {
