@@ -38,8 +38,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMessage = e.toString().contains('401') 
+          ? 'Session expired. Please log in again.' 
+          : 'Failed to initialize payment system: ${e.toString()}';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to initialize payment system. Please try again.')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
     }
@@ -58,11 +61,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
       );
 
-      if (setupIntent.status.toString() == PaymentIntentsStatus.Succeeded.toString()) {
+      // Robust string-based check because enums can sometimes have reference mismatches
+      final statusStr = setupIntent.status.toString().toLowerCase();
+      if (statusStr.contains('succeeded')) {
         final paymentMethodId = setupIntent.paymentMethodId;
         if (mounted) {
           await context.read<AuthCubit>().submitPayment(paymentMethodId);
         }
+      } else {
+        throw Exception('Setup intent failed with status: ${setupIntent.status}');
       }
     } catch (e) {
       if (mounted) {

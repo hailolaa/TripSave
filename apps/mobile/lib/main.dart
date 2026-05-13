@@ -26,9 +26,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize Stripe
-  Stripe.publishableKey = "pk_test_51TVzJnRX4uhAy7vXWJ9PkTXZ0bHpC0UYNSc6bUYD4SIkUKWZOOF8zEb2SGHG2mHrRhM0nfkvpd5GyyZGWZ92jGYO00RStIawoh";
+  const stripeKey = "pk_test_51TVzJnRX4uhAy7vXWJ9PkTXZ0bHpC0UYNSc6bUYD4SIkUKWZOOF8zEb2SGHG2mHrRhM0nfkvpd5GyyZGWZ92jGYO00RStIawoh";
+  Stripe.publishableKey = stripeKey;
   if (!kIsWeb) {
-    await Stripe.instance.applySettings();
+    try {
+      await Stripe.instance.applySettings();
+    } catch (e) {
+      debugPrint("Stripe error: $e");
+    }
   }
 
   await setupDependencies();
@@ -50,19 +55,6 @@ class MyApp extends StatelessWidget {
             getIt<ApiClient>(), 
             getIt<SettingsService>(),
             getIt<LocationService>(),
-          ),
-        ),
-        BlocProvider<AuthCubit>(
-          create: (context) => AuthCubit(
-            getIt<AuthRepository>(),
-            getIt<SettingsService>(),
-            onLogout: [
-              () => context.read<ListCubit>().clear(),
-              () => context.read<HomeCubit>().clear(),
-              () => context.read<ComparisonCubit>().clear(),
-              () => context.read<DealsCubit>().clear(),
-              () => context.read<SavingsCubit>().clear(),
-            ],
           ),
         ),
         BlocProvider<ListCubit>(
@@ -87,6 +79,19 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider<SavingsCubit>(
           create: (_) => SavingsCubit(getIt<SavingsRepository>())..loadSavings(),
+        ),
+        BlocProvider<AuthCubit>(
+          create: (context) => AuthCubit(
+            getIt<AuthRepository>(),
+            getIt<SettingsService>(),
+            onLogout: [
+              () => context.read<ListCubit>().clear(),
+              () => context.read<HomeCubit>().clear(),
+              () => context.read<ComparisonCubit>().clear(),
+              () => context.read<DealsCubit>().clear(),
+              () => context.read<SavingsCubit>().clear(),
+            ],
+          ),
         ),
       ],
       child: MaterialApp.router(

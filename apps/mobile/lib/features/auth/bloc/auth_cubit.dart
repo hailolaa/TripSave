@@ -286,22 +286,26 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       await authRepository.activateTrial(paymentMethodId);
       emit(AuthPaymentSuccess());
-      // Wait a bit to show success before going home
+      
+      // Allow user to see success state for 2 seconds
       await Future.delayed(const Duration(seconds: 2));
+      
       try {
         final profile = await authRepository.getProfile();
         if (profile != null) {
           _resolveAuthState(profile);
         } else {
-          // Fallback: payment succeeded, profile fetch failed — go home anyway
           emit(AuthAuthenticated());
         }
-      } catch (_) {
-        // Even if profile refresh fails, payment was successful — navigate home
+      } catch (e) {
+        // Fallback: payment was successful, so we MUST let them in
         emit(AuthAuthenticated());
       }
     } catch (e) {
-      emit(AuthError('Failed to activate trial. Please check your card info.'));
+      final msg = _parseError(e);
+      emit(AuthError(msg.contains('Something went wrong') 
+        ? 'Failed to activate trial: ${e.toString()}' 
+        : msg));
     }
   }
 }
