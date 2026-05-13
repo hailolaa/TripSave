@@ -115,11 +115,12 @@ export class ProductsService {
         });
 
         if (!product) {
+          const category = this.resolveCategory(item.product);
           product = await this.productsRepository.save({
             name: item.product,
             normalized_name: item.product.toLowerCase().trim(),
-            category: ProductCategory.OTHER,
-            image_url: item.image
+            category: category,
+            image_url: item.image || this.getFallbackImage(item.product, category)
           });
         }
 
@@ -141,21 +142,50 @@ export class ProductsService {
     }
   }
 
-  private getFallbackImage(query: string): string {
-    const q = query.toLowerCase();
-    if (q.includes('milk')) return 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('egg')) return 'https://images.unsplash.com/photo-1587486913049-53fc88980cfc?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('bread')) return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('cheese')) return 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('meat') || q.includes('chicken') || q.includes('beef')) return 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('fruit') || q.includes('apple') || q.includes('banana')) return 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('veg') || q.includes('carrot') || q.includes('tomato')) return 'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('med') || q.includes('pill') || q.includes('drug') || q.includes('vitamin') || q.includes('tylenol')) return 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('clean') || q.includes('soap') || q.includes('wash') || q.includes('detergent')) return 'https://images.unsplash.com/photo-1584820927498-cafe4c1ebf95?auto=format&fit=crop&w=200&q=80';
-    if (q.includes('water') || q.includes('drink') || q.includes('juice') || q.includes('soda')) return 'https://images.unsplash.com/photo-1548839140-29a749e1bc4c?auto=format&fit=crop&w=200&q=80';
+  private resolveCategory(name: string): ProductCategory {
+    const n = name.toLowerCase();
+    if (n.includes('milk') || n.includes('cheese') || n.includes('yogurt') || n.includes('butter') || n.includes('dairy')) return ProductCategory.DAIRY;
+    if (n.includes('meat') || n.includes('beef') || n.includes('chicken') || n.includes('pork') || n.includes('steak') || n.includes('turkey')) return ProductCategory.MEAT;
+    if (n.includes('fruit') || n.includes('veg') || n.includes('apple') || n.includes('banana') || n.includes('carrot') || n.includes('tomato') || n.includes('produce')) return ProductCategory.PRODUCE;
+    if (n.includes('bread') || n.includes('bakery') || n.includes('cake') || n.includes('muffin') || n.includes('bagel')) return ProductCategory.BAKERY;
+    if (n.includes('water') || n.includes('drink') || n.includes('juice') || n.includes('soda') || n.includes('beverage') || n.includes('coke') || n.includes('pepsi')) return ProductCategory.BEVERAGES;
+    if (n.includes('snack') || n.includes('chip') || n.includes('cookie') || n.includes('candy') || n.includes('chocolate')) return ProductCategory.SNACKS;
+    if (n.includes('frozen') || n.includes('ice cream') || n.includes('pizza')) return ProductCategory.FROZEN;
+    if (n.includes('med') || n.includes('pill') || n.includes('drug') || n.includes('vitamin') || n.includes('tylenol') || n.includes('pharmacy')) return ProductCategory.MEDICINE;
+    if (n.includes('clean') || n.includes('soap') || n.includes('wash') || n.includes('detergent')) return ProductCategory.CLEANING;
+    if (n.includes('baby') || n.includes('diaper') || n.includes('infant')) return ProductCategory.BABY;
+    if (n.includes('dog') || n.includes('cat') || n.includes('pet') || n.includes('bird')) return ProductCategory.PET;
+    if (n.includes('fuel') || n.includes('gas') || n.includes('unleaded') || n.includes('diesel')) return ProductCategory.GAS;
     
-    // Default grocery image
-    return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80';
+    return ProductCategory.OTHER;
+  }
+
+  private getFallbackImage(query: string, category?: ProductCategory): string {
+    const q = query.toLowerCase();
+    const cat = category || this.resolveCategory(q);
+
+    // If category is known, use category-specific images from our collection
+    const categoryImagesMap: Record<string, string> = {
+      [ProductCategory.PRODUCE]: 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.MEAT]: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.DAIRY]: 'https://images.unsplash.com/photo-1550583724-125581f77833?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.BAKERY]: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.BEVERAGES]: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.SNACKS]: 'https://images.unsplash.com/photo-1599490659213-e2b9527bb087?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.MEDICINE]: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.CLEANING]: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.PET]: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.BABY]: 'https://images.unsplash.com/photo-1515488764276-beab7607c1e6?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.PERSONAL_CARE]: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.HOUSEHOLD]: 'https://images.unsplash.com/photo-1528740561666-dc2479bd08bc?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.GAS]: 'https://images.unsplash.com/photo-1614732414444-096e5f1122d5?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.CANNED]: 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.CONDIMENTS]: 'https://images.unsplash.com/photo-1607604668248-f0143ad3964f?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.FROZEN]: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&q=80&w=400',
+      [ProductCategory.OTHER]: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
+    };
+
+    return categoryImagesMap[cat] || categoryImagesMap[ProductCategory.OTHER];
   }
 
   async searchProducts(query: string): Promise<Product[]> {
@@ -172,11 +202,12 @@ export class ProductsService {
 
     if (!genericProduct) {
       // Create it if it doesn't exist so it can be added to the cart
+      const category = this.resolveCategory(cleanQuery);
       genericProduct = await this.productsRepository.save({
         name: query.trim(), // Keep original casing for display
         normalized_name: cleanQuery,
-        category: ProductCategory.OTHER,
-        image_url: this.getFallbackImage(cleanQuery)
+        category: category,
+        image_url: this.getFallbackImage(cleanQuery, category)
       });
     } else if (!genericProduct.image_url) {
       // Backfill missing image for generic product
