@@ -102,8 +102,6 @@ class ComparisonCubit extends Cubit<ComparisonState> {
           'productId': i['product_id'],
           'quantity': i['quantity'] ?? 1,
         }).toList(),
-        'userMpg': settings.mpg,
-        'gasPrice': settings.gasCostPerMile * settings.mpg,
       };
 
       if (storeType != null && storeType != 'all') {
@@ -150,8 +148,6 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final Map<String, dynamic> queryParams = {
         'lat': userLat,
         'lng': userLng,
-        'mpg': settings.mpg,
-        'gasPrice': settings.gasCostPerMile * settings.mpg,
       };
 
       Response response;

@@ -76,14 +76,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _syncSettingsFromProfile() async {
     if (_profile == null) return;
-    final mpg = double.tryParse(_profile?['vehicle_mpg']?.toString() ?? '');
-    final gasPrice = double.tryParse(_profile?['default_gas_price']?.toString() ?? '');
-    if (mpg != null && mpg > 0) {
-      await _settingsService.setMpg(mpg);
-    }
-    if (gasPrice != null && gasPrice > 0) {
-      await _settingsService.setGasPrice(gasPrice);
-    }
+    final radius = int.tryParse(_profile?['preferred_radius']?.toString() ?? '20') ?? 20;
+    await _settingsService.setPreferredRadius(radius);
   }
 
   @override
@@ -214,17 +208,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
              .animate(onPlay: (c) => c.repeat(reverse: true))
              .moveY(begin: 0, end: -4, duration: 5.seconds, curve: Curves.easeInOut),
             const SizedBox(height: 28).animate(delay: 200.ms).fadeIn(),
-            Text('VEHICLE', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 12)).animate(delay: 300.ms).fadeIn().slideX(begin: 0.1),
+            Text('SEARCH SETTINGS', style: GoogleFonts.outfit(color: Colors.grey.shade500, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 12)).animate(delay: 300.ms).fadeIn().slideX(begin: 0.1),
             const SizedBox(height: 12),
             _buildSettingsCard([
               _buildSettingRow(
-                Icons.directions_car, const Color(0xFFFDECB5), 'Fuel Economy', '${_profile?['vehicle_mpg'] ?? 25} MPG',
-                onTap: () => _showEditDialog('Fuel Economy', 'vehicle_mpg', 'MPG'),
+                Icons.map_outlined, const Color(0xFFD6F3E9), 'Search Radius', '${_profile?['preferred_radius'] ?? 20} miles',
+                onTap: _showRadiusDialog,
               ),
               const Divider(height: 1),
               _buildSettingRow(
-                Icons.local_gas_station, const Color(0xFFFDECB5), 'Gas Price', '\$${_profile?['default_gas_price'] ?? '3.50'}',
-                onTap: () => _showEditDialog('Gas Price', 'default_gas_price', '\$'),
+                Icons.attach_money, const Color(0xFFE0E7FF), 'Drive Cost Rate', '\$0.72/mile',
+                subtitle: 'Fixed rate for accurate calculations',
+                onTap: () => _showInfoDialog('Drive Cost', 'TripSave uses a fixed rate of \$0.72 per mile to calculate your driving costs. This includes fuel, maintenance, and vehicle wear.'),
               ),
             ]).animate(delay: 400.ms).fadeIn().slideX(begin: 0.1),
             const SizedBox(height: 24),
@@ -357,6 +352,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ),
 );
 }
+
+  void _showRadiusDialog() {
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Search Radius', style: GoogleFonts.outfit(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [5, 10, 20].map((radius) {
+            final isSelected = (_profile?['preferred_radius'] ?? 20) == radius;
+            return ListTile(
+              title: Text('$radius Miles', style: GoogleFonts.outfit(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+              trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.savingsGreen) : null,
+              onTap: () async {
+                final repo = getIt<AuthRepository>();
+                await repo.updateProfile({'preferred_radius': radius});
+                await _loadUserData();
+                await _syncSettingsFromProfile();
+                if (!mounted) return;
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Radius updated to $radius miles!'), behavior: SnackBarBehavior.floating),
+                );
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
 
   void _showEditDialog(String title, String key, String suffix, {bool isText = false}) {
     HapticFeedback.mediumImpact();

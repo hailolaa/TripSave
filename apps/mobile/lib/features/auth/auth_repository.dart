@@ -29,8 +29,7 @@ class AuthRepository {
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
       await _storage.write(key: 'referral_source', value: user['referral_source']?.toString() ?? '');
       await _storage.write(key: 'subscription_status', value: user['subscription_status']?.toString() ?? 'none');
-      await _storage.write(key: 'vehicle_mpg', value: (user['vehicle_mpg'] ?? 25.0).toString());
-      await _storage.write(key: 'default_gas_price', value: (user['default_gas_price'] ?? 3.50).toString());
+      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 20).toString());
     }
 
     return response.data;
@@ -55,8 +54,7 @@ class AuthRepository {
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
       await _storage.write(key: 'referral_source', value: user['referral_source']?.toString() ?? '');
       await _storage.write(key: 'subscription_status', value: user['subscription_status']?.toString() ?? 'none');
-      await _storage.write(key: 'vehicle_mpg', value: (user['vehicle_mpg'] ?? 25.0).toString());
-      await _storage.write(key: 'default_gas_price', value: (user['default_gas_price'] ?? 3.50).toString());
+      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 20).toString());
     }
 
     return response.data;
@@ -106,8 +104,7 @@ class AuthRepository {
       await _storage.write(key: 'user_email', value: user['email'] ?? '');
       await _storage.write(key: 'user_id', value: user['id'] ?? '');
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
-      await _storage.write(key: 'vehicle_mpg', value: (user['vehicle_mpg'] ?? 25.0).toString());
-      await _storage.write(key: 'default_gas_price', value: (user['default_gas_price'] ?? 3.50).toString());
+      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 20).toString());
     }
 
     return response.data;
@@ -124,8 +121,7 @@ class AuthRepository {
       await _storage.write(key: 'onboarding_completed', value: (data['onboarding_completed'] ?? false).toString());
       await _storage.write(key: 'referral_source', value: data['referral_source']?.toString() ?? '');
       await _storage.write(key: 'subscription_status', value: data['subscription_status']?.toString() ?? 'none');
-      await _storage.write(key: 'vehicle_mpg', value: (data['vehicle_mpg'] ?? 25.0).toString());
-      await _storage.write(key: 'default_gas_price', value: (data['default_gas_price'] ?? 3.50).toString());
+      await _storage.write(key: 'preferred_radius', value: (data['preferred_radius'] ?? 20).toString());
       return data;
     } catch (e) {
       return null;
@@ -178,8 +174,7 @@ class AuthRepository {
     await _storage.delete(key: 'referral_source');
     await _storage.delete(key: 'subscription_status');
     await _storage.delete(key: 'remember_me');
-    await _storage.delete(key: 'vehicle_mpg');
-    await _storage.delete(key: 'default_gas_price');
+    await _storage.delete(key: 'preferred_radius');
   }
 
   Future<bool> isLoggedIn() async {

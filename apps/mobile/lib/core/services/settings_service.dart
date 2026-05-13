@@ -5,17 +5,12 @@ class SettingsService {
 
   SettingsService(this._prefs);
 
-  double get mpg => _prefs.getDouble('trip_save_mpg') ?? 25.0;
-  Future<void> setMpg(double value) => _prefs.setDouble('trip_save_mpg', value);
+  int get preferredRadius => _prefs.getInt('trip_save_radius') ?? 20;
+  Future<void> setPreferredRadius(int value) => _prefs.setInt('trip_save_radius', value);
 
-  double get gasPrice => _prefs.getDouble('trip_save_gas_price') ?? 3.50;
-  Future<void> setGasPrice(double value) => _prefs.setDouble('trip_save_gas_price', value);
-
-  double get gasCostPerMile => gasPrice / mpg;
+  double get gasCostPerMile => 0.72; // Fixed drive cost per mile as requested
 
   Future<void> clear() async {
-    await _prefs.remove('trip_save_mpg');
-    await _prefs.remove('trip_save_gas_price');
-    await _prefs.remove('trip_save_gas_cost');
+    await _prefs.remove('trip_save_radius');
   }
 }

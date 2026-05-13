@@ -45,12 +45,13 @@ export function metersToMiles(meters: number): number {
  */
 export function calculateDriveCost(
   distanceMiles: number,
-  mpg: number,
-  gasPrice: number,
+  mpg?: number,
+  gasPrice?: number,
   isRoundTrip: boolean = true,
 ): number {
   const totalMiles = isRoundTrip ? distanceMiles * 2 : distanceMiles;
-  return totalMiles * (gasPrice / mpg);
+  // New simplified drive cost formula: $0.72 per mile
+  return totalMiles * 0.72;
 }
 
 /**

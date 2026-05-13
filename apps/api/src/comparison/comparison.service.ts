@@ -57,6 +57,7 @@ export class ComparisonService {
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
     forceRefresh: boolean = false,
+    preferredRadius: number = 20,
   ) {
     const resolvedZip = zipCode || '75201';
 
@@ -66,7 +67,7 @@ export class ComparisonService {
 
     if (dbResults && dbResults.length > 0 && !forceRefresh) {
       this.logger.log(`DB cache hit: ${dbResults.length} fresh results for "${itemName}". Skipping scrape.`);
-      let items = await this.formatScrapedForUI(dbResults, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip);
+      let items = await this.formatScrapedForUI(dbResults, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
 
       // Apply store type filter if provided
       if (storeType && storeType !== 'all' as any) {
@@ -97,7 +98,7 @@ export class ComparisonService {
         .then(() => this.logger.log(`Background DB save completed for "${itemName}"`))
         .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
 
-      let items = await this.formatScrapedForUI(scraperResult.data, resolvedZip, 'live', userLat, userLng, userMpg, gasPrice, isRoundTrip);
+      let items = await this.formatScrapedForUI(scraperResult.data, resolvedZip, 'live', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
 
       // Apply store type filter if provided
       if (storeType && storeType !== 'all' as any) {
@@ -121,7 +122,7 @@ export class ComparisonService {
         return this.getBestTrueCost(
           userLat, userLng,
           staleProducts.map(p => ({ productId: p.id, quantity: 1 })),
-          userMpg, gasPrice, storeType, isRoundTrip, sortBy
+          userMpg, gasPrice, storeType, isRoundTrip, sortBy, resolvedZip, preferredRadius
         );
       }
 
@@ -142,9 +143,10 @@ export class ComparisonService {
     userMpg: number,
     gasPrice: number,
     isRoundTrip: boolean = true,
+    preferredRadius: number = 20,
   ) {
     // Get nearby stores once to avoid multiple DB calls
-    const nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+    const nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, preferredRadius);
     
     // Get all gas prices for these stores if they are gas stations
     const storeIds = nearbyStores.map(ns => ns.store.id);
@@ -289,6 +291,11 @@ export class ComparisonService {
         source: source === 'database' ? 'database' : (item as any).source,
         category: itemCategory,
       };
+    }).filter((item: any) => {
+      // Filter out stores that are beyond the preferred radius
+      // distance is distance from user to store (one-way)
+      const dist = (item.driving_distance / (isRoundTrip ? 2 : 1));
+      return dist <= preferredRadius;
     });
   }
 
@@ -304,7 +311,8 @@ export class ComparisonService {
     storeType?: StoreChainType,
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
-    zipCode?: string
+    zipCode?: string,
+    preferredRadius: number = 20
   ) {
     this.logger.log(`DEBUG: Entering getBestTrueCost with lat: ${userLat}, lng: ${userLng}`);
     
@@ -335,7 +343,7 @@ export class ComparisonService {
     await Promise.all(searchItems.map(async (item) => {
       try {
         const results = await this.compareItem(
-          item.name, userLat, userLng, userMpg, gasPrice, resolvedZip, storeType, isRoundTrip, 'true_cost', false
+          item.name, userLat, userLng, userMpg, gasPrice, resolvedZip, storeType, isRoundTrip, 'true_cost', false, preferredRadius
         );
 
         // Keep track of which stores we've already added THIS item for.
@@ -410,10 +418,10 @@ export class ComparisonService {
     fuelType: 'regular' | 'midgrade' | 'premium' | 'diesel' = 'regular',
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
-    locationName: string = 'TX',
+    preferredRadius: number = 20,
   ) {
-    // 1. Find nearby gas stations within 15 miles
-    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+    // 1. Find nearby gas stations within the search radius
+    let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, preferredRadius);
     nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
 
     if (!nearbyStores.length) {
@@ -421,7 +429,7 @@ export class ComparisonService {
       await this.gasSyncService.syncGasPrices(locationName, userLat, userLng);
       
       // Re-query after sync
-      nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, 15);
+      nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, preferredRadius);
       nearbyStores = nearbyStores.filter(ns => ns.store.chain?.type === StoreChainType.GAS);
       
       if (!nearbyStores.length) {

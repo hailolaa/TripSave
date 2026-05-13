@@ -85,15 +85,8 @@ class AuthCubit extends Cubit<AuthState> {
 
   void _resolveAuthState(Map<String, dynamic> profile) {
     // Sync settings locally
-    final mpg = double.tryParse(profile['vehicle_mpg']?.toString() ?? '');
-    final gasPrice = double.tryParse(profile['default_gas_price']?.toString() ?? '');
-    
-    if (mpg != null && mpg > 0) {
-      settingsService.setMpg(mpg);
-    }
-    if (gasPrice != null && gasPrice > 0) {
-      settingsService.setGasPrice(gasPrice);
-    }
+    final radius = int.tryParse(profile['preferred_radius']?.toString() ?? '20') ?? 20;
+    settingsService.setPreferredRadius(radius);
 
     final referralSource = profile['referral_source'];
     final subStatus = profile['subscription_status']?.toString().toLowerCase() ?? 'none';
@@ -181,12 +174,11 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  Future<void> completeOnboarding(double mpg, double gasPrice) async {
+  Future<void> completeOnboarding(int radius) async {
     emit(AuthLoading());
     try {
       await authRepository.updateProfile({
-        'vehicle_mpg': mpg,
-        'default_gas_price': gasPrice,
+        'preferred_radius': radius,
         'onboarding_completed': true,
       });
       await authRepository.completeOnboarding(); // This sets the local flag too
@@ -247,19 +239,18 @@ class AuthCubit extends Cubit<AuthState> {
     return 'Something went wrong. Please try again.';
   }
 
-  Future<void> updateVehicleInfo(double mpg, double gasPrice) async {
+  Future<void> updateRadius(int radius) async {
     emit(AuthLoading());
     try {
       await authRepository.updateProfile({
-        'vehicle_mpg': mpg,
-        'default_gas_price': gasPrice,
+        'preferred_radius': radius,
       });
       final profile = await authRepository.getProfile();
       if (profile != null) {
         _resolveAuthState(profile);
       }
     } catch (e) {
-      emit(AuthError('Failed to save vehicle details'));
+      emit(AuthError('Failed to save radius details'));
     }
   }
 

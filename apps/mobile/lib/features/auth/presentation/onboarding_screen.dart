@@ -12,46 +12,10 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final _mpgController = TextEditingController(text: '25');
-  final _gasPriceController = TextEditingController(text: '3.50');
-
-  String? _mpgError;
-  String? _gasPriceError;
-
-  @override
-  void dispose() {
-    _mpgController.dispose();
-    _gasPriceController.dispose();
-    super.dispose();
-  }
-
-  bool _validate() {
-    bool isValid = true;
-    setState(() {
-      _mpgError = null;
-      _gasPriceError = null;
-
-      final mpg = double.tryParse(_mpgController.text);
-      if (mpg == null || mpg <= 0) {
-        _mpgError = 'Please enter a valid MPG (e.g. 25)';
-        isValid = false;
-      }
-
-      final gasPrice = double.tryParse(_gasPriceController.text.replaceAll('\$', ''));
-      if (gasPrice == null || gasPrice <= 0) {
-        _gasPriceError = 'Please enter a valid price (e.g. 3.50)';
-        isValid = false;
-      }
-    });
-    return isValid;
-  }
+  int _selectedRadius = 20;
 
   void _submit() {
-    if (_validate()) {
-      final mpg = double.parse(_mpgController.text);
-      final gasPrice = double.parse(_gasPriceController.text.replaceAll('\$', ''));
-      context.read<AuthCubit>().completeOnboarding(mpg, gasPrice);
-    }
+    context.read<AuthCubit>().completeOnboarding(_selectedRadius);
   }
 
   @override
@@ -94,13 +58,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       color: AppTheme.savingsGreen.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.directions_car, size: 60, color: AppTheme.savingsGreen),
+                    child: const Icon(Icons.map_outlined, size: 60, color: AppTheme.savingsGreen),
                   ),
                 ),
                 const SizedBox(height: 32),
                 const Center(
                   child: Text(
-                    'Set Up Your Vehicle',
+                    'Search Distance',
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.textDark),
                     textAlign: TextAlign.center,
                   ),
@@ -108,31 +72,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 const SizedBox(height: 12),
                 Center(
                   child: Text(
-                    'We need this to accurately calculate your true cost and savings for every trip.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600, height: 1.4),
+                    'How far are you willing to drive to save money?',
+                    style: TextStyle(fontSize: 18, color: Colors.grey.shade700, height: 1.4, fontWeight: FontWeight.w500),
                     textAlign: TextAlign.center,
                   ),
                 ),
-                const SizedBox(height: 48),
-                _buildLabel('Average Fuel Economy (MPG)'),
-                const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _mpgController,
-                  hint: '25',
-                  icon: Icons.local_gas_station_outlined,
-                  errorText: _mpgError,
-                  suffix: const Text('MPG', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                ),
-                const SizedBox(height: 24),
-                _buildLabel('Default Gas Price'),
-                const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _gasPriceController,
-                  hint: '3.50',
-                  icon: Icons.attach_money,
-                  errorText: _gasPriceError,
-                  prefix: const Text('\$ ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
+                const SizedBox(height: 40),
+                
+                // Selection Cards
+                _buildRadiusCard(5, 'Nearby', 'Quick trips only'),
+                const SizedBox(height: 16),
+                _buildRadiusCard(10, 'Mid-Range', 'Worth a short drive'),
+                const SizedBox(height: 16),
+                _buildRadiusCard(20, 'Maximum', 'Find the absolute best deals'),
+                
                 const Spacer(),
                 BlocBuilder<AuthCubit, AuthState>(
                   builder: (context, state) {
@@ -158,8 +111,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      // Skip with defaults
-                      context.read<AuthCubit>().completeOnboarding(25.0, 3.50);
+                      context.read<AuthCubit>().completeOnboarding(20);
                     },
                     child: Text('Skip for now', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
                   ),
@@ -173,50 +125,70 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildLabel(String text) {
-    return Text(text, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Colors.grey.shade800));
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    String? errorText,
-    Widget? prefix,
-    Widget? suffix,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: errorText != null ? Colors.red.shade300 : Colors.transparent),
-          ),
-          child: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              hintText: hint,
-              prefixIcon: Icon(icon, color: Colors.grey.shade600),
-              prefix: prefix,
-              suffix: suffix,
-              suffixIconConstraints: const BoxConstraints(minWidth: 60),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            ),
+  Widget _buildRadiusCard(int miles, String label, String description) {
+    final isSelected = _selectedRadius == miles;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedRadius = miles),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.savingsGreen.withValues(alpha: 0.05) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.savingsGreen : Colors.grey.shade200,
+            width: 2,
           ),
         ),
-        if (errorText != null) ...[
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Text(errorText, style: TextStyle(color: Colors.red.shade600, fontSize: 12, fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ],
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.savingsGreen : Colors.grey.shade200,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  '$miles',
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected ? AppTheme.textDark : Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: AppTheme.savingsGreen, size: 28),
+          ],
+        ),
+      ),
     );
   }
 }

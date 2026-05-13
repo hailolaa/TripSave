@@ -19,6 +19,9 @@ export class User {
 
   @Column('decimal', { precision: 5, scale: 3, nullable: true })
   default_gas_price: number | null;
+  
+  @Column({ type: 'int', default: 20 })
+  preferred_radius: number;
 
   @Column({ type: 'enum', enum: ['miles', 'km'], default: 'miles' })
   preferred_distance_unit: string;

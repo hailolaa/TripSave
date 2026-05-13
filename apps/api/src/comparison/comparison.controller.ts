@@ -31,6 +31,7 @@ export class ComparisonController {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const userMpg = mpg ?? user?.vehicle_mpg ?? 25;
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
+    const preferredRadius = user?.preferred_radius ?? 20;
     
     // If coordinates are the default Dallas ones or missing, use user's saved location
     let finalLat = Number(lat);
@@ -75,6 +76,7 @@ export class ComparisonController {
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
       forceRefresh === 'true',
+      Number(preferredRadius),
     );
   }
 
@@ -98,6 +100,7 @@ export class ComparisonController {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const mpg = body.userMpg ?? user?.vehicle_mpg ?? 25;
     const gasPriceValue = body.gasPrice ?? user?.default_gas_price ?? 3.50;
+    const preferredRadius = user?.preferred_radius ?? 20;
 
     let finalLat = body.userLat;
     let finalLng = body.userLng;
@@ -127,7 +130,8 @@ export class ComparisonController {
       body.storeType,
       body.isRoundTrip ?? true,
       body.sortBy ?? 'true_cost',
-      resolvedZip
+      resolvedZip,
+      Number(preferredRadius)
     );
   }
 
@@ -151,6 +155,7 @@ export class ComparisonController {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const mpg = body.userMpg ?? user?.vehicle_mpg ?? 25;
     const gasPriceValue = body.gasPrice ?? user?.default_gas_price ?? 3.50;
+    const preferredRadius = user?.preferred_radius ?? 20;
 
     let items = body.items || [];
 
@@ -193,7 +198,8 @@ export class ComparisonController {
       body.storeType,
       body.isRoundTrip ?? true,
       body.sortBy ?? 'true_cost',
-      resolvedZip
+      resolvedZip,
+      Number(preferredRadius)
     );
   }
   // @UseGuards(JwtAuthGuard)
@@ -214,6 +220,7 @@ export class ComparisonController {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const userMpg = mpg ?? user?.vehicle_mpg ?? 25;
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
+    const preferredRadius = user?.preferred_radius ?? 20;
 
     let finalLat = Number(lat);
     let finalLng = Number(lng);
@@ -255,7 +262,7 @@ export class ComparisonController {
       fuelType || 'regular',
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
-      resolvedLocation || 'Dallas, TX',
+      Number(preferredRadius),
     );
   }
 }
