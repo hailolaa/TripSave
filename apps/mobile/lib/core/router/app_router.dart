@@ -16,6 +16,7 @@ import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/referral_screen.dart';
 import '../../features/auth/presentation/verification_screen.dart';
 import '../../features/auth/payment_screen.dart';
+import '../../features/notifications/presentation/notification_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
@@ -110,6 +111,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/profile',
           builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationScreen(),
         ),
       ],
     ),

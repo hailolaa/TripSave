@@ -11,6 +11,7 @@ import '../../../core/di/injection.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/services/favorite_store_service.dart';
 import '../../../core/services/location_service.dart';
+import '../../notifications/bloc/notification_cubit.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -239,6 +240,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onSwitchChanged: (val) {
                   HapticFeedback.lightImpact();
                   setState(() => _notificationsEnabled = val);
+                  if (val) {
+                    context.read<NotificationCubit>().requestPermission();
+                  }
                 },
               ),
               const Divider(height: 1),

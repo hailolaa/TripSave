@@ -8,6 +8,7 @@ import '../../features/deals/deals_repository.dart';
 import '../services/settings_service.dart';
 import '../services/location_service.dart';
 import '../services/favorite_store_service.dart';
+import '../../features/notifications/bloc/notification_cubit.dart';
 
 final getIt = GetIt.instance;
 
@@ -20,6 +21,7 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton(() => SettingsService(getIt<SharedPreferences>()));
   getIt.registerLazySingleton(() => LocationService());
   getIt.registerLazySingleton(() => FavoriteStoreService(getIt<SharedPreferences>()));
+  getIt.registerLazySingleton(() => NotificationCubit());
 
   // Network
   getIt.registerLazySingleton(() => ApiClient());

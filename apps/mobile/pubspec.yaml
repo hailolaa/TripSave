@@ -56,6 +56,7 @@ dependencies:
   flutter_svg: ^2.0.17
   flutter_polyline_points: ^2.1.0
   http: ^1.2.1
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

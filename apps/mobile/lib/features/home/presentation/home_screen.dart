@@ -13,6 +13,7 @@ import '../../../core/di/injection.dart';
 import '../../auth/auth_repository.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../savings/bloc/savings_cubit.dart';
+import '../../notifications/bloc/notification_cubit.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +24,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _dealsScrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationCubit>().requestPermission();
+    });
+  }
 
   @override
   void dispose() {
@@ -406,23 +415,36 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8), // Gap between location and notification
             
             // Notification
-            Stack(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: const BoxDecoration(color: Color(0xFFF8F9FA), shape: BoxShape.circle),
-                  child: const Icon(Icons.notifications_none, color: AppTheme.textDark, size: 22),
-                ),
-                Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+            BlocBuilder<NotificationCubit, NotificationState>(
+              builder: (context, state) {
+                final unreadCount = state is NotificationLoaded ? state.unreadCount : 0;
+                return GestureDetector(
+                  onTap: () => context.push('/notifications'),
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(color: Color(0xFFF8F9FA), shape: BoxShape.circle),
+                        child: const Icon(Icons.notifications_none, color: AppTheme.textDark, size: 22),
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ],
         ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.2),

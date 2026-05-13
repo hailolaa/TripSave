@@ -12,6 +12,7 @@ import 'core/services/location_service.dart';
 import 'features/list/bloc/list_cubit.dart';
 import 'features/list/list_repository.dart';
 import 'features/home/bloc/home_cubit.dart';
+import 'features/notifications/bloc/notification_cubit.dart';
 import 'features/savings/bloc/savings_cubit.dart';
 import 'features/savings/savings_repository.dart';
 import 'features/deals/bloc/deals_cubit.dart';
@@ -79,6 +80,9 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider<SavingsCubit>(
           create: (_) => SavingsCubit(getIt<SavingsRepository>())..loadSavings(),
+        ),
+        BlocProvider<NotificationCubit>(
+          create: (_) => getIt<NotificationCubit>(),
         ),
         BlocProvider<AuthCubit>(
           create: (context) => AuthCubit(

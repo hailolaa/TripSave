@@ -3,6 +3,8 @@ import 'package:equatable/equatable.dart';
 import '../auth_repository.dart';
 import '../../../core/services/settings_service.dart';
 import '../../../core/router/app_router.dart';
+import '../../notifications/bloc/notification_cubit.dart';
+import '../../../core/di/injection.dart';
 
 abstract class AuthState extends Equatable {
   @override
@@ -112,6 +114,9 @@ class AuthCubit extends Cubit<AuthState> {
     } else {
       emit(AuthAuthenticated(userName: profile['name'] ?? ''));
     }
+
+    // Trigger notification check for subscription
+    getIt<NotificationCubit>().checkSubscriptionStatus(profile);
   }
 
   Future<void> login(String email, String password, {bool rememberMe = true}) async {

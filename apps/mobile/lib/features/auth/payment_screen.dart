@@ -91,14 +91,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
       body: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
+            // Only redirect if we were previously in a state that required payment
+            // or if we just finished a success animation
             if (widget.isUpdating) {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/profile');
-              }
+              // For updating, we only want to redirect after a successful submitPayment call
+              // which emits AuthPaymentSuccess first. We can check if we just came from that.
+              // But a simpler way is to handle the navigation in the submitPayment logic itself
+              // which I've already hardened.
             } else {
               context.go('/home');
+            }
+          } else if (state is AuthPaymentSuccess) {
+            if (widget.isUpdating) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Payment information updated successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              // Wait a bit then go back to profile instead of home
+              Future.delayed(const Duration(seconds: 2), () {
+                if (mounted) context.pop();
+              });
             }
           } else if (state is AuthOnboardingRequired) {
             context.go('/onboarding');
