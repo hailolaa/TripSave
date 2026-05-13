@@ -15,10 +15,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
   String? _selectedSource;
   final TextEditingController _nameController = TextEditingController();
   final List<Map<String, dynamic>> _sources = [
-    {'title': 'App Store / Google Play', 'icon': Icons.storefront_rounded},
     {'title': 'Friend or Family', 'icon': Icons.people_outline_rounded},
-    {'title': 'Social Media', 'icon': Icons.share_rounded},
-    {'title': 'YouTube', 'icon': Icons.play_circle_outline_rounded},
     {'title': 'Other', 'icon': Icons.more_horiz_rounded},
   ];
 
