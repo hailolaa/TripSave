@@ -38,8 +38,6 @@ class ListRepository {
   Future<Map<String, dynamic>?> getCartSummary({
     required double lat,
     required double lng,
-    required double mpg,
-    required double gasPrice,
     required List<dynamic> items,
   }) async {
     final response = await apiClient.dio.post(
@@ -47,8 +45,6 @@ class ListRepository {
       data: {
         'userLat': lat,
         'userLng': lng,
-        'userMpg': mpg,
-        'gasPrice': gasPrice,
         'items': items.map((i) => {
           'productId': i['product_id'],
           'quantity': i['quantity'] ?? 1,

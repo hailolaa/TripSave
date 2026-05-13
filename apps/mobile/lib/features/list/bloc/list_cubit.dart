@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:rxdart/rxdart.dart';
-import '../../../core/services/settings_service.dart';
 import '../../../core/services/location_service.dart';
 import '../list_repository.dart';
 
@@ -55,14 +54,13 @@ class ListError extends ListState {
 
 class ListCubit extends Cubit<ListState> {
   final ListRepository _repository;
-  final SettingsService _settings;
   final LocationService _locationService;
   
   // Subject to handle search queries with debouncing
   final _searchQuerySubject = PublishSubject<String>();
   StreamSubscription? _searchSubscription;
 
-  ListCubit(this._repository, this._settings, this._locationService) : super(ListInitial()) {
+  ListCubit(this._repository, this._locationService) : super(ListInitial()) {
     // Set up debounced search
     _searchSubscription = _searchQuerySubject
         .debounceTime(const Duration(milliseconds: 400))
@@ -184,8 +182,6 @@ class ListCubit extends Cubit<ListState> {
       final summary = await _repository.getCartSummary(
         lat: position.latitude,
         lng: position.longitude,
-        mpg: _settings.mpg,
-        gasPrice: _settings.gasCostPerMile * _settings.mpg,
         items: currentState.items,
       );
       

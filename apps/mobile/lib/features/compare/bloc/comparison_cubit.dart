@@ -1,7 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/services/settings_service.dart';
 import '../../../core/services/location_service.dart';
 import 'package:dio/dio.dart';
 
@@ -59,7 +58,6 @@ class ComparisonError extends ComparisonState {
 
 class ComparisonCubit extends Cubit<ComparisonState> {
   final ApiClient apiClient;
-  final SettingsService settings;
   final LocationService locationService;
 
   /// Tracks the last successful query + filter to avoid redundant API calls.
@@ -70,7 +68,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
   String _sortBy = 'true_cost';
   bool _isRoundTrip = true;
 
-  ComparisonCubit(this.apiClient, this.settings, this.locationService) : super(ComparisonInitial());
+  ComparisonCubit(this.apiClient, this.locationService) : super(ComparisonInitial());
 
   String get currentSortBy => _sortBy;
   bool get currentIsRoundTrip => _isRoundTrip;

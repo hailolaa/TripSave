@@ -263,6 +263,7 @@ export class ComparisonController {
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
       Number(preferredRadius),
+      resolvedLocation || 'Dallas, TX',
     );
   }
 }

@@ -111,7 +111,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
               );
               // Wait a bit then go back to profile instead of home
               Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) context.pop();
+                if (mounted && context.mounted) {
+                  context.pop();
+                }
               });
             }
           } else if (state is AuthOnboardingRequired) {

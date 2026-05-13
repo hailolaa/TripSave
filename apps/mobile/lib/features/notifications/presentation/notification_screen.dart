@@ -81,7 +81,6 @@ class NotificationScreen extends StatelessWidget {
         bgColor = Colors.blue.shade50;
         break;
       case NotificationType.general:
-      default:
         icon = Icons.notifications_none;
         iconColor = Colors.grey.shade600;
         bgColor = Colors.grey.shade100;
@@ -109,12 +108,12 @@ class NotificationScreen extends StatelessWidget {
             color: notification.isRead ? Colors.white : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: notification.isRead ? Colors.grey.shade200 : AppTheme.primaryBlue.withOpacity(0.3),
+              color: notification.isRead ? Colors.grey.shade200 : AppTheme.primaryBlue.withValues(alpha: 0.3),
               width: notification.isRead ? 1 : 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -155,7 +154,7 @@ class NotificationScreen extends StatelessWidget {
                         margin: const EdgeInsets.only(top: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryBlue.withOpacity(0.1),
+                          color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text('NEW', style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 10)),

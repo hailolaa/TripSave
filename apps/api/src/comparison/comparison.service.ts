@@ -419,6 +419,7 @@ export class ComparisonService {
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
     preferredRadius: number = 20,
+    locationName: string = 'Dallas, TX',
   ) {
     // 1. Find nearby gas stations within the search radius
     let nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, preferredRadius);

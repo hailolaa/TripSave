@@ -61,10 +61,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           'lng': lng,
           'gallons': _gallons,
           'fuelType': _selectedFuelType,
-          'mpg': settings.mpg,
-          'gasPrice': settings.gasCostPerMile * settings.mpg,
           'sortBy': 'true_cost',
           'isRoundTrip': 'true',
+          'locationName': await locationService.getLocationName(),
+          'preferredRadius': settings.preferredRadius,
         });
         final results = List<dynamic>.from(response.data);
         setState(() {

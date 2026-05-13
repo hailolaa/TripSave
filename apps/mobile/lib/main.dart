@@ -54,14 +54,12 @@ class MyApp extends StatelessWidget {
         BlocProvider<ComparisonCubit>(
           create: (_) => ComparisonCubit(
             getIt<ApiClient>(), 
-            getIt<SettingsService>(),
             getIt<LocationService>(),
           ),
         ),
         BlocProvider<ListCubit>(
           create: (_) => ListCubit(
             getIt<ListRepository>(), 
-            getIt<SettingsService>(),
             getIt<LocationService>(),
           )..fetchCart(),
         ),
