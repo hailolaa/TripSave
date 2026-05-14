@@ -130,18 +130,76 @@ export class GasSyncService {
     }));
   }
 
+  private cleanName(name: string): string {
+    if (!name) return name;
+    let cleaned = name.split('$')[0];
+    const separators = [' - ', ' · ', ' | ', ' @ '];
+    for (const sep of separators) {
+      cleaned = cleaned.split(sep)[0];
+    }
+    cleaned = cleaned.replace(/\s(Regular|Premium|Diesel|Gas Station|Gas Stop).*$/i, '');
+    return cleaned.trim().replace(/[*"']$/, '').trim();
+  }
+
+  private async findBrandLogo(name: string): Promise<{ logo?: string; brandName?: string }> {
+    const token = process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg';
+    const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    const brands = [
+      { key: 'shell', logo: 'shell.com' },
+      { key: 'exxon', logo: 'exxon.com' },
+      { key: 'chevron', logo: 'chevron.com' },
+      { key: 'mobil', logo: 'mobil.com' },
+      { key: 'valero', logo: 'valero.com' },
+      { key: 'quiktrip', logo: 'quiktrip.com' },
+      { key: 'racetrac', logo: 'racetrac.com' },
+      { key: 'circlek', logo: 'circlek.com' },
+      { key: 'murphy', logo: 'murphyusa.com' },
+      { key: '76', logo: '76.com' },
+      { key: 'bp', logo: 'bp.com' },
+      { key: 'sunoco', logo: 'sunoco.com' },
+      { key: 'texaco', logo: 'texaco.com' },
+      { key: 'citgo', logo: 'citgo.com' },
+      { key: 'pilot', logo: 'pilotflyingj.com' },
+      { key: 'flyingj', logo: 'pilotflyingj.com' },
+      { key: 'loves', logo: 'loves.com' },
+      { key: 'marathon', logo: 'marathonbrand.com' },
+      { key: 'costco', logo: 'costco.com' },
+      { key: 'samsclub', logo: 'samsclub.com' },
+      { key: 'walmart', logo: 'walmart.com' },
+    ];
+
+    for (const brand of brands) {
+      if (normalized.includes(brand.key)) {
+        return { 
+          logo: `https://img.logo.dev/${brand.logo}?token=${token}`,
+          brandName: brand.key.charAt(0).toUpperCase() + brand.key.slice(1)
+        };
+      }
+    }
+    return {};
+  }
+
   private async processStation(station: NormalizedGasStation, regionCode: string = '', lat?: number, lng?: number): Promise<void> {
+    const cleanedName = this.cleanName(station.name);
+    const brandInfo = await this.findBrandLogo(cleanedName);
+    const finalChainName = brandInfo.brandName || cleanedName;
+
     // 1. Find or create chain
-    let chain = await this.chainRepo.findOne({ where: { name: station.name } });
+    let chain = await this.chainRepo.findOne({ where: { name: finalChainName } });
     if (!chain) {
-      const slug = station.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').substring(0, 190);
+      const slug = finalChainName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').substring(0, 190);
       const newChain = this.chainRepo.create({
-        name: station.name,
+        name: finalChainName,
         slug,
         type: StoreChainType.GAS,
-        logo_url: station.logoUrl,
+        logo_url: brandInfo.logo || station.logoUrl || `https://img.logo.dev/gasbuddy.com?token=${process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg'}`,
       });
       chain = await this.chainRepo.save(newChain);
+    } else if (brandInfo.logo && (!chain.logo_url || chain.logo_url.includes('gasbuddy.com'))) {
+      // Upgrade fallback to brand logo if found
+      await this.chainRepo.update(chain.id, { logo_url: brandInfo.logo });
+      chain.logo_url = brandInfo.logo;
     }
 
     if (!chain) {
@@ -185,7 +243,7 @@ export class GasSyncService {
     if (!store) {
       store = await this.storeRepo.save(this.storeRepo.create({
         chain_id: chain.id,
-        name: station.name,
+        name: cleanedName,
         address: finalAddress,
         lat: finalLat,
         lng: finalLng,

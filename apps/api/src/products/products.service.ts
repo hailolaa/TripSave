@@ -47,6 +47,53 @@ export class ProductsService {
     }));
   }
 
+  private cleanName(name: string): string {
+    if (!name) return name;
+    let cleaned = name.split('$')[0];
+    const separators = [' - ', ' · ', ' | ', ' @ '];
+    for (const sep of separators) {
+      cleaned = cleaned.split(sep)[0];
+    }
+    cleaned = cleaned.replace(/\s(Regular|Premium|Diesel|Gas Station|Gas Stop).*$/i, '');
+    return cleaned.trim().replace(/[*"']$/, '').trim();
+  }
+
+  private async findBrandChain(name: string): Promise<{ name: string; logo: string; domain: string } | null> {
+    const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const token = process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg';
+    
+    const brands = [
+      { key: 'walmart', name: 'Walmart', domain: 'walmart.com' },
+      { key: 'target', name: 'Target', domain: 'target.com' },
+      { key: 'aldi', name: 'Aldi', domain: 'aldi.us' },
+      { key: 'kroger', name: 'Kroger', domain: 'kroger.com' },
+      { key: 'costco', name: 'Costco', domain: 'costco.com' },
+      { key: 'heb', name: 'HEB', domain: 'heb.com' },
+      { key: 'samsclub', name: "Sam's Club", domain: 'samsclub.com' },
+      { key: 'wholefoods', name: 'Whole Foods', domain: 'wholefoodsmarket.com' },
+      { key: 'publix', name: 'Publix', domain: 'publix.com' },
+      { key: 'sprouts', name: 'Sprouts', domain: 'sprouts.com' },
+      { key: 'cvs', name: 'CVS', domain: 'cvs.com' },
+      { key: 'walgreens', name: 'Walgreens', domain: 'walgreens.com' },
+    ];
+
+    for (const brand of brands) {
+      if (normalized.includes(brand.key)) {
+        return { 
+          ...brand, 
+          logo: `https://img.logo.dev/${brand.domain}?token=${token}` 
+        };
+      }
+    }
+    return null;
+  }
+
+  private isProductFallback(url: string | null | undefined): boolean {
+    if (!url) return true;
+    // Check if it's one of our Unsplash category fallbacks
+    return url.includes('images.unsplash.com') || url.includes('placeholder') || url.includes('storage.com');
+  }
+
   /**
    * Upsert scraped data into the database.
    */
@@ -60,43 +107,39 @@ export class ProductsService {
 
     for (const item of deduped.values()) {
       try {
+        const cleanedStoreName = this.cleanName(item.store);
+
         // 1. Resolve Store (find by name + zip)
         let store = await this.storesRepository.findOne({ 
-          where: { name: ILike(item.store), zip } 
+          where: { name: ILike(cleanedStoreName), zip } 
         });
 
         if (!store) {
-          // Resolve or create a default chain to avoid foreign key failure
+          // Check for a known brand first
+          const brand = await this.findBrandChain(cleanedStoreName);
+          const chainName = brand?.name || cleanedStoreName;
+          const chainSlug = chainName.toLowerCase().replace(/\s+/g, '-');
+
+          // Resolve or create chain
           let chain = await this.chainsRepository.findOne({ 
-            where: { slug: item.store.toLowerCase().replace(/\s+/g, '-') } 
+            where: { name: ILike(chainName) } 
           });
 
           if (!chain) {
-            // Try to find any grocery chain or fallback
-            chain = await this.chainsRepository.findOne({ where: { type: StoreChainType.GROCERY } });
-          }
-
-          if (!chain) {
-            // Create default chain in a race-safe way.
-            // Concurrent scrapes may attempt this simultaneously.
-            try {
-              chain = await this.chainsRepository.save({
-                name: 'Default Store Chain',
-                slug: 'default-chain',
-                type: StoreChainType.GROCERY,
-              });
-            } catch {
-              chain = await this.chainsRepository.findOne({ where: { slug: 'default-chain' } });
-            }
-          }
-
-          if (!chain) {
-            throw new Error('Unable to resolve store chain for scraped store');
+            chain = await this.chainsRepository.save({
+              name: chainName,
+              slug: chainSlug,
+              type: StoreChainType.GROCERY,
+              logo_url: brand?.logo || null
+            });
+          } else if (brand?.logo && !chain.logo_url) {
+            // Update missing logo for existing chain
+            await this.chainsRepository.update(chain.id, { logo_url: brand.logo });
           }
 
           // Create dummy store if not exists
           store = await this.storesRepository.save({
-            name: item.store,
+            name: cleanedStoreName,
             zip,
             lat: 0,
             lng: 0,
@@ -122,6 +165,12 @@ export class ProductsService {
             category: category,
             image_url: item.image || this.getFallbackImage(item.product, category)
           });
+        } else {
+          // UPGRADE LOGIC: If the current product has a fallback image 
+          // and the scraper found a REAL image, upgrade it!
+          if (item.image && this.isProductFallback(product.image_url)) {
+            await this.productsRepository.update(product.id, { image_url: item.image });
+          }
         }
 
         // 3. Upsert StoreProduct atomically (avoids duplicate-key races)

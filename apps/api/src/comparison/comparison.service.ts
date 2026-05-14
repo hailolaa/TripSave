@@ -551,29 +551,46 @@ export class ComparisonService {
    * Helper to resolve a logo URL based on store name
    */
   private resolveLogoUrl(name: string): string | null {
-    const n = name.toLowerCase();
-    const token = process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg'; // Use your Logo.dev token here
+    const n = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const token = process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg';
     const baseUrl = `https://img.logo.dev`;
     
-    let domain = '';
-    if (n.includes('walmart')) domain = 'walmart.com';
-    else if (n.includes('target')) domain = 'target.com';
-    else if (n.includes('aldi')) domain = 'aldi.us';
-    else if (n.includes('costco')) domain = 'costco.com';
-    else if (n.includes('kroger')) domain = 'kroger.com';
-    else if (n.includes('whole foods')) domain = 'wholefoodsmarket.com';
-    else if (n.includes('publix')) domain = 'publix.com';
-    else if (n.includes('heb') || n.includes('h-e-b')) domain = 'heb.com';
-    else if (n.includes('cvs')) domain = 'cvs.com';
-    else if (n.includes('walgreens')) domain = 'walgreens.com';
-    else if (n.includes('shell')) domain = 'shell.com';
-    else if (n.includes('exxon')) domain = 'exxon.com';
-    else if (n.includes('chevron')) domain = 'chevron.com';
-    else if (n.includes('mobil')) domain = 'exxonmobil.com';
-    else if (n.includes('7-eleven')) domain = '7-eleven.com';
-    
-    if (domain) {
-      return `${baseUrl}/${domain}?token=${token}`;
+    const brands = [
+      { key: 'walmart', domain: 'walmart.com' },
+      { key: 'target', domain: 'target.com' },
+      { key: 'aldi', domain: 'aldi.us' },
+      { key: 'costco', domain: 'costco.com' },
+      { key: 'kroger', domain: 'kroger.com' },
+      { key: 'wholefoods', domain: 'wholefoodsmarket.com' },
+      { key: 'publix', domain: 'publix.com' },
+      { key: 'heb', domain: 'heb.com' },
+      { key: 'cvs', domain: 'cvs.com' },
+      { key: 'walgreens', domain: 'walgreens.com' },
+      { key: 'shell', domain: 'shell.com' },
+      { key: 'exxon', domain: 'exxon.com' },
+      { key: 'chevron', domain: 'chevron.com' },
+      { key: 'mobil', domain: 'mobil.com' },
+      { key: 'valero', domain: 'valero.com' },
+      { key: 'quiktrip', domain: 'quiktrip.com' },
+      { key: 'racetrac', domain: 'racetrac.com' },
+      { key: 'circlek', domain: 'circlek.com' },
+      { key: 'murphy', domain: 'murphyusa.com' },
+      { key: '76', domain: '76.com' },
+      { key: 'bp', domain: 'bp.com' },
+      { key: 'sunoco', domain: 'sunoco.com' },
+      { key: 'texaco', domain: 'texaco.com' },
+      { key: 'citgo', domain: 'citgo.com' },
+      { key: '7eleven', domain: '7-eleven.com' },
+      { key: 'riteaid', domain: 'riteaid.com' },
+      { key: 'samsclub', domain: 'samsclub.com' },
+      { key: 'meijer', domain: 'meijer.com' },
+      { key: 'safeway', domain: 'safeway.com' },
+    ];
+
+    for (const brand of brands) {
+      if (n.includes(brand.key)) {
+        return `${baseUrl}/${brand.domain}?token=${token}`;
+      }
     }
     
     return null;
