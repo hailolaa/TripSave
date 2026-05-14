@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { StoreChain, StoreChainType } from '../stores/store-chain.entity';
+import { Store } from '../stores/store.entity';
 
 dotenv.config();
 
@@ -164,6 +165,43 @@ async function runUpdate() {
     let skippedCount = 0;
     let fallbackCount = 0;
 
+    // Pass 0: Smart Link stores to their correct chains
+    console.log('\nStarting Smart Link pass...');
+    const storeRepo = AppDataSource.getRepository(Store);
+    const allStores = await storeRepo.find();
+    
+    for (const mapping of logoMappings) {
+      const normalizedKey = normalize(mapping.key);
+      const matchingStores = allStores.filter(s => normalize(s.name).includes(normalizedKey));
+      
+      if (matchingStores.length > 0) {
+        // Find or create the StoreChain for this brand
+        let chain = allChains.find(c => normalize(c.name) === normalizedKey);
+        
+        if (!chain) {
+          console.log(`🏗️  Creating missing chain: ${mapping.key}`);
+          chain = chainRepo.create({
+            name: mapping.key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+            slug: mapping.key.toLowerCase().replace(/ /g, '-'),
+            type: StoreChainType.GROCERY, // Default
+            logo_url: mapping.logo
+          });
+          await chainRepo.save(chain);
+          allChains.push(chain);
+        }
+        
+        // Link all matching stores to this chain if they are currently unlinked or linked to "Default"
+        for (const store of matchingStores) {
+          const currentChain = allChains.find(c => c.id === store.chain_id);
+          if (!currentChain || currentChain.name.toLowerCase().includes('default')) {
+            await storeRepo.update(store.id, { chain_id: chain.id });
+            console.log(`🔗 Linked: "${store.name}" -> "${chain.name}"`);
+          }
+        }
+      }
+    }
+
+    console.log('\nStarting fuzzy match update for chains...');
     // Pass 1: Specific mappings — only update chains that are missing a logo
     //         or currently have a generic fallback logo.
     for (const mapping of logoMappings) {
