@@ -1,6 +1,7 @@
 import { DataSource, Like } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { StoreChain } from '../stores/store-chain.entity';
+import { Store } from '../stores/store.entity';
 
 dotenv.config();
 
