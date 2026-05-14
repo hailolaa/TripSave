@@ -10,7 +10,11 @@ class SettingsService {
 
   double get gasCostPerMile => 0.72; // Fixed drive cost per mile as requested
 
+  bool get notificationsEnabled => _prefs.getBool('notifications_enabled') ?? true;
+  Future<void> setNotificationsEnabled(bool value) => _prefs.setBool('notifications_enabled', value);
+
   Future<void> clear() async {
     await _prefs.remove('trip_save_radius');
+    await _prefs.remove('notifications_enabled');
   }
 }

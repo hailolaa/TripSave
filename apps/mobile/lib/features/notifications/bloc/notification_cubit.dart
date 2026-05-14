@@ -4,6 +4,9 @@ import '../models/notification_model.dart';
 import 'dart:async';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/services/local_notification_service.dart';
+import '../../../core/services/settings_service.dart';
+
 abstract class NotificationState extends Equatable {
   @override
   List<Object?> get props => [];
@@ -25,7 +28,13 @@ class NotificationLoaded extends NotificationState {
 }
 
 class NotificationCubit extends Cubit<NotificationState> {
-  NotificationCubit() : super(NotificationInitial()) {
+  final LocalNotificationService _notificationService;
+  final SettingsService _settingsService;
+
+  NotificationCubit(this._notificationService, this._settingsService) : super(NotificationInitial()) {
+    if (_settingsService.notificationsEnabled) {
+      _notificationService.requestPermission();
+    }
     // Initialize with empty list or load from storage
     _loadNotifications();
   }
@@ -63,6 +72,14 @@ class NotificationCubit extends Cubit<NotificationState> {
 
     _notifications = [notification, ..._notifications];
     _emitLoaded();
+
+    if (_settingsService.notificationsEnabled) {
+      _notificationService.showNotification(
+        id: notification.id.hashCode,
+        title: title,
+        body: message,
+      );
+    }
   }
 
   void markAsRead(String id) {
@@ -117,6 +134,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> requestPermission() async {
+    await _notificationService.requestPermission();
     final status = await Permission.notification.request();
     if (status.isPermanentlyDenied) {
       // In a real app, maybe show a dialog to go to settings

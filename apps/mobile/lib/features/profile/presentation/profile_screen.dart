@@ -35,6 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _notificationsEnabled = _settingsService.notificationsEnabled;
     _loadUserData();
     _loadLocation();
   }
@@ -235,6 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onSwitchChanged: (val) {
                   HapticFeedback.lightImpact();
                   setState(() => _notificationsEnabled = val);
+                  _settingsService.setNotificationsEnabled(val);
                   if (val) {
                     context.read<NotificationCubit>().requestPermission();
                   }
