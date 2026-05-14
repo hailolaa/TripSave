@@ -19,14 +19,14 @@ async function runDiag() {
     await AppDataSource.initialize();
     const chainRepo = AppDataSource.getRepository(StoreChain);
     
-    // Find stores that have the specific fallbacks you mentioned
-    const fallbacks = await chainRepo.createQueryBuilder('c')
-      .where('c.logo_url LIKE :s1 OR c.logo_url LIKE :s2 OR c.logo_url LIKE :s3', 
-        { s1: '%instacart.com%', s2: '%gasbuddy.com%', s3: '%goodrx.com%' })
+    // Find all entries for the major brands to see if any are missing/wrong
+    const majors = await chainRepo.createQueryBuilder('c')
+      .where('c.name LIKE :s1 OR c.name LIKE :s2 OR c.name LIKE :s3', 
+        { s1: '%Walmart%', s2: '%Target%', s3: '%Kroger%' })
       .getMany();
 
-    console.log(`--- FOUND ${fallbacks.length} FALLBACKS ---`);
-    for (const s of fallbacks) {
+    console.log(`--- FOUND ${majors.length} MAJOR BRAND ENTRIES ---`);
+    for (const s of majors) {
       console.log(`Store: ${s.name} | Logo: ${s.logo_url}`);
     }
     process.exit(0);

@@ -115,7 +115,24 @@ const logoMappings = [
   { key: 'five below', logo: `https://img.logo.dev/fivebelow.com?token=${token}` },
   { key: 'petco', logo: `https://img.logo.dev/petco.com?token=${token}` },
   { key: 'petsmart', logo: `https://img.logo.dev/petsmart.com?token=${token}` },
+
+  // New mappings from diagnostics
+  { key: 'pilot', logo: `https://img.logo.dev/pilotflyingj.com?token=${token}` },
+  { key: 'flying j', logo: `https://img.logo.dev/pilotflyingj.com?token=${token}` },
+  { key: 'loves', logo: `https://img.logo.dev/loves.com?token=${token}` },
+  { key: 'michaels', logo: `https://img.logo.dev/michaels.com?token=${token}` },
+  { key: 'restaurant depot', logo: `https://img.logo.dev/restaurantdepot.com?token=${token}` },
+  { key: 'yesway', logo: `https://img.logo.dev/yesway.com?token=${token}` },
+  { key: 'allsups', logo: `https://img.logo.dev/allsups.com?token=${token}` },
+  { key: 'clean energy', logo: `https://img.logo.dev/cleanenergyfuels.com?token=${token}` },
+  { key: 'dk', logo: `https://img.logo.dev/dk.com?token=${token}` },
+  { key: 'alon', logo: `https://img.logo.dev/alon.com?token=${token}` },
 ];
+
+// Normalize strings for better fuzzy matching
+function normalize(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 // Known generic/fallback logo URLs — chains with these should be
 // upgraded to a specific logo when a mapping exists.
@@ -149,14 +166,17 @@ async function runUpdate() {
     // Pass 1: Specific mappings — only update chains that are missing a logo
     //         or currently have a generic fallback logo.
     for (const mapping of logoMappings) {
+      const normalizedKey = normalize(mapping.key);
       const matches = allChains.filter(c => 
-        c.slug.toLowerCase().includes(mapping.key) || 
-        c.name.toLowerCase().includes(mapping.key)
+        normalize(c.slug).includes(normalizedKey) || 
+        normalize(c.name).includes(normalizedKey)
       );
       
       for (const match of matches) {
         if (!isMissingOrFallback(match.logo_url)) {
-          console.log(`⏭️ Skipped (already has logo): ${match.name}`);
+          // If the store ALREADY has a logo that is NOT a fallback, skip it
+          // BUT if the store is Shell and we have a Shell logo, it might be the same one.
+          // For now, if it's not a fallback, we keep what's there.
           skippedCount++;
           continue;
         }
