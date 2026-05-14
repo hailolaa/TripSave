@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, Like } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { StoreChain } from '../stores/store-chain.entity';
 
@@ -29,18 +29,19 @@ async function runDiag() {
       console.log(`Chain: ${s.name} | Logo: ${s.logo_url}`);
     }
 
-    // Check the Store table too
+    // Check the Store table and its links
     try {
-      const storeRepo = AppDataSource.getRepository('Store');
-      const stores = await storeRepo.createQueryBuilder('s')
-        .where('s.name LIKE :s1', { s1: '%Walmart%' })
-        .getMany();
+      const stores = await AppDataSource.getRepository(Store).find({
+        where: { name: Like('%Walmart%') },
+        relations: ['chain']
+      });
+      
       console.log(`--- FOUND ${stores.length} WALMART STORES ---`);
       for (const s of stores) {
-        console.log(`Store: ${s.name} | Logo: ${(s as any).logo_url}`);
+        console.log(`Store: ${s.name} | Linked Chain: ${s.chain?.name || 'NONE'} | Chain Logo: ${s.chain?.logo_url || 'NONE'}`);
       }
     } catch (e) {
-      console.log('Note: Store table check skipped or failed (might be named differently).');
+      console.log('Note: Store relation check failed:', e.message);
     }
 
     process.exit(0);
