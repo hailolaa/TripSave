@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
@@ -22,9 +23,14 @@ import 'features/location/bloc/location_cubit.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Prevent google_fonts from blocking startup with network requests.
+  // Without this, the app hangs on a white screen if font servers are unreachable.
+  GoogleFonts.config.allowRuntimeFetching = false;
   
   // Initialize Stripe
   const stripeKey = "pk_test_51TVzJnRX4uhAy7vXWJ9PkTXZ0bHpC0UYNSc6bUYD4SIkUKWZOOF8zEb2SGHG2mHrRhM0nfkvpd5GyyZGWZ92jGYO00RStIawoh";
@@ -38,6 +44,10 @@ void main() async {
   }
 
   await setupDependencies();
+  
+  // Pre-warm auth cache so the first GoRouter redirect doesn't deadlock
+  await syncAuthCache();
+  
   runApp(const MyApp());
 }
 
@@ -48,52 +58,84 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        // --- Independent cubits first (no cross-cubit deps) ---
+        BlocProvider<NotificationCubit>(
+          create: (_) {
+            debugPrint("[DEBUG] Creating NotificationCubit...");
+            return getIt<NotificationCubit>();
+          },
+        ),
         BlocProvider<LocationCubit>(
-          create: (_) => LocationCubit(getIt<LocationService>())..init(),
+          create: (_) {
+            debugPrint("[DEBUG] Creating LocationCubit...");
+            return LocationCubit(getIt<LocationService>())..init();
+          },
         ),
         BlocProvider<ComparisonCubit>(
-          create: (_) => ComparisonCubit(
-            getIt<ApiClient>(), 
-            getIt<LocationService>(),
-          ),
+          create: (_) {
+            debugPrint("[DEBUG] Creating ComparisonCubit...");
+            return ComparisonCubit(
+              getIt<ApiClient>(),
+              getIt<LocationService>(),
+            );
+          },
         ),
         BlocProvider<ListCubit>(
-          create: (_) => ListCubit(
-            getIt<ListRepository>(), 
-            getIt<LocationService>(),
-          )..fetchCart(),
+          create: (_) {
+            debugPrint("[DEBUG] Creating ListCubit...");
+            return ListCubit(
+              getIt<ListRepository>(),
+              getIt<LocationService>(),
+            )..fetchCart();
+          },
         ),
         BlocProvider<DealsCubit>(
-          create: (_) => DealsCubit(getIt<DealsRepository>())..fetchDeals(),
-        ),
-        BlocProvider<HomeCubit>(
-          create: (context) => HomeCubit(
-            listRepository: getIt<ListRepository>(),
-            dealsRepository: getIt<DealsRepository>(),
-            comparisonCubit: context.read<ComparisonCubit>(),
-            locationService: getIt<LocationService>(),
-            listCubit: context.read<ListCubit>(),
-            locationCubit: context.read<LocationCubit>(),
-          )..loadDashboard(),
+          create: (_) {
+            debugPrint("[DEBUG] Creating DealsCubit...");
+            return DealsCubit(getIt<DealsRepository>())..fetchDeals();
+          },
         ),
         BlocProvider<SavingsCubit>(
-          create: (_) => SavingsCubit(getIt<SavingsRepository>())..loadSavings(),
+          create: (_) {
+            debugPrint("[DEBUG] Creating SavingsCubit...");
+            return SavingsCubit(getIt<SavingsRepository>())..loadSavings();
+          },
         ),
-        BlocProvider<NotificationCubit>(
-          create: (_) => getIt<NotificationCubit>(),
+        // --- Cubits that depend on others above ---
+        BlocProvider<HomeCubit>(
+          create: (context) {
+            debugPrint("[DEBUG] Creating HomeCubit...");
+            return HomeCubit(
+              listRepository: getIt<ListRepository>(),
+              dealsRepository: getIt<DealsRepository>(),
+              comparisonCubit: context.read<ComparisonCubit>(),
+              locationService: getIt<LocationService>(),
+              listCubit: context.read<ListCubit>(),
+              locationCubit: context.read<LocationCubit>(),
+            )..loadDashboard();
+          },
         ),
+        // --- AuthCubit LAST because onLogout references all cubits above ---
         BlocProvider<AuthCubit>(
-          create: (context) => AuthCubit(
-            getIt<AuthRepository>(),
-            getIt<SettingsService>(),
-            onLogout: [
-              () => context.read<ListCubit>().clear(),
-              () => context.read<HomeCubit>().clear(),
-              () => context.read<ComparisonCubit>().clear(),
-              () => context.read<DealsCubit>().clear(),
-              () => context.read<SavingsCubit>().clear(),
-            ],
-          ),
+          create: (context) {
+            debugPrint("[DEBUG] Creating AuthCubit...");
+            final cubit = AuthCubit(
+              getIt<AuthRepository>(),
+              getIt<SettingsService>(),
+              onLogout: [
+                () { try { context.read<ListCubit>().clear(); } catch (_) {} },
+                () { try { context.read<HomeCubit>().clear(); } catch (_) {} },
+                () { try { context.read<ComparisonCubit>().clear(); } catch (_) {} },
+                () { try { context.read<DealsCubit>().clear(); } catch (_) {} },
+                () { try { context.read<SavingsCubit>().clear(); } catch (_) {} },
+              ],
+            );
+            // Defer checkAuth so it doesn't block the first frame
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              cubit.checkAuth();
+            });
+            return cubit;
+          },
         ),
       ],
       child: MaterialApp.router(

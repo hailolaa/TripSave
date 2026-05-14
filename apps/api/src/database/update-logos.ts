@@ -1,4 +1,4 @@
-import { DataSource, IsNull } from 'typeorm';
+import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { StoreChain, StoreChainType } from '../stores/store-chain.entity';
 
@@ -117,6 +117,21 @@ const logoMappings = [
   { key: 'petsmart', logo: `https://img.logo.dev/petsmart.com?token=${token}` },
 ];
 
+// Known generic/fallback logo URLs — chains with these should be
+// upgraded to a specific logo when a mapping exists.
+const genericFallbackPatterns = [
+  'instacart.com',
+  'gasbuddy.com',
+  'goodrx.com',
+  'storage.com',
+  'store.com',
+];
+
+function isMissingOrFallback(logoUrl: string | null | undefined): boolean {
+  if (!logoUrl || logoUrl.trim() === '') return true;
+  return genericFallbackPatterns.some(p => logoUrl.includes(p));
+}
+
 async function runUpdate() {
   try {
     await AppDataSource.initialize();
@@ -128,9 +143,11 @@ async function runUpdate() {
     console.log(`Found ${allChains.length} total chains. Starting fuzzy match update...`);
     
     let updatedCount = 0;
+    let skippedCount = 0;
     let fallbackCount = 0;
 
-    // Pass 1: Specific mappings based on name/slug
+    // Pass 1: Specific mappings — only update chains that are missing a logo
+    //         or currently have a generic fallback logo.
     for (const mapping of logoMappings) {
       const matches = allChains.filter(c => 
         c.slug.toLowerCase().includes(mapping.key) || 
@@ -138,15 +155,23 @@ async function runUpdate() {
       );
       
       for (const match of matches) {
+        if (!isMissingOrFallback(match.logo_url)) {
+          console.log(`⏭️ Skipped (already has logo): ${match.name}`);
+          skippedCount++;
+          continue;
+        }
         await chainRepo.update(match.id, { logo_url: mapping.logo });
         console.log(`✅ Updated: ${match.name} (Slug: ${match.slug}) -> ${mapping.logo}`);
         updatedCount++;
       }
     }
 
-    // Pass 2: Generic fallbacks for stores that still don't have a logo
-    const remainingChains = await chainRepo.find({ where: { logo_url: IsNull() } });
-    console.log(`\nStarting fallback pass for ${remainingChains.length} chains...`);
+    // Pass 2: Generic fallbacks for stores that still don't have ANY logo
+    //         (null or empty string — never overwrite a real logo).
+    const remainingChains = (await chainRepo.find()).filter(c =>
+      !c.logo_url || c.logo_url.trim() === ''
+    );
+    console.log(`\nStarting fallback pass for ${remainingChains.length} chains without any logo...`);
 
     const genericLogos = {
       [StoreChainType.GAS]: `https://img.logo.dev/gasbuddy.com?token=${token}`, 
@@ -167,6 +192,7 @@ async function runUpdate() {
 
     console.log(`\nUpdate COMPLETE 🚀`);
     console.log(`Specific updates: ${updatedCount}`);
+    console.log(`Skipped (kept existing): ${skippedCount}`);
     console.log(`Fallback updates: ${fallbackCount}`);
     console.log(`Total updated: ${updatedCount + fallbackCount}`);
     process.exit(0);

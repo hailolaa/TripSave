@@ -52,6 +52,16 @@ function resolveCategory(name: string): ProductCategory {
   return ProductCategory.OTHER;
 }
 
+// Unsplash fallback URLs used by this script — if a product already has one
+// of these, it can be upgraded. Any other URL is treated as a "real" image.
+const fallbackImageUrls = new Set(Object.values(categoryImages));
+
+function isMissingOrFallbackImage(imageUrl: string | null | undefined): boolean {
+  if (!imageUrl || imageUrl.trim() === '') return true;
+  // If the current image is one of our own category fallbacks, allow upgrade
+  return fallbackImageUrls.has(imageUrl);
+}
+
 async function runUpdate() {
   try {
     await AppDataSource.initialize();
@@ -63,11 +73,13 @@ async function runUpdate() {
     console.log(`Processing ${products.length} products for backfill...`);
     
     let updatedCount = 0;
+    let skippedCount = 0;
 
     for (const product of products) {
       let needsUpdate = false;
       const updateData: any = {};
 
+      // Re-categorize miscategorized products
       if (product.category === ProductCategory.OTHER) {
         const newCategory = resolveCategory(product.name);
         if (newCategory !== ProductCategory.OTHER) {
@@ -76,10 +88,18 @@ async function runUpdate() {
         }
       }
 
-      if (!product.image_url) {
+      // Only set a fallback image if the product has NO real image.
+      // Never overwrite a real product-specific image with a generic category image.
+      if (isMissingOrFallbackImage(product.image_url)) {
         const category = updateData.category || product.category;
         updateData.image_url = categoryImages[category] || categoryImages[ProductCategory.OTHER];
         needsUpdate = true;
+      } else {
+        // Product already has a real image — don't touch it
+        if (!needsUpdate) {
+          skippedCount++;
+          continue;
+        }
       }
 
       if (needsUpdate) {
@@ -92,7 +112,9 @@ async function runUpdate() {
       }
     }
 
-    console.log(`\nBackfill COMPLETE 🚀 | Total updated: ${updatedCount}`);
+    console.log(`\nBackfill COMPLETE 🚀`);
+    console.log(`Updated: ${updatedCount}`);
+    console.log(`Skipped (kept existing image): ${skippedCount}`);
     process.exit(0);
   } catch (err) {
     console.error('Update failed:', err);

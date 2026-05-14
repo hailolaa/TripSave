@@ -27,14 +27,30 @@ class RouterNotifier extends ChangeNotifier {
 
 final RouterNotifier routerNotifier = RouterNotifier();
 
+/// Cached auth state to avoid async deadlock in redirect.
+/// Updated by _syncAuthCache() and by AuthCubit via routerNotifier.
+String? _cachedToken;
+String? _cachedOnboarding;
+String? _cachedReferral;
+String? _cachedSubStatus;
+
+Future<void> syncAuthCache() async {
+  const storage = FlutterSecureStorage();
+  _cachedToken = await storage.read(key: 'jwt');
+  _cachedOnboarding = await storage.read(key: 'onboarding_completed');
+  _cachedReferral = await storage.read(key: 'referral_source');
+  _cachedSubStatus = await storage.read(key: 'subscription_status');
+}
+
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
   refreshListenable: routerNotifier,
   redirect: (context, state) async {
-    final storage = const FlutterSecureStorage();
-    final token = await storage.read(key: 'jwt');
-    final isLoggedIn = token != null && token.isNotEmpty;
+    // Sync cache on every redirect (fast — just SharedPrefs reads)
+    await syncAuthCache();
+
+    final isLoggedIn = _cachedToken != null && _cachedToken!.isNotEmpty;
     
     final isAuthRoute = state.matchedLocation == '/login' || 
                         state.matchedLocation == '/register' || 
@@ -45,9 +61,9 @@ final GoRouter appRouter = GoRouter(
     }
     
     // If logged in, check onboarding status
-    final onboardingCompleted = (await storage.read(key: 'onboarding_completed')) == 'true';
-    final referralSource = await storage.read(key: 'referral_source');
-    final subStatus = await storage.read(key: 'subscription_status');
+    final onboardingCompleted = _cachedOnboarding == 'true';
+    final referralSource = _cachedReferral;
+    final subStatus = _cachedSubStatus;
     
     final isOnboardingRoute = state.matchedLocation == '/onboarding' || 
                               state.matchedLocation == '/referral' || 
@@ -68,7 +84,11 @@ final GoRouter appRouter = GoRouter(
       return '/payment';
     }
 
-    if (isAuthRoute || isOnboardingRoute) {
+    // Allow /payment?isUpdating=true for authenticated users updating their card
+    final isUpdatingPayment = state.matchedLocation == '/payment' &&
+        state.uri.queryParameters['isUpdating'] == 'true';
+
+    if ((isAuthRoute || isOnboardingRoute) && !isUpdatingPayment) {
       return '/home';
     }
     
