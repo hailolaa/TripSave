@@ -228,7 +228,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            isGas ? "${store['name']}\$${data['price_per_gallon'] ?? fallbackFuelPrice}/Regular" : store['name'],
+            store['name'],
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: -0.5),
           ),
           const SizedBox(height: 12),
@@ -312,7 +312,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isGas ? "${store['name']}\$${data['price_per_gallon'] ?? data['products'][0]['price']}/Regular" : store['name'],
+                  store['name'],
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppTheme.textDark),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

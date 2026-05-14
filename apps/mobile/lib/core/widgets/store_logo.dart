@@ -53,10 +53,13 @@ class StoreLogo extends StatelessWidget {
   }
 
   Widget _buildLogoContent(String assetPath, String? logoUrl, String? type) {
-    // Note: We can't easily check for asset existence synchronously in build
-    // but flutter_svg handles errors gracefully if we provide a placeholder.
-    
-    // For now, we'll implement the logic to check for a small list of known assets
+    // 1. Prioritize Remote Logo from DB if it exists and is NOT a fallback
+    // (This ensures our new database branding is always used)
+    if (logoUrl != null && logoUrl.isNotEmpty && !logoUrl.contains('gasbuddy.com') && !logoUrl.contains('instacart.com')) {
+      return _buildCachedImage(logoUrl, type);
+    }
+
+    // 2. Fallback to Local Asset (SVG) for known brands
     final knownAssets = ['walmart', 'target', 'kroger', 'heb', 'aldi', 'costco', 'shell', 'exxon'];
     final slug = assetPath.split('/').last.replaceAll('.svg', '');
 
