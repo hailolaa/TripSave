@@ -19,16 +19,30 @@ async function runDiag() {
     await AppDataSource.initialize();
     const chainRepo = AppDataSource.getRepository(StoreChain);
     
-    // Find all entries for the major brands to see if any are missing/wrong
+    // Find all entries for Walmart in both StoreChain and Store tables
     const majors = await chainRepo.createQueryBuilder('c')
-      .where('c.name LIKE :s1 OR c.name LIKE :s2 OR c.name LIKE :s3', 
-        { s1: '%Walmart%', s2: '%Target%', s3: '%Kroger%' })
+      .where('c.name LIKE :s1', { s1: '%Walmart%' })
       .getMany();
 
-    console.log(`--- FOUND ${majors.length} MAJOR BRAND ENTRIES ---`);
+    console.log(`--- FOUND ${majors.length} WALMART STORE CHAINS ---`);
     for (const s of majors) {
-      console.log(`Store: ${s.name} | Logo: ${s.logo_url}`);
+      console.log(`Chain: ${s.name} | Logo: ${s.logo_url}`);
     }
+
+    // Check the Store table too
+    try {
+      const storeRepo = AppDataSource.getRepository('Store');
+      const stores = await storeRepo.createQueryBuilder('s')
+        .where('s.name LIKE :s1', { s1: '%Walmart%' })
+        .getMany();
+      console.log(`--- FOUND ${stores.length} WALMART STORES ---`);
+      for (const s of stores) {
+        console.log(`Store: ${s.name} | Logo: ${(s as any).logo_url}`);
+      }
+    } catch (e) {
+      console.log('Note: Store table check skipped or failed (might be named differently).');
+    }
+
     process.exit(0);
   } catch (err) {
     console.error(err);

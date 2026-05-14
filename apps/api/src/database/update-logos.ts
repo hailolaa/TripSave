@@ -130,7 +130,8 @@ const logoMappings = [
 ];
 
 // Normalize strings for better fuzzy matching
-function normalize(str: string): string {
+function normalize(str: string | null | undefined): string {
+  if (!str) return '';
   return str.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
@@ -157,7 +158,7 @@ async function runUpdate() {
     const chainRepo = AppDataSource.getRepository(StoreChain);
     const allChains = await chainRepo.find();
     
-    console.log(`Found ${allChains.length} total chains. Starting fuzzy match update...`);
+    console.log(`Found ${allChains.length} total chains. Starting update...`);
     
     let updatedCount = 0;
     let skippedCount = 0;
@@ -188,10 +189,8 @@ async function runUpdate() {
 
     // Pass 2: Generic fallbacks for stores that still don't have ANY logo
     //         (null or empty string — never overwrite a real logo).
-    const remainingChains = (await chainRepo.find()).filter(c =>
-      !c.logo_url || c.logo_url.trim() === ''
-    );
-    console.log(`\nStarting fallback pass for ${remainingChains.length} chains without any logo...`);
+    const remainingChains = (await chainRepo.find()).filter(c => isMissingOrFallback(c.logo_url));
+    console.log(`\nStarting fallback pass for ${remainingChains.length} chains without a specific logo...`);
 
     const genericLogos = {
       [StoreChainType.GAS]: `https://img.logo.dev/gasbuddy.com?token=${token}`, 
@@ -202,12 +201,16 @@ async function runUpdate() {
     };
 
     for (const chain of remainingChains) {
-      const logo = genericLogos[chain.type];
-      if (logo) {
-        await chainRepo.update(chain.id, { logo_url: logo });
-        console.log(`ℹ️ Fallback: ${chain.name} (${chain.type}) -> ${logo}`);
-        fallbackCount++;
+      let logo = genericLogos[chain.type] || genericLogos[StoreChainType.GENERAL];
+      
+      // Special logic: Warehouse and Grocery both use Instacart
+      if (chain.type === StoreChainType.WAREHOUSE) {
+        logo = genericLogos[StoreChainType.GROCERY];
       }
+
+      await chainRepo.update(chain.id, { logo_url: logo });
+      console.log(`📡 Fallback (${chain.type}): ${chain.name} -> ${logo}`);
+      fallbackCount++;
     }
 
     console.log(`\nUpdate COMPLETE 🚀`);
