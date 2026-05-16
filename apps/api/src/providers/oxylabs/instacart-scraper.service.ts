@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OxylabsBaseService, ScrapedProduct } from './oxylabs-base.service';
+import { geocodePlace } from '../../utils/geocoding.util';
 
 /**
  * Scrapes Instacart.com search results via Oxylabs.
@@ -21,12 +22,36 @@ export class InstacartScraperService extends OxylabsBaseService {
     this.logger.log(`Scraping Instacart for "${query}"`);
 
     try {
-      this.logger.log(`Instacart: scraping "${query}" in ZIP ${zip || 'default'}...`);
+      let geoLocation: string | undefined = zip;
+      
+      // If ZIP is numeric (5 digits), try to resolve to a city name for Instacart
+      // as Instacart search often fails with raw numeric ZIPs in Oxylabs geo_location.
+      if (zip && /^\d{5}$/.test(zip)) {
+        try {
+          const geo = await geocodePlace(zip);
+          if (geo && geo.displayName) {
+            // Extract "City, State" from Nominatim display name
+            const parts = geo.displayName.split(',').map(p => p.trim());
+            // Nominatim often starts with the house number or zip if searched by zip
+            const cityPart = /^\d+$/.test(parts[0]) ? parts[1] : parts[0];
+            const statePart = /^\d+$/.test(parts[0]) ? parts[3] || parts[2] : parts[1];
+            
+            if (cityPart && statePart) {
+              geoLocation = `${cityPart},${statePart},United States`;
+              this.logger.debug(`Resolved ZIP ${zip} to "${geoLocation}" for Instacart`);
+            }
+          }
+        } catch (e) {
+          this.logger.warn(`Failed to resolve ZIP ${zip} to city: ${e.message}`);
+        }
+      }
+
+      this.logger.log(`Instacart: scraping "${query}" in ${geoLocation || 'default'}...`);
       const html = await this.scrape('', {
         source: 'instacart_search',
         query,
         render: true,
-        geo_location: zip || undefined,
+        geo_location: geoLocation || undefined,
       });
 
       return this.parse(html);
