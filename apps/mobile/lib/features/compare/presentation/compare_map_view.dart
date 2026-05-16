@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/routing_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/widgets/store_logo.dart';
 
 class CompareMapView extends StatefulWidget {
@@ -79,6 +80,55 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
           ),
         );
       }
+    }
+  }
+
+  Future<void> _launchNavigation(Map<String, dynamic> result) async {
+    final store = result['store'];
+    final lat = double.tryParse(store['lat'].toString()) ?? 0;
+    final lng = double.tryParse(store['lng'].toString()) ?? 0;
+
+    if (lat == 0 && lng == 0) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Start Navigation?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Text('TripSave will take you to ${store['name']}. Confirm to start route in your maps app.', 
+          style: GoogleFonts.outfit()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final googleMapsUrl = Uri.parse('google.navigation:q=$lat,$lng');
+      final appleMapsUrl = Uri.parse('http://maps.apple.com/?daddr=$lat,$lng');
+
+      if (await canLaunchUrl(googleMapsUrl)) {
+        await launchUrl(googleMapsUrl);
+      } else if (await canLaunchUrl(appleMapsUrl)) {
+        await launchUrl(appleMapsUrl);
+      } else {
+        final browserUrl = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+        await launchUrl(browserUrl);
+      }
+      
+      // Also trigger the parent callback if needed (e.g. to save trip in DB)
+      widget.onStoreTap(result);
     }
   }
 
@@ -295,7 +345,7 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '\$${result['true_cost'] ?? '0.00'}',
+                          '\$${result['item_total'] ?? '0.00'}',
                           style: TextStyle(
                             color: isSelected ? AppTheme.primaryBlue : AppTheme.textDark,
                             fontWeight: FontWeight.bold,
@@ -388,7 +438,7 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: () => widget.onStoreTap(result),
+                onTap: () => _launchNavigation(result),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: Row(

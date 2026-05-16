@@ -37,11 +37,7 @@ class _CompareScreenState extends State<CompareScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
-    // Only fetch on first app open — skip if cubit already has data (e.g. tab switch)
-    final cubit = context.read<ComparisonCubit>();
-    if (!cubit.hasData) {
-      cubit.searchItem('milk');
-    }
+    // No auto-fetch on initState – wait for user to click "Compare"
   }
 
   void _loadFavorites() {
@@ -112,35 +108,71 @@ class _CompareScreenState extends State<CompareScreen> {
               child: Column(
                 children: [
               const SizedBox(height: 20),
-              // Search Bar
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          hintText: 'Search products to compare...',
+                          hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 15),
+                          prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue, size: 20),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onSubmitted: (value) => context.read<ComparisonCubit>().searchItem(
-                    value, 
-                    storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                    forceRefresh: false,
                   ),
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    hintText: 'Search products to compare...',
-                    hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 15),
-                    prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue, size: 20),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  const SizedBox(width: 12),
+                  // Compare Button
+                  Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.primaryBlue, Color(0xFF1E40AF)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
+                          context.read<ComparisonCubit>().searchItem(
+                            query, 
+                            storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                            forceRefresh: true,
+                          );
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20),
+                          child: Icon(Icons.compare_arrows, color: Colors.white),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
               const SizedBox(height: 20),
               // Horizontal Filters

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
@@ -275,11 +276,10 @@ class _ListScreenState extends State<ListScreen> {
                   ],
                 ),
               ),
-              Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('\$$trueCost', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppTheme.savingsGreen)),
-                  Text('$itemsFound items found', style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
+                  Text('\$${summary['item_total'] ?? 0.0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.savingsGreen)),
+                  Text('$itemsFound items in list', style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
                 ],
               ),
             ],
@@ -288,14 +288,55 @@ class _ListScreenState extends State<ListScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: _buildSummaryPill(Icons.shopping_bag_outlined, 'Items: \$$basketTotal')),
-              const SizedBox(width: 4),
-              Expanded(child: _buildSummaryPill(Icons.local_gas_station_outlined, 'Drive: \$$driveCost')),
-              const SizedBox(width: 4),
-              Expanded(child: _buildSummaryPill(Icons.timer_outlined, '${((summary['driving_distance'] ?? 0) / 2).toStringAsFixed(1)} mi')),
+              Expanded(child: _buildSummaryPill(Icons.shopping_bag_outlined, 'Price: \$${summary['item_total'] ?? 0.0}')),
+              const SizedBox(width: 8),
+              _buildCompareButton(context),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompareButton(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.primaryBlue, Color(0xFF1E40AF)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => context.go('/compare'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.compare_arrows, color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  'Compare',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
