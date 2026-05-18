@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { GoogleMapsGasScraperService } from '../providers/oxylabs/google-maps-gas-scraper.service';
+import { GasBuddyScraperService } from '../providers/oxylabs/gasbuddy-scraper.service';
 import { ProductNormalizerService } from '../providers/normalizer/product-normalizer.service';
 import { GasPrice } from '../gas/gas-price.entity';
 import { Store } from '../stores/store.entity';
@@ -23,7 +23,7 @@ export class GasSyncService {
   private readonly logger = new Logger(GasSyncService.name);
 
   constructor(
-    private readonly googleMapsScraper: GoogleMapsGasScraperService,
+    private readonly gasBuddyScraper: GasBuddyScraperService,
     @InjectRepository(GasPrice) private readonly gasPriceRepo: Repository<GasPrice>,
     @InjectRepository(Store) private readonly storeRepo: Repository<Store>,
     @InjectRepository(StoreChain) private readonly chainRepo: Repository<StoreChain>,
@@ -36,13 +36,13 @@ export class GasSyncService {
    * On failure, marks existing data as stale instead of crashing.
    */
   async syncGasPrices(regionCode: string = 'TX', lat?: number, lng?: number): Promise<{ success: boolean; count: number; stale: boolean }> {
-    this.logger.log(`[SYNC INIT] Starting gas station sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
+    this.logger.log(`[SYNC INIT] Starting GasBuddy sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
 
     try {
-      const stations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
+      const stations = await this.gasBuddyScraper.searchNearbyStores(regionCode, 'gas stations');
 
       if (stations.length === 0) {
-        this.logger.warn('Google Maps returned no stations. Marking existing data as stale.');
+        this.logger.warn('GasBuddy scraper returned no stations. Marking existing data as stale.');
         await this.markAllStale();
         return { success: false, count: 0, stale: true };
       }
@@ -248,7 +248,7 @@ export class GasSyncService {
         lat: finalLat,
         lng: finalLng,
         external_id: station.stationId,
-        source: DataSource.GOOGLE_MAPS,
+        source: DataSource.GASBUDDY,
         is_active: true,
       }));
     } else {
@@ -270,21 +270,21 @@ export class GasSyncService {
 
     // 3. Upsert gas price
     let gasPrice = await this.gasPriceRepo.findOne({ where: { store_id: store.id } });
-    const priceData = {
+    const priceData: any = {
       store_id: store.id,
-      regular_price: station.prices.regular,
-      midgrade_price: station.prices.midgrade,
-      premium_price: station.prices.premium,
-      diesel_price: station.prices.diesel,
-      source: DataSource.GOOGLE_MAPS,
+      source: DataSource.GASBUDDY,
       last_updated: new Date(),
       is_stale: false,
     };
+    if (station.prices.regular !== null) priceData.regular_price = station.prices.regular;
+    if (station.prices.midgrade !== null) priceData.midgrade_price = station.prices.midgrade;
+    if (station.prices.premium !== null) priceData.premium_price = station.prices.premium;
+    if (station.prices.diesel !== null) priceData.diesel_price = station.prices.diesel;
 
     if (gasPrice) {
-      await this.gasPriceRepo.update(gasPrice.id, priceData as any);
+      await this.gasPriceRepo.update(gasPrice.id, priceData);
     } else {
-      await this.gasPriceRepo.save(this.gasPriceRepo.create(priceData as any));
+      await this.gasPriceRepo.save(this.gasPriceRepo.create(priceData));
     }
 
     // 4. Update StoreProduct for gas category
@@ -292,7 +292,7 @@ export class GasSyncService {
       const gasProduct = await this.productRepo.findOne({ where: { category: ProductCategory.GAS } });
       if (gasProduct) {
         let sp = await this.storeProductRepo.findOne({ where: { store_id: store.id, product_id: gasProduct.id } });
-        const source = DataSource.GOOGLE_MAPS;
+        const source = DataSource.GASBUDDY;
         const spData = { store_id: store.id, product_id: gasProduct.id, price: station.prices.regular, source, last_verified_at: new Date(), is_stale: false };
         if (sp) {
           await this.storeProductRepo.update(sp.id, spData as any);
@@ -304,6 +304,6 @@ export class GasSyncService {
   }
 
   private async markAllStale(): Promise<void> {
-    await this.gasPriceRepo.createQueryBuilder().update().set({ is_stale: true }).where('source = :src', { src: DataSource.GOOGLE_MAPS }).execute();
+    await this.gasPriceRepo.createQueryBuilder().update().set({ is_stale: true }).where('source = :src', { src: DataSource.GASBUDDY }).execute();
   }
 }

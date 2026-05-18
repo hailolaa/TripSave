@@ -184,12 +184,15 @@ export class GasBuddyScraperService extends OxylabsBaseService {
         if (!idMatch) return;
         const stationId = idMatch[1];
 
-        // 2. Extract price
+        // 2. Extract price card text and isolate the very first dollar price matching $X.XX
         const priceCard = element.find('[class*="priceCard"], [class*="PriceCard"]').first();
-        const priceText = priceCard.find('[class*="price"], [class*="Price"]').first().text().trim();
-        if (!priceText || priceText === '- - -') return;
+        const priceCardText = priceCard.text().trim();
+        if (!priceCardText || priceCardText.includes('- - -')) return;
 
-        const price = parseFloat(priceText.replace(/[^0-9.]/g, ''));
+        const priceMatch = priceCardText.match(/\$([0-9]+\.[0-9]+)/);
+        if (!priceMatch) return;
+
+        const price = parseFloat(priceMatch[1]);
         if (isNaN(price) || price <= 0.1) return;
 
         // 3. Store in pricing map
