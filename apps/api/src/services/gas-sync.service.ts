@@ -234,14 +234,8 @@ export class GasSyncService {
         ? station.address
         : `${station.name} ${regionCode}`;
         
-      let geo = null;
-      if (lat && lng) {
-        const { geocodePlaceNear } = require('../utils/geocoding.util');
-        geo = await geocodePlaceNear(query, lat, lng, 0.4);
-      } else {
-        const { geocodePlace } = require('../utils/geocoding.util');
-        geo = await geocodePlace(query);
-      }
+      const { geocodePlace } = require('../utils/geocoding.util');
+      const geo = await geocodePlace(query);
       
       if (geo) {
         finalLat = geo.lat;
