@@ -39,9 +39,15 @@ export class StoresService {
 
     const results = await query.getRawAndEntities();
     
-    return results.entities.map((store, index) => {
-      // Raw rows align with entities order from TypeORM for this query
-      const rawMatch = results.raw[index];
+    return results.entities.map((store) => {
+      // Find matching raw row by comparing store ID securely
+      const rawMatch = results.raw.find(r => 
+        r.store_id === store.id || 
+        r.id === store.id || 
+        r.store_id_alias === store.id ||
+        r.id_alias === store.id ||
+        Object.keys(r).some(key => key.toLowerCase().includes('id') && r[key] === store.id)
+      );
       return {
         store,
         distance: rawMatch?.distance != null ? parseFloat(rawMatch.distance) : 0
