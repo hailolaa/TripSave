@@ -22,6 +22,8 @@ import { geocodePlace, reverseGeocode } from '../utils/geocoding.util';
 export class GasSyncService {
   private readonly logger = new Logger(GasSyncService.name);
 
+  private readonly recentSyncs = new Map<string, number>();
+
   constructor(
     private readonly gasBuddyScraper: GasBuddyScraperService,
     @InjectRepository(GasPrice) private readonly gasPriceRepo: Repository<GasPrice>,
@@ -36,6 +38,16 @@ export class GasSyncService {
    * On failure, marks existing data as stale instead of crashing.
    */
   async syncGasPrices(regionCode: string = 'TX', lat?: number, lng?: number): Promise<{ success: boolean; count: number; stale: boolean }> {
+    const now = Date.now();
+    const cleanRegion = regionCode.trim().toLowerCase();
+    const lastSyncTime = this.recentSyncs.get(cleanRegion);
+
+    if (lastSyncTime && (now - lastSyncTime) < 30 * 60 * 1000) {
+      this.logger.log(`[SYNC SKIP] Region "${regionCode}" was synced recently (${Math.round((now - lastSyncTime) / 1000)}s ago). Skipping to prevent duplicate scrapes.`);
+      return { success: true, count: 0, stale: false };
+    }
+
+    this.recentSyncs.set(cleanRegion, now);
     this.logger.log(`[SYNC INIT] Starting GasBuddy sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
 
     try {
@@ -216,9 +228,10 @@ export class GasSyncService {
 
     // If scraper fallback gave 0,0, try to geocode it based on the region
     if (finalLat === 0 && finalLng === 0) {
-      // Nominatim works MUCH better with just the address than "Store Name + Address"
-      const query = (station.address && station.address !== 'Unknown') 
-        ? `${station.address}, ${regionCode}` 
+      // Nominatim works MUCH better with pure zip-coded addresses directly (e.g. "320 Middle Country Rd, Smithtown, NY 11787")
+      // Only append regionCode if the scraper address is missing or unknown.
+      const query = (station.address && station.address !== 'Unknown' && station.address.trim().length > 5)
+        ? station.address
         : `${station.name} ${regionCode}`;
         
       let geo = null;
