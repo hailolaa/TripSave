@@ -10,7 +10,7 @@ export interface ScrapedProduct {
   product: string;
   price: number;
   image: string;
-  source: 'oxylabs' | 'instacart' | 'direct' | 'google_maps';
+  source: 'oxylabs' | 'instacart' | 'direct' | 'google_maps' | 'gasbuddy';
   category?: string;
   address?: string;
   lat?: number;
