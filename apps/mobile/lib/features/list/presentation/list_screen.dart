@@ -276,9 +276,10 @@ class _ListScreenState extends State<ListScreen> {
                   ],
                 ),
               ),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('\$${summary['item_total'] ?? 0.0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.savingsGreen)),
+                  Text('\$$basketTotal', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.savingsGreen)),
                   Text('$itemsFound items in list', style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
                 ],
               ),
@@ -288,7 +289,7 @@ class _ListScreenState extends State<ListScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: _buildSummaryPill(Icons.shopping_bag_outlined, 'Price: \$${summary['item_total'] ?? 0.0}')),
+              Expanded(child: _buildSummaryPill(Icons.shopping_bag_outlined, 'Price: \$$basketTotal  •  Drive: \$$driveCost  •  True: \$$trueCost')),
               const SizedBox(width: 8),
               _buildCompareButton(context),
             ],
