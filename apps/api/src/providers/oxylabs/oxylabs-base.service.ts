@@ -63,6 +63,7 @@ export class OxylabsBaseService {
     method?: string;
     post_data?: string;
     headers?: Record<string, string>;
+    context?: any[];
   } = {}): Promise<string> {
     const payload: any = {
       source: options.source || 'universal',
@@ -75,6 +76,7 @@ export class OxylabsBaseService {
       method: options.method,
       post_data: options.post_data,
       headers: options.headers,
+      context: options.context,
     };
 
     // Remove undefined keys

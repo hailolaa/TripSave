@@ -50,27 +50,41 @@ export class GasSyncService {
     }
 
     this.recentSyncs.set(cleanRegion, now);
-    this.logger.log(`[SYNC INIT] Starting GasBuddy sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
+    this.logger.log(`[SYNC INIT] Starting Google Maps sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
 
     try {
-      let stations: NormalizedGasStation[] = [];
+      const mergedStations = new Map<string, NormalizedGasStation>();
+
       try {
-        stations = await this.gasBuddyScraper.searchNearbyStores(regionCode, 'gas stations');
-      } catch (err: any) {
-        this.logger.error(`[GasBuddy Sync Fail] Scraper threw error: ${err.message}. Trying Google Maps fallback...`);
-      }
-
-      if (stations.length === 0) {
-        this.logger.warn(`[FALLBACK SYNC] GasBuddy returned 0 stations. Trying Google Maps Gas Scraper for: "${regionCode}"`);
-        try {
-          stations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
-        } catch (err: any) {
-          this.logger.error(`[Google Maps Fallback Fail] Scraper threw error: ${err.message}`);
+        this.logger.log(`Fetching Regular gas prices via Google Maps...`);
+        const regularStations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
+        for (const s of regularStations) {
+          mergedStations.set(s.stationId, s);
         }
+      } catch (err: any) {
+        this.logger.error(`[Regular Gas Sync Fail] Scraper threw error: ${err.message}`);
       }
 
+      try {
+        this.logger.log(`Fetching Diesel gas prices via Google Maps...`);
+        const dieselStations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'diesel gas stations');
+        for (const s of dieselStations) {
+          if (mergedStations.has(s.stationId)) {
+            const existing = mergedStations.get(s.stationId)!;
+            if (s.prices.diesel !== null) existing.prices.diesel = s.prices.diesel;
+            if (s.prices.regular !== null && existing.prices.regular === null) existing.prices.regular = s.prices.regular;
+          } else {
+            mergedStations.set(s.stationId, s);
+          }
+        }
+      } catch (err: any) {
+        this.logger.error(`[Diesel Gas Sync Fail] Scraper threw error: ${err.message}`);
+      }
+
+      const stations = Array.from(mergedStations.values());
+
       if (stations.length === 0) {
-        this.logger.warn('All gas station scrapers returned 0 stations. Marking existing data as stale.');
+        this.logger.warn('Google Maps scrapers returned 0 stations. Marking existing data as stale.');
         await this.markAllStale();
         return { success: false, count: 0, stale: true };
       }

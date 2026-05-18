@@ -132,6 +132,14 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
       const priceMatch = detailsText.match(/\$([0-9]\.[0-9]{2})/);
       const price = priceMatch ? parseFloat(priceMatch[1]) : null;
 
+      let regular = null;
+      let diesel = null;
+      if (detailsText.toLowerCase().includes('diesel')) {
+        diesel = price;
+      } else {
+        regular = price;
+      }
+
       if (name && (price || address || (latitude !== 0))) {
         stations.push({
           stationId: `gm-${Buffer.from(name + address).toString('base64').substr(0, 12)}`,
@@ -141,10 +149,10 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
           longitude,
           logoUrl: null,
           prices: {
-            regular: price,
+            regular,
             midgrade: null,
             premium: null,
-            diesel: null,
+            diesel,
           },
         });
       }
