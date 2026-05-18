@@ -515,7 +515,12 @@ export class ComparisonService {
       };
     }));
 
-    return this.sortComparisons(comparisons.filter(Boolean) as any[], sortBy);
+    const filtered = (comparisons.filter(Boolean) as any[]).filter((item: any) => {
+      const dist = isRoundTrip ? (item.driving_distance / 2) : item.driving_distance;
+      return dist <= preferredRadius;
+    });
+
+    return this.sortComparisons(filtered, sortBy);
   }
 
   /**

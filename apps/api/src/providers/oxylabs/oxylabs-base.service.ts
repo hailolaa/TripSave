@@ -59,6 +59,7 @@ export class OxylabsBaseService {
     source?: string;
     query?: string;
     render_parameters?: any;
+    browser_instructions?: any[];
   } = {}): Promise<string> {
     const payload: any = {
       source: options.source || 'universal',
@@ -67,6 +68,7 @@ export class OxylabsBaseService {
       render: options.render ? 'html' : undefined,
       parse: options.parse || undefined,
       geo_location: options.geo_location,
+      browser_instructions: options.browser_instructions,
     };
 
     // Remove undefined keys

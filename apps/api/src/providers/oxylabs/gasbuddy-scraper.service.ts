@@ -4,6 +4,25 @@ import { OxylabsBaseService } from './oxylabs-base.service';
 import { NormalizedGasStation } from '../../common/interfaces/normalized-gas-price.interface';
 import * as cheerio from 'cheerio';
 
+const STATE_NAMES: Record<string, string> = {
+  AL: 'alabama', AK: 'alaska', AZ: 'arizona', AR: 'arkansas', CA: 'california',
+  CO: 'colorado', CT: 'connecticut', DE: 'delaware', FL: 'florida', GA: 'georgia',
+  HI: 'hawaii', ID: 'idaho', IL: 'illinois', IN: 'indiana', IA: 'iowa',
+  KS: 'kansas', KY: 'kentucky', LA: 'louisiana', ME: 'maine', MD: 'maryland',
+  MA: 'massachusetts', MI: 'michigan', MN: 'minnesota', MS: 'mississippi', MO: 'missouri',
+  MT: 'montana', NE: 'nebraska', NV: 'nevada', NH: 'new-hampshire', NJ: 'new-jersey',
+  NM: 'new-mexico', NY: 'new-york', NC: 'north-carolina', ND: 'north-dakota', OH: 'ohio',
+  OK: 'oklahoma', OR: 'oregon', PA: 'pennsylvania', RI: 'rhode-island', SC: 'south-carolina',
+  SD: 'south-dakota', TN: 'tennessee', TX: 'texas', UT: 'utah', VT: 'vermont',
+  VA: 'virginia', WA: 'washington', WV: 'west-virginia', WI: 'wisconsin', WY: 'wyoming',
+  DC: 'washington-dc'
+};
+
+export interface ScrapedGasStation extends NormalizedGasStation {
+  locality?: string;
+  region?: string;
+}
+
 /**
  * Scraper for GasBuddy using the Oxylabs Universal Scraper.
  * Combines ultra-fast no-render discovery with targeted JS-rendered detail page extraction.
@@ -33,7 +52,7 @@ export class GasBuddyScraperService extends OxylabsBaseService {
         geo_location: 'United States',
       });
 
-      const discoveredStations = this.parseApolloStateStations(searchHtml);
+      const discoveredStations = this.parseApolloStateStations(searchHtml) as ScrapedGasStation[];
       if (discoveredStations.length === 0) {
         this.logger.warn(`[GasBuddy] Found 0 stations in search results for: "${area}"`);
         return [];
@@ -41,43 +60,64 @@ export class GasBuddyScraperService extends OxylabsBaseService {
 
       this.logger.log(`[GasBuddy] Discovered ${discoveredStations.length} stations in "${area}". Hydrating prices...`);
 
-      // Step 2: Determine hub stations to query for nearby price lists
-      // We will select the first 2 stations to act as central hubs.
-      const hubs = discoveredStations.slice(0, 2);
       const pricingMap = new Map<string, { regular: number | null; diesel: number | null }>();
 
-      // Check if any station in the area has diesel capability
-      const hasDieselStations = discoveredStations.some(s => s.prices.diesel === null); // We initially set diesel to null, let's look at their capability or just query it
+      // Group discovered stations by unique city/state combinations
+      const cityStatePairs = new Map<string, { city: string; state: string }>();
+      for (const station of discoveredStations) {
+        if (station.locality && station.region) {
+          const key = `${station.locality.toLowerCase()}_${station.region.toLowerCase()}`;
+          if (!cityStatePairs.has(key)) {
+            cityStatePairs.set(key, { city: station.locality, state: station.region });
+          }
+        }
+      }
 
-      for (const hub of hubs) {
+      this.logger.debug(`[GasBuddy] Grouped into ${cityStatePairs.size} unique city price page(s) to fetch.`);
+
+      for (const [_, pair] of cityStatePairs.entries()) {
+        const stateCode = pair.state.toUpperCase();
+        const stateName = STATE_NAMES[stateCode];
+        if (!stateName) {
+          this.logger.warn(`[GasBuddy] Unsupported state abbreviation: "${stateCode}". Skipping pricing directory parse for ${pair.city}.`);
+          continue;
+        }
+
+        const cityName = pair.city.toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+
+        const capState = stateName.charAt(0).toUpperCase() + stateName.slice(1);
+        const stateGeo = `${capState},United States`;
+
         // Fetch Regular prices (fuel=1)
         try {
-          const regularUrl = `https://www.gasbuddy.com/station/${hub.stationId}?fuel=1`;
-          this.logger.debug(`[GasBuddy] Fetching Regular prices from hub ${hub.name} (${hub.stationId})`);
+          const regularUrl = `https://www.gasbuddy.com/gasprices/${stateName}/${cityName}?fuel=1`;
+          this.logger.debug(`[GasBuddy] Fetching Regular prices from city page: ${regularUrl} (using geolocation: ${stateGeo})`);
           
           const regHtml = await this.scrape(regularUrl, {
             render: true,
-            geo_location: 'United States',
+            geo_location: stateGeo,
           });
 
           this.parseNearbyPricesFromDom(regHtml, 'regular', pricingMap);
         } catch (e: any) {
-          this.logger.error(`[GasBuddy] Failed to fetch Regular prices from hub ${hub.stationId}: ${e.message}`);
+          this.logger.error(`[GasBuddy] Failed to fetch Regular prices for ${pair.city}, ${pair.state}: ${e.message}`);
         }
 
         // Fetch Diesel prices (fuel=4)
         try {
-          const dieselUrl = `https://www.gasbuddy.com/station/${hub.stationId}?fuel=4`;
-          this.logger.debug(`[GasBuddy] Fetching Diesel prices from hub ${hub.name} (${hub.stationId})`);
+          const dieselUrl = `https://www.gasbuddy.com/gasprices/${stateName}/${cityName}?fuel=4`;
+          this.logger.debug(`[GasBuddy] Fetching Diesel prices from city page: ${dieselUrl} (using geolocation: ${stateGeo})`);
           
           const dieselHtml = await this.scrape(dieselUrl, {
             render: true,
-            geo_location: 'United States',
+            geo_location: stateGeo,
           });
 
           this.parseNearbyPricesFromDom(dieselHtml, 'diesel', pricingMap);
         } catch (e: any) {
-          this.logger.error(`[GasBuddy] Failed to fetch Diesel prices from hub ${hub.stationId}: ${e.message}`);
+          this.logger.error(`[GasBuddy] Failed to fetch Diesel prices for ${pair.city}, ${pair.state}: ${e.message}`);
         }
       }
 
@@ -85,7 +125,12 @@ export class GasBuddyScraperService extends OxylabsBaseService {
       const fullyNormalizedStations = discoveredStations.map(station => {
         const prices = pricingMap.get(station.stationId);
         return {
-          ...station,
+          stationId: station.stationId,
+          name: station.name,
+          address: station.address,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          logoUrl: station.logoUrl,
           prices: {
             regular: prices?.regular || null,
             midgrade: null,
@@ -98,7 +143,12 @@ export class GasBuddyScraperService extends OxylabsBaseService {
       // Filter out stations with zero prices to maintain pristine data quality
       const validStations = fullyNormalizedStations.filter(s => s.prices.regular !== null || s.prices.diesel !== null);
 
-      this.logger.log(`[GasBuddy] Fully hydrated and returned ${validStations.length}/${discoveredStations.length} stations with price data.`);
+      if (validStations.length === 0) {
+        this.logger.warn(`[GasBuddy] No stations had price data. Returning empty array to trigger Google Maps scraper fallback.`);
+        return [];
+      } else {
+        this.logger.log(`[GasBuddy] Fully hydrated and returned ${validStations.length}/${discoveredStations.length} stations with price data.`);
+      }
       return validStations;
 
     } catch (err: any) {
@@ -110,8 +160,8 @@ export class GasBuddyScraperService extends OxylabsBaseService {
   /**
    * Parse static Apollo State script block from the search page.
    */
-  private parseApolloStateStations(html: string): NormalizedGasStation[] {
-    const stations: NormalizedGasStation[] = [];
+  private parseApolloStateStations(html: string): ScrapedGasStation[] {
+    const stations: ScrapedGasStation[] = [];
     try {
       const apolloMatch = html.match(/window\.__APOLLO_STATE__\s*=\s*(\{[\s\S]*?\});/);
       if (!apolloMatch) return [];
@@ -126,8 +176,12 @@ export class GasBuddyScraperService extends OxylabsBaseService {
 
         // Extract address details
         let addressStr = 'Unknown';
+        let locality: string | undefined;
+        let region: string | undefined;
         if (s.address) {
           const addr = s.address;
+          locality = addr.locality || undefined;
+          region = addr.region || undefined;
           addressStr = `${addr.line1 || ''}, ${addr.locality || ''}, ${addr.region || ''} ${addr.postalCode || ''}`.replace(/\s+/g, ' ').trim();
         }
 
@@ -148,6 +202,8 @@ export class GasBuddyScraperService extends OxylabsBaseService {
           latitude,
           longitude,
           logoUrl,
+          locality,
+          region,
           prices: {
             regular: null,
             midgrade: null,
@@ -163,8 +219,77 @@ export class GasBuddyScraperService extends OxylabsBaseService {
   }
 
   /**
-   * Parse the DOM prices for the nearby list in a JS-rendered station HTML.
+   * Parse the main station's own price from the detail page HTML (Apollo State or DOM fallback).
    */
+  private parseMainStationPrice(html: string, fuelType: 'regular' | 'diesel'): { regular: number | null; diesel: number | null } {
+    const result: { regular: number | null; diesel: number | null } = { regular: null, diesel: null };
+    try {
+      const $ = cheerio.load(html);
+      
+      // 1. Try DOM parsing first (most direct and safe)
+      let mainPrice: number | null = null;
+      
+      const priceSelectors = [
+        '[class*="PriceSection-module__price"]',
+        '[class*="price___"]',
+        'span[class*="price"]',
+        '.PriceSection-module__price___2l61y'
+      ];
+      
+      for (const selector of priceSelectors) {
+        const text = $(selector).first().text().trim();
+        if (text) {
+          const match = text.match(/\$([0-9]+\.[0-9]+)/);
+          if (match) {
+            mainPrice = parseFloat(match[1]);
+            break;
+          }
+        }
+      }
+
+      if (mainPrice && !isNaN(mainPrice) && mainPrice > 0.1) {
+        if (fuelType === 'regular') {
+          result.regular = mainPrice;
+        } else {
+          result.diesel = mainPrice;
+        }
+        return result;
+      }
+
+      // 2. Try Apollo State parsing fallback
+      const apolloMatch = html.match(/window\.__APOLLO_STATE__\s*=\s*(\{[\s\S]*?\});/);
+      if (apolloMatch) {
+        const state = JSON.parse(apolloMatch[1]);
+        const keys = Object.keys(state);
+        const stationKey = keys.find(k => k.startsWith('Station:'));
+        if (stationKey && state[stationKey]) {
+          const station = state[stationKey];
+          if (Array.isArray(station.prices)) {
+            for (const priceRef of station.prices) {
+              const priceObj = state[priceRef.id];
+              if (!priceObj) continue;
+              const fuelProduct = priceObj.fuelProduct;
+              const creditObj = priceObj.credit ? state[priceObj.credit.id] : null;
+              const cashObj = priceObj.cash ? state[priceObj.cash.id] : null;
+              const priceVal = creditObj?.price || cashObj?.price;
+              if (priceVal) {
+                const parsedPrice = parseFloat(priceVal);
+                if (fuelProduct === 'regular') {
+                  result.regular = parsedPrice;
+                } else if (fuelProduct === 'diesel') {
+                  result.diesel = parsedPrice;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      this.logger.error(`[GasBuddy] Failed to parse main station price: ${e.message}`);
+    }
+    return result;
+  }
+
   private parseNearbyPricesFromDom(
     html: string,
     fuelType: 'regular' | 'diesel',
@@ -173,27 +298,47 @@ export class GasBuddyScraperService extends OxylabsBaseService {
     try {
       const $ = cheerio.load(html);
 
-      // Find all generic station list items (nearby stations list)
-      $('.GenericStationListItem-module__stationListItem___3Jmn4, [class*="stationListItem"]').each((_, el) => {
+      const items = $('.GenericStationListItem-module__stationListItem___3Jmn4, [class*="stationListItem"]');
+      this.logger.debug(`[GasBuddy] parseNearbyPricesFromDom matched ${items.length} items for fuelType: "${fuelType}"`);
+
+      items.each((idx, el) => {
         const element = $(el);
 
         // 1. Extract station ID from the href anchor
         const anchor = element.find('a[href*="/station/"]').first();
         const href = anchor.attr('href') || '';
         const idMatch = href.match(/\/station\/(\d+)/);
-        if (!idMatch) return;
+        if (!idMatch) {
+          this.logger.debug(`[GasBuddy] Item ${idx + 1}: No station ID match for href: "${href}"`);
+          return;
+        }
         const stationId = idMatch[1];
 
         // 2. Extract price card text and isolate the very first dollar price matching $X.XX
         const priceCard = element.find('[class*="priceCard"], [class*="PriceCard"]').first();
         const priceCardText = priceCard.text().trim();
-        if (!priceCardText || priceCardText.includes('- - -')) return;
+        if (!priceCardText) {
+          this.logger.debug(`[GasBuddy] Item ${idx + 1} (${stationId}): Empty priceCardText`);
+          return;
+        }
+        if (priceCardText.includes('- - -')) {
+          this.logger.debug(`[GasBuddy] Item ${idx + 1} (${stationId}): Price card has no price indicator (- - -)`);
+          return;
+        }
 
         const priceMatch = priceCardText.match(/\$([0-9]+\.[0-9]+)/);
-        if (!priceMatch) return;
+        if (!priceMatch) {
+          this.logger.debug(`[GasBuddy] Item ${idx + 1} (${stationId}): Price regex mismatch for: "${priceCardText}"`);
+          return;
+        }
 
         const price = parseFloat(priceMatch[1]);
-        if (isNaN(price) || price <= 0.1) return;
+        if (isNaN(price) || price <= 0.1) {
+          this.logger.debug(`[GasBuddy] Item ${idx + 1} (${stationId}): Parsed price is invalid: ${price}`);
+          return;
+        }
+
+        this.logger.debug(`[GasBuddy] Parsed price: ${price} for stationId: ${stationId} (fuel: ${fuelType})`);
 
         // 3. Store in pricing map
         const existing = pricingMap.get(stationId) || { regular: null, diesel: null };

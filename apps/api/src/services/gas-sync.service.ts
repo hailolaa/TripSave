@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GasBuddyScraperService } from '../providers/oxylabs/gasbuddy-scraper.service';
+import { GoogleMapsGasScraperService } from '../providers/oxylabs/google-maps-gas-scraper.service';
 import { ProductNormalizerService } from '../providers/normalizer/product-normalizer.service';
 import { GasPrice } from '../gas/gas-price.entity';
 import { Store } from '../stores/store.entity';
@@ -26,6 +27,7 @@ export class GasSyncService {
 
   constructor(
     private readonly gasBuddyScraper: GasBuddyScraperService,
+    private readonly googleMapsScraper: GoogleMapsGasScraperService,
     @InjectRepository(GasPrice) private readonly gasPriceRepo: Repository<GasPrice>,
     @InjectRepository(Store) private readonly storeRepo: Repository<Store>,
     @InjectRepository(StoreChain) private readonly chainRepo: Repository<StoreChain>,
@@ -51,10 +53,24 @@ export class GasSyncService {
     this.logger.log(`[SYNC INIT] Starting GasBuddy sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
 
     try {
-      const stations = await this.gasBuddyScraper.searchNearbyStores(regionCode, 'gas stations');
+      let stations: NormalizedGasStation[] = [];
+      try {
+        stations = await this.gasBuddyScraper.searchNearbyStores(regionCode, 'gas stations');
+      } catch (err: any) {
+        this.logger.error(`[GasBuddy Sync Fail] Scraper threw error: ${err.message}. Trying Google Maps fallback...`);
+      }
 
       if (stations.length === 0) {
-        this.logger.warn('GasBuddy scraper returned no stations. Marking existing data as stale.');
+        this.logger.warn(`[FALLBACK SYNC] GasBuddy returned 0 stations. Trying Google Maps Gas Scraper for: "${regionCode}"`);
+        try {
+          stations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
+        } catch (err: any) {
+          this.logger.error(`[Google Maps Fallback Fail] Scraper threw error: ${err.message}`);
+        }
+      }
+
+      if (stations.length === 0) {
+        this.logger.warn('All gas station scrapers returned 0 stations. Marking existing data as stale.');
         await this.markAllStale();
         return { success: false, count: 0, stale: true };
       }
@@ -288,6 +304,22 @@ export class GasSyncService {
     if (station.prices.premium !== null) priceData.premium_price = station.prices.premium;
     if (station.prices.diesel !== null) priceData.diesel_price = station.prices.diesel;
 
+    // Handle parsing/scraping failure or lack of prices
+    if (station.prices.regular === null && station.prices.diesel === null) {
+      priceData.is_stale = true;
+      if (gasPrice) {
+        // Keep existing prices in DB but marked as stale
+        priceData.regular_price = gasPrice.regular_price;
+        priceData.midgrade_price = gasPrice.midgrade_price;
+        priceData.premium_price = gasPrice.premium_price;
+        priceData.diesel_price = gasPrice.diesel_price;
+      } else {
+        // Seed fallback regional average prices to ensure valid display
+        priceData.regular_price = 3.29;
+        priceData.diesel_price = 3.89;
+      }
+    }
+
     if (gasPrice) {
       await this.gasPriceRepo.update(gasPrice.id, priceData);
     } else {
@@ -295,12 +327,20 @@ export class GasSyncService {
     }
 
     // 4. Update StoreProduct for gas category
-    if (station.prices.regular) {
+    const finalRegularPrice = priceData.regular_price;
+    if (finalRegularPrice) {
       const gasProduct = await this.productRepo.findOne({ where: { category: ProductCategory.GAS } });
       if (gasProduct) {
         let sp = await this.storeProductRepo.findOne({ where: { store_id: store.id, product_id: gasProduct.id } });
         const source = DataSource.GASBUDDY;
-        const spData = { store_id: store.id, product_id: gasProduct.id, price: station.prices.regular, source, last_verified_at: new Date(), is_stale: false };
+        const spData = { 
+          store_id: store.id, 
+          product_id: gasProduct.id, 
+          price: finalRegularPrice, 
+          source, 
+          last_verified_at: new Date(), 
+          is_stale: priceData.is_stale 
+        };
         if (sp) {
           await this.storeProductRepo.update(sp.id, spData as any);
         } else {

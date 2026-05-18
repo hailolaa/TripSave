@@ -344,14 +344,16 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '\$${result['item_total'] ?? '0.00'}',
-                          style: TextStyle(
-                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textDark,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
+                    Text(
+                      isGas
+                          ? '\$${result['price_per_gallon'] ?? (result['products'] != null && (result['products'] as List).isNotEmpty ? result['products'][0]['price'] : '0.00')}/g'
+                          : '\$${result['item_total'] ?? '0.00'}',
+                      style: TextStyle(
+                        color: isSelected ? AppTheme.primaryBlue : AppTheme.textDark,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
                         const SizedBox(width: 4),
                         Text(
                           '$oneWayDistance mi',
