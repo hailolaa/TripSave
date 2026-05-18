@@ -13,6 +13,7 @@ import { GoogleMapsGasScraperService } from './oxylabs/google-maps-gas-scraper.s
 import { GasBuddyScraperService } from './oxylabs/gasbuddy-scraper.service';
 import { AggregatorService } from './oxylabs/aggregator.service';
 import { SearchCacheService } from './oxylabs/search-cache.service';
+import { EiaDieselService } from './eia/eia-diesel.service';
 
 import { StoresModule } from '../stores/stores.module';
 
@@ -39,6 +40,7 @@ import { StoresModule } from '../stores/stores.module';
     InstacartScraperService,
     GoogleMapsGasScraperService,
     GasBuddyScraperService,
+    EiaDieselService,
     AggregatorService,
     SearchCacheService,
   ],
@@ -48,6 +50,7 @@ import { StoresModule } from '../stores/stores.module';
     SearchCacheService,
     GoogleMapsGasScraperService,
     GasBuddyScraperService,
+    EiaDieselService,
   ],
 })
 export class ProvidersModule {}

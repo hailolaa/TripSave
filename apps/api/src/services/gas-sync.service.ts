@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GasBuddyScraperService } from '../providers/oxylabs/gasbuddy-scraper.service';
 import { GoogleMapsGasScraperService } from '../providers/oxylabs/google-maps-gas-scraper.service';
+import { EiaDieselService } from '../providers/eia/eia-diesel.service';
 import { ProductNormalizerService } from '../providers/normalizer/product-normalizer.service';
 import { GasPrice } from '../gas/gas-price.entity';
 import { Store } from '../stores/store.entity';
@@ -28,6 +29,7 @@ export class GasSyncService {
   constructor(
     private readonly gasBuddyScraper: GasBuddyScraperService,
     private readonly googleMapsScraper: GoogleMapsGasScraperService,
+    private readonly eiaDieselService: EiaDieselService,
     @InjectRepository(GasPrice) private readonly gasPriceRepo: Repository<GasPrice>,
     @InjectRepository(Store) private readonly storeRepo: Repository<Store>,
     @InjectRepository(StoreChain) private readonly chainRepo: Repository<StoreChain>,
@@ -82,6 +84,14 @@ export class GasSyncService {
       }
 
       const stations = Array.from(mergedStations.values());
+
+      // Apply smart fallback calculation for missing diesel prices
+      for (const station of stations) {
+        if (station.prices.regular && !station.prices.diesel) {
+          // We pass regionCode as the state (often it's a ZIP, but the calculation handles it safely)
+          station.prices.diesel = await this.calculateFallbackDieselPrice(station.prices.regular, regionCode);
+        }
+      }
 
       if (stations.length === 0) {
         this.logger.warn('Google Maps scrapers returned 0 stations. Marking existing data as stale.');
@@ -170,6 +180,35 @@ export class GasSyncService {
       last_updated: raw.gp_last_updated,
       logo_url: raw.chain_logo_url,
     }));
+  }
+
+  /**
+   * Fetches official EIA diesel price, falling back to a dynamically weighted calculation 
+   * when Google Maps scraping fails to return a native diesel value.
+   */
+  private async calculateFallbackDieselPrice(regularPrice: number | null, stateCode: string = ''): Promise<number | null> {
+    if (!regularPrice) return null;
+    
+    // First, try EIA API for highly accurate regional pricing
+    const eiaPrice = await this.eiaDieselService.getRegionalDieselPrice(stateCode);
+    if (eiaPrice) {
+      return eiaPrice; // Return the exact official diesel price for the region
+    }
+
+    this.logger.warn(`EIA API failed to return diesel price for ${stateCode}, falling back to static calculation.`);
+    
+    // Extract state code if a full region string was passed
+    const stateUpper = stateCode.toUpperCase().trim();
+    
+    const highTaxStates = ['CA', 'OR', 'WA', 'PA', 'IL', 'NY'];
+    let spread = 0.58; // Standard mid-market spread
+    
+    // Check if the state is in the high tax list
+    if (highTaxStates.some(state => stateUpper.includes(state))) {
+      spread = 0.75; // Diesel is historically taxed heavier on the West Coast/Northeast
+    }
+    
+    return Number((regularPrice + spread).toFixed(2));
   }
 
   private cleanName(name: string): string {
