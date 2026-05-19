@@ -75,21 +75,20 @@ dev_dependencies:
 
 flutter_native_splash:
   color: "#ffffff"
-  image: "images/logo.jpg"
+  image: "images/logo_padded.png"
   android: true
   ios: true
-  android_gravity: fill
-  ios_content_mode: scaleAspectFit
+  android_gravity: center
+  ios_content_mode: center
   fullscreen: true
 
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
-  image_path: "images/logo.jpg"
+  image_path: "images/logo_padded.png"
   remove_alpha_ios: true
   adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "images/logo.jpg"
-  adaptive_icon_foreground_inset: 16
+  adaptive_icon_foreground: "images/logo_padded.png"
 
 
 # For information on the generic Dart part of this file, see the
