@@ -128,16 +128,18 @@ export class GasSyncService {
    */
   async getNearbyGasPrices(lat: number, lng: number, radiusMiles: number = 20) {
     let results = await this.queryNearbyGas(lat, lng, radiusMiles);
+    let region = 'TX';
+    let geoResolved = false;
 
     // If no gas stations found, trigger a sync for the region and try again
     if (results.length === 0) {
       this.logger.warn(`[SYNC TRIGGER] No gas prices found within ${radiusMiles} miles of ${lat}, ${lng}. Triggering region sync...`);
       
-      let region = 'TX';
       try {
         const geo = await reverseGeocode(lat, lng);
         if (geo) {
           region = geo.displayName;
+          geoResolved = true;
           this.logger.log(`[GEO DETECT] Resolved coordinates ${lat}, ${lng} to region: ${region}`);
         }
       } catch (e) {
@@ -146,6 +148,39 @@ export class GasSyncService {
 
       await this.syncGasPrices(region, lat, lng);
       results = await this.queryNearbyGas(lat, lng, radiusMiles);
+    }
+
+    // Apply fallback for missing diesel prices dynamically before returning
+    const needsFallback = results.some(r => r.regular_price && !r.diesel_price);
+    if (needsFallback) {
+      if (!geoResolved) {
+        try {
+          const geo = await reverseGeocode(lat, lng);
+          if (geo) {
+            region = geo.displayName;
+            geoResolved = true;
+          }
+        } catch (e) { }
+      }
+      
+      // Fetch EIA price once for the region
+      const eiaPrice = await this.eiaDieselService.getRegionalDieselPrice(region);
+      const stateUpper = region.toUpperCase().trim();
+      const highTaxStates = ['CA', 'OR', 'WA', 'PA', 'IL', 'NY'];
+      let spread = 0.58;
+      if (highTaxStates.some(state => stateUpper.includes(state))) {
+        spread = 0.75;
+      }
+      
+      for (const r of results) {
+        if (r.regular_price && !r.diesel_price) {
+          if (eiaPrice) {
+            r.diesel_price = eiaPrice;
+          } else {
+            r.diesel_price = Number((r.regular_price + spread).toFixed(2));
+          }
+        }
+      }
     }
 
     return results;
