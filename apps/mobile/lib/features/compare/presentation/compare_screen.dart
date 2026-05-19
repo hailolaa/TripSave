@@ -139,7 +139,7 @@ class _CompareScreenState extends State<CompareScreen> {
                   const SizedBox(width: 12),
                   // Compare Button
                   Container(
-                    height: 56,
+                    height: 48,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [AppTheme.primaryBlue, Color(0xFF1E40AF)],
@@ -166,7 +166,7 @@ class _CompareScreenState extends State<CompareScreen> {
                           );
                         },
                         child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 20),
+                          padding: EdgeInsets.symmetric(horizontal: 16),
                           child: Icon(Icons.compare_arrows, color: Colors.white),
                         ),
                       ),

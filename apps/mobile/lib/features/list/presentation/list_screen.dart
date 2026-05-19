@@ -287,10 +287,8 @@ class _ListScreenState extends State<ListScreen> {
           ),
           const Divider(height: 24),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(child: _buildSummaryPill(Icons.shopping_bag_outlined, 'Price: \$$basketTotal  •  Drive: \$$driveCost  •  True: \$$trueCost')),
-              const SizedBox(width: 8),
               _buildCompareButton(context),
             ],
           ),
@@ -318,7 +316,7 @@ class _ListScreenState extends State<ListScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => context.go('/compare'),
+          onTap: () => context.go('/home'),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
