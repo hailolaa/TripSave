@@ -451,9 +451,15 @@ export class ComparisonService {
       const gp = gasPrices.find(g => g.store_id === ns.store.id);
       if (!gp) return null;
 
+      // Calculate dynamic fallback for missing diesel if needed
+      let dieselPrice = gp.diesel_price ? Number(gp.diesel_price) : null;
+      if (gp.regular_price && !dieselPrice) {
+        dieselPrice = await this.gasSyncService.calculateFallbackDieselPrice(Number(gp.regular_price), locationName);
+      }
+
       // Pick the right fuel type price
       const pricePerGallon = Number(
-        fuelType === 'diesel' ? gp.diesel_price :
+        fuelType === 'diesel' ? dieselPrice :
         fuelType === 'premium' ? gp.premium_price :
         fuelType === 'midgrade' ? gp.midgrade_price :
         gp.regular_price
@@ -498,7 +504,7 @@ export class ComparisonService {
             regular: gp.regular_price ? Number(gp.regular_price) : null,
             midgrade: gp.midgrade_price ? Number(gp.midgrade_price) : null,
             premium: gp.premium_price ? Number(gp.premium_price) : null,
-            diesel: gp.diesel_price ? Number(gp.diesel_price) : null,
+            diesel: dieselPrice,
           },
         },
         price_per_gallon: pricePerGallon,

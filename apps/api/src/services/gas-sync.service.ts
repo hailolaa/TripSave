@@ -221,7 +221,7 @@ export class GasSyncService {
    * Fetches official EIA diesel price, falling back to a dynamically weighted calculation 
    * when Google Maps scraping fails to return a native diesel value.
    */
-  private async calculateFallbackDieselPrice(regularPrice: number | null, stateCode: string = ''): Promise<number | null> {
+  public async calculateFallbackDieselPrice(regularPrice: number | null, stateCode: string = ''): Promise<number | null> {
     if (!regularPrice) return null;
     
     // First, try EIA API for highly accurate regional pricing
