@@ -106,12 +106,54 @@ export class WarmCacheService {
   /** Fallback ZIP if no users have set a location yet */
   private readonly DEFAULT_ZIP = '75201';
 
+  private readonly top15Items = [
+    'milk', 'eggs', 'bread', 'chicken', 'rice', 
+    'water', 'gas', 'bananas', 'butter', 'cheese', 
+    'orange juice', 'pasta', 'cooking oil', 'diapers', 'tylenol'
+  ];
+
   constructor(
     private readonly aggregatorService: AggregatorService,
     private readonly productsService: ProductsService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
+
+  /**
+   * Fast, priority cache warm for a newly registered user's ZIP code.
+   * Only does the top 15 items with a 2-second stagger.
+   * Runs as a background process.
+   */
+  async warmNewUser(zip: string): Promise<void> {
+    if (!zip) return;
+    
+    this.logger.log(`Starting priority cache warm for new user in ZIP ${zip}...`);
+    
+    // Process top 15 items asynchronously with 2-second stagger
+    (async () => {
+      let successCount = 0;
+      
+      for (let i = 0; i < this.top15Items.length; i++) {
+        const item = this.top15Items[i];
+        try {
+          // Bypass cache to force a fresh live scrape
+          const result = await this.aggregatorService.search(item, zip, undefined, { bypassCache: true });
+          if (result && result.data.length > 0) {
+            successCount++;
+          }
+        } catch (err: any) {
+          this.logger.warn(`Priority warm fail for ${item} in ${zip}: ${err.message}`);
+        }
+        
+        // 2-second stagger (vs 30s for the main cron job)
+        if (i < this.top15Items.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+      
+      this.logger.log(`Priority cache warm complete for ZIP ${zip}. Warmed ${successCount}/${this.top15Items.length} items.`);
+    })().catch(err => this.logger.error(`Priority warm process crashed: ${err.message}`));
+  }
 
   /**
    * Cron job: runs every 45 minutes.

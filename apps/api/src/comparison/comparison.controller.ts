@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Query, HttpCode, UseGuards, Request, Logger } from '@nestjs/common';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { ComparisonService } from './comparison.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
@@ -6,6 +7,7 @@ import { StoreChainType } from '../stores/store-chain.entity';
 import { reverseGeocode } from '../utils/geocoding.util';
 
 @Controller('comparison')
+@UseGuards(ThrottlerGuard)
 export class ComparisonController {
   private readonly logger = new Logger(ComparisonController.name);
 
@@ -15,6 +17,7 @@ export class ComparisonController {
   ) {}
 
   // @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { ttl: 10000, limit: 5 } })
   @Get('compare')
   async compareItem(
     @Request() req: any,
@@ -65,7 +68,7 @@ export class ComparisonController {
     // Fallback to Dallas if everything fails
     resolvedZip = resolvedZip || '75201';
 
-    return this.comparisonService.compareItem(
+    const result = await this.comparisonService.compareItem(
       item,
       finalLat,
       finalLng,
@@ -78,6 +81,10 @@ export class ComparisonController {
       forceRefresh === 'true',
       Number(preferredRadius),
     );
+
+    // Normalize response shape: always { status, results }
+    if (result && result.status) return result;
+    return { status: 'ready', results: Array.isArray(result) ? result : [] };
   }
 
   // @UseGuards(JwtAuthGuard)

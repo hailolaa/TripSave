@@ -1,18 +1,21 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { MailService } from '../mail/mail.service';
+import { WarmCacheService } from '../services/warm-cache.service';
 import { OAuth2Client } from 'google-auth-library';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private googleClient = new OAuth2Client();
 
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private mailService: MailService,
+    private warmCacheService: WarmCacheService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -56,7 +59,16 @@ export class AuthService {
     // Optional: still send the email in background but don't wait/block
     this.mailService.sendVerificationCode(user.email, verificationCode).catch(() => {});
 
-    return this.login(user);
+    const tokenPayload = await this.login(user);
+
+    // Fire priority cache warm asynchronously for their ZIP code
+    if (registerDto.zip_code) {
+      this.warmCacheService.warmNewUser(registerDto.zip_code).catch(err => {
+        this.logger.error(`Failed to trigger new user cache warm: ${err.message}`);
+      });
+    }
+
+    return tokenPayload;
   }
 
   async verifyEmail(email: string, code: string) {

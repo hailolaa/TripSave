@@ -5,37 +5,86 @@ export interface GeocodeResult {
   lng: number;
   zipCode: string | null;
   displayName: string;
+  /** State/region short name (e.g. 'TX', 'CA'). Only populated by reverseGeocode. */
+  region?: string;
+}
+
+/**
+ * Retry wrapper with exponential backoff.
+ * Retries on 429 (rate limit) and 5xx (server error) responses.
+ * @param fn - The async function to retry
+ * @param retries - Number of retry attempts (default 3)
+ * @param delays - Delay in ms between retries (default [2000, 4000, 6000])
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  delays: number[] = [2000, 4000, 6000],
+): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.response?.status;
+      const isRetryable = status === 429 || (status >= 500 && status < 600);
+
+      if (!isRetryable || attempt >= retries) {
+        throw error;
+      }
+
+      const delay = delays[attempt] || delays[delays.length - 1];
+      console.warn(`Geocoding retry ${attempt + 1}/${retries} after ${delay}ms (HTTP ${status})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+
+const GOOGLE_MAPS_GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
+
+function getApiKey(): string {
+  return process.env.GOOGLE_MAPS_API_KEY || '';
+}
+
+/**
+ * Extract a component of a given type from Google Maps geocoding results.
+ */
+function extractComponent(components: any[], type: string, useShortName = false): string | null {
+  const comp = components?.find((c: any) => c.types?.includes(type));
+  return comp ? (useShortName ? comp.short_name : comp.long_name) : null;
 }
 
 export async function geocodePlace(query: string): Promise<GeocodeResult | null> {
   if (!query) return null;
 
   try {
-    // Restrict to US results to avoid global false positives (e.g., "Target" matching a place name abroad).
-    const url =
-      `https://nominatim.openstreetmap.org/search` +
-      `?q=${encodeURIComponent(query)}` +
-      `&format=json` +
-      `&addressdetails=1` +
-      `&limit=1` +
-      `&countrycodes=us`;
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'TripSaveApp/1.0',
-      },
-      timeout: 5000,
-    });
+    return await retryWithBackoff(async () => {
+      const response = await axios.get(GOOGLE_MAPS_GEOCODE_URL, {
+        params: {
+          address: query,
+          components: 'country:US',
+          key: getApiKey(),
+        },
+        timeout: 7000,
+      });
 
-    if (response.data && response.data.length > 0) {
-      const result = response.data[0];
-      return {
-        lat: parseFloat(result.lat),
-        lng: parseFloat(result.lon),
-        zipCode: result.address?.postcode || null,
-        displayName: result.display_name,
-      };
-    }
-    return null;
+      if (response.data?.results?.length > 0) {
+        const result = response.data.results[0];
+        const loc = result.geometry?.location;
+        const components = result.address_components || [];
+        const zipCode = extractComponent(components, 'postal_code') || null;
+
+        return {
+          lat: loc.lat,
+          lng: loc.lng,
+          zipCode,
+          displayName: result.formatted_address || '',
+        };
+      }
+      return null;
+    });
   } catch (error) {
     console.error('Geocoding error:', error);
     return null;
@@ -43,7 +92,7 @@ export async function geocodePlace(query: string): Promise<GeocodeResult | null>
 }
 
 /**
- * Geocode a query near a specific coordinate using a bounded viewbox.
+ * Geocode a query near a specific coordinate using location biasing.
  * This prevents global false positives for ambiguous store names.
  */
 export async function geocodePlaceNear(
@@ -54,39 +103,39 @@ export async function geocodePlaceNear(
 ): Promise<GeocodeResult | null> {
   if (!query) return null;
 
-  const left = nearLng - viewboxDegrees;
-  const right = nearLng + viewboxDegrees;
-  const top = nearLat + viewboxDegrees;
-  const bottom = nearLat - viewboxDegrees;
-
   try {
-    const url =
-      `https://nominatim.openstreetmap.org/search` +
-      `?q=${encodeURIComponent(query)}` +
-      `&format=json` +
-      `&addressdetails=1` +
-      `&limit=1` +
-      `&countrycodes=us` +
-      `&bounded=1` +
-      `&viewbox=${encodeURIComponent(`${left},${top},${right},${bottom}`)}`;
+    return await retryWithBackoff(async () => {
+      // Use bounds to bias results near the user's location
+      const south = nearLat - viewboxDegrees;
+      const north = nearLat + viewboxDegrees;
+      const west = nearLng - viewboxDegrees;
+      const east = nearLng + viewboxDegrees;
 
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'TripSaveApp/1.0',
-      },
-      timeout: 7000,
+      const response = await axios.get(GOOGLE_MAPS_GEOCODE_URL, {
+        params: {
+          address: query,
+          bounds: `${south},${west}|${north},${east}`,
+          components: 'country:US',
+          key: getApiKey(),
+        },
+        timeout: 7000,
+      });
+
+      if (response.data?.results?.length > 0) {
+        const result = response.data.results[0];
+        const loc = result.geometry?.location;
+        const components = result.address_components || [];
+        const zipCode = extractComponent(components, 'postal_code') || null;
+
+        return {
+          lat: loc.lat,
+          lng: loc.lng,
+          zipCode,
+          displayName: result.formatted_address || '',
+        };
+      }
+      return null;
     });
-
-    if (response.data && response.data.length > 0) {
-      const result = response.data[0];
-      return {
-        lat: parseFloat(result.lat),
-        lng: parseFloat(result.lon),
-        zipCode: result.address?.postcode || null,
-        displayName: result.display_name,
-      };
-    }
-    return null;
   } catch (error) {
     console.error('Geocoding error:', error);
     return null;
@@ -95,35 +144,46 @@ export async function geocodePlaceNear(
 
 /**
  * Reverse geocode coordinates to get a display name/address.
+ * Extracts administrative_area_level_1 short name as the region (e.g. 'TX').
  */
 export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeResult | null> {
   try {
-    const url =
-      `https://nominatim.openstreetmap.org/reverse` +
-      `?lat=${lat}` +
-      `&lon=${lng}` +
-      `&format=json` +
-      `&addressdetails=1`;
+    return await retryWithBackoff(async () => {
+      const response = await axios.get(GOOGLE_MAPS_GEOCODE_URL, {
+        params: {
+          latlng: `${lat},${lng}`,
+          key: getApiKey(),
+        },
+        timeout: 7000,
+      });
 
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'TripSaveApp/1.0',
-      },
-      timeout: 5000,
+      if (response.data?.results?.length > 0) {
+        const result = response.data.results[0];
+        const loc = result.geometry?.location;
+        const components = result.address_components || [];
+
+        const zipCode = extractComponent(components, 'postal_code') || null;
+        const region = extractComponent(components, 'administrative_area_level_1', true) || undefined;
+
+        return {
+          lat: loc?.lat ?? lat,
+          lng: loc?.lng ?? lng,
+          zipCode,
+          displayName: result.formatted_address || '',
+          region,
+        };
+      }
+      return null;
     });
-
-    if (response.data) {
-      const result = response.data;
-      return {
-        lat: parseFloat(result.lat),
-        lng: parseFloat(result.lon),
-        zipCode: result.address?.postcode || null,
-        displayName: result.display_name,
-      };
-    }
-    return null;
   } catch (error) {
     console.error('Reverse geocoding error:', error);
-    return null;
+    // Fallback: return a minimal result with 'US' region so callers don't crash
+    return {
+      lat,
+      lng,
+      zipCode: null,
+      displayName: '',
+      region: 'US',
+    };
   }
 }

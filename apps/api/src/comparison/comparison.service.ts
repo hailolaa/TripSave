@@ -19,6 +19,9 @@ import { GasSyncService } from '../services/gas-sync.service';
 export class ComparisonService {
   private readonly logger = new Logger(ComparisonService.name);
 
+  /** In-flight request deduplication — prevents duplicate DB/scrape calls for the same query+zip */
+  private readonly inFlight = new Map<string, Promise<any>>();
+
   constructor(
     private readonly osrmService: OsrmService,
     private readonly storesService: StoresService,
@@ -60,7 +63,44 @@ export class ComparisonService {
     preferredRadius: number = 20,
   ) {
     const resolvedZip = zipCode || '75201';
+    const dedupeKey = `${itemName.toLowerCase().trim()}:${resolvedZip}`;
 
+    // ── In-flight deduplication — join existing request if identical ──
+    const existingRequest = this.inFlight.get(dedupeKey);
+    if (existingRequest && !forceRefresh) {
+      this.logger.log(`Joining in-flight compareItem for "${itemName}" in ${resolvedZip}`);
+      return existingRequest;
+    }
+
+    const promise = this._executeCompareItem(
+      itemName, userLat, userLng, userMpg, gasPrice,
+      resolvedZip, storeType, isRoundTrip, sortBy, forceRefresh, preferredRadius,
+    );
+    this.inFlight.set(dedupeKey, promise);
+
+    try {
+      return await promise;
+    } finally {
+      this.inFlight.delete(dedupeKey);
+    }
+  }
+
+  /**
+   * Internal execution of compareItem, separated for in-flight dedup.
+   */
+  private async _executeCompareItem(
+    itemName: string,
+    userLat: number,
+    userLng: number,
+    userMpg: number,
+    gasPrice: number,
+    resolvedZip: string,
+    storeType?: StoreChainType,
+    isRoundTrip: boolean = true,
+    sortBy: string = 'true_cost',
+    forceRefresh: boolean = false,
+    preferredRadius: number = 20,
+  ) {
     // ── Step 1: Check DB for fresh data (< 24 hours old) ────────────
     this.logger.log(`Checking DB for fresh data: "${itemName}" in ZIP ${resolvedZip}`);
     const dbResults = await this.productsService.searchFromDb(itemName, resolvedZip);
@@ -77,57 +117,25 @@ export class ComparisonService {
         );
       }
 
-      return this.sortComparisons(items, sortBy);
+      return { status: 'ready', results: this.sortComparisons(items, sortBy) };
     }
 
-    // ── Step 2: No fresh DB data — scrape live ──────────────────────
-    this.logger.log(`No fresh DB data for "${itemName}". Running live scrape for ZIP ${resolvedZip}...`);
+    // ── Step 2: No fresh DB data — fire scrape as background job ─────
+    this.logger.log(`No fresh DB data for "${itemName}". Firing background scrape for ZIP ${resolvedZip}...`);
 
-    try {
-      const scraperResult = await this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: forceRefresh });
+    // Fire the scrape as a background job — do NOT await it
+    this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: forceRefresh })
+      .then(async (scraperResult) => {
+        if (scraperResult.data.length > 0) {
+          this.logger.log(`Background scrape returned ${scraperResult.data.length} results for "${itemName}".`);
+          await this.productsService.upsertScrapedProducts(scraperResult.data, resolvedZip)
+            .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
+        }
+      })
+      .catch(err => this.logger.error(`Background scrape failed for "${itemName}": ${err.message}`));
 
-      if (scraperResult.data.length === 0) {
-        this.logger.warn(`All scrapers returned 0 results for "${itemName}".`);
-        return [];
-      }
-
-      this.logger.log(`Live scrape returned ${scraperResult.data.length} results for "${itemName}".`);
-
-      // ── Step 3: Background-save to DB (don't await — keep response fast) ──
-      this.productsService.upsertScrapedProducts(scraperResult.data, resolvedZip)
-        .then(() => this.logger.log(`Background DB save completed for "${itemName}"`))
-        .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
-
-      let items = await this.formatScrapedForUI(scraperResult.data, resolvedZip, 'live', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
-
-      // Apply store type filter if provided
-      if (storeType && storeType !== 'all' as any) {
-        items = items.filter(item => 
-          item.store.chain?.type === storeType || 
-          (item.category && item.category.toLowerCase() === (storeType as string).toLowerCase())
-        );
-      }
-
-      return this.sortComparisons(items, sortBy);
-    } catch (error: any) {
-      this.logger.error(`Live scrape failed entirely for "${itemName}": ${error.message}`);
-
-      // Last resort: check if we have ANY DB data (even stale) rather than returning nothing
-      const staleProducts = await this.productRepository.createQueryBuilder('p')
-        .where('p.name LIKE :name OR p.normalized_name LIKE :name', { name: `%${itemName}%` })
-        .getMany();
-
-      if (staleProducts.length > 0) {
-        this.logger.log(`Falling back to stale DB data: ${staleProducts.length} products for "${itemName}".`);
-        return this.getBestTrueCost(
-          userLat, userLng,
-          staleProducts.map(p => ({ productId: p.id, quantity: 1 })),
-          userMpg, gasPrice, storeType, isRoundTrip, sortBy, resolvedZip, preferredRadius
-        );
-      }
-
-      return [];
-    }
+    // Return warming status immediately — client will poll
+    return { status: 'warming', results: [] };
   }
 
   /**

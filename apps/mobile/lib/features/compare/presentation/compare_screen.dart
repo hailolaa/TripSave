@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -26,10 +27,12 @@ class _CompareScreenState extends State<CompareScreen> {
   bool _isMapView = false;
   final FavoriteStoreService _favoriteStoreService = getIt<FavoriteStoreService>();
   Set<String> _favoriteStores = <String>{};
+  Timer? _debounceTimer;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -125,6 +128,18 @@ class _CompareScreenState extends State<CompareScreen> {
                       ),
                       child: TextField(
                         controller: _searchController,
+                        onChanged: (text) {
+                          if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+                          _debounceTimer = Timer(const Duration(milliseconds: 600), () {
+                            if (text.isNotEmpty && mounted) {
+                              context.read<ComparisonCubit>().searchItem(
+                                text, 
+                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                forceRefresh: false,
+                              );
+                            }
+                          });
+                        },
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
                         decoration: InputDecoration(
                           hintText: 'Search products to compare...',
@@ -223,10 +238,12 @@ class _CompareScreenState extends State<CompareScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Sort Dropdown
-                  BlocBuilder<ComparisonCubit, ComparisonState>(
-                    builder: (context, state) {
-                      String currentSort = 'true_cost';
-                      if (state is ComparisonLoaded) currentSort = state.sortBy;
+                  BlocSelector<ComparisonCubit, ComparisonState, String>(
+                    selector: (state) {
+                      if (state is ComparisonLoaded) return state.sortBy;
+                      return 'true_cost';
+                    },
+                    builder: (context, currentSort) {
                       
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
@@ -260,10 +277,12 @@ class _CompareScreenState extends State<CompareScreen> {
                   const SizedBox(width: 10),
 
                   // Round Trip Toggle
-                  BlocBuilder<ComparisonCubit, ComparisonState>(
-                    builder: (context, state) {
-                      bool isRoundTrip = true;
-                      if (state is ComparisonLoaded) isRoundTrip = state.isRoundTrip;
+                  BlocSelector<ComparisonCubit, ComparisonState, bool>(
+                    selector: (state) {
+                      if (state is ComparisonLoaded) return state.isRoundTrip;
+                      return true;
+                    },
+                    builder: (context, isRoundTrip) {
                       
                       return GestureDetector(
                         onTap: () {
@@ -314,9 +333,13 @@ class _CompareScreenState extends State<CompareScreen> {
               ),
             ),
               const SizedBox(height: 24),
-              BlocBuilder<ComparisonCubit, ComparisonState>(
-                builder: (context, state) {
-                  if (state is! ComparisonLoaded) return const SizedBox.shrink();
+              BlocSelector<ComparisonCubit, ComparisonState, DateTime?>(
+                selector: (state) {
+                  if (state is ComparisonLoaded) return state.fetchedAt;
+                  return null;
+                },
+                builder: (context, fetchedAt) {
+                  if (fetchedAt == null) return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
@@ -324,7 +347,7 @@ class _CompareScreenState extends State<CompareScreen> {
                         Icon(Icons.schedule, size: 14, color: Colors.grey.shade600),
                         const SizedBox(width: 6),
                         Text(
-                          'Last updated ${_formatFetchedAt(state.fetchedAt)}',
+                          'Last updated ${_formatFetchedAt(fetchedAt)}',
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 12,
@@ -342,6 +365,19 @@ class _CompareScreenState extends State<CompareScreen> {
                   builder: (context, state) {
                     if (state is ComparisonLoading || state is ComparisonInitial) {
                       return const Center(child: CircularProgressIndicator(color: AppTheme.savingsGreen));
+                    } else if (state is ComparisonWarming) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(color: AppTheme.primaryBlue),
+                            const SizedBox(height: 24),
+                            Text('Finding best prices near you...', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            const Text('This usually takes 10-15 seconds', style: TextStyle(color: Colors.grey)),
+                          ],
+                        ),
+                      );
                     } else if (state is ComparisonError) {
                       return Center(
                         child: Column(

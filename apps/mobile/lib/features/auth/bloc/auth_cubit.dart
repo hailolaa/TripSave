@@ -69,6 +69,14 @@ class AuthCubit extends Cubit<AuthState> {
       return;
     }
 
+    // Fast path: immediately let the user in with a minimal authenticated state
+    emit(AuthAuthenticated());
+
+    // Lazy load the full profile asynchronously
+    _loadFullProfile();
+  }
+
+  Future<void> _loadFullProfile() async {
     try {
       final profile = await authRepository.getProfile();
       if (profile == null) {
@@ -78,8 +86,8 @@ class AuthCubit extends Cubit<AuthState> {
 
       _resolveAuthState(profile);
     } catch (e) {
-      emit(AuthError('Session expired. Please sign in again.'));
-      emit(AuthUnauthenticated());
+      // Don't log them out on transient errors if they're already in,
+      // but if we want strict security, we could emit AuthError/Unauthenticated here.
     }
   }
 

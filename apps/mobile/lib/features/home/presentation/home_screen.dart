@@ -415,9 +415,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8), // Gap between location and notification
             
             // Notification
-            BlocBuilder<NotificationCubit, NotificationState>(
-              builder: (context, state) {
-                final unreadCount = state is NotificationLoaded ? state.unreadCount : 0;
+            BlocSelector<NotificationCubit, NotificationState, int>(
+              selector: (state) => state is NotificationLoaded ? state.unreadCount : 0,
+              builder: (context, unreadCount) {
                 return GestureDetector(
                   onTap: () => context.push('/notifications'),
                   child: Stack(

@@ -11,6 +11,13 @@ abstract class ComparisonState extends Equatable {
 
 class ComparisonInitial extends ComparisonState {}
 class ComparisonLoading extends ComparisonState {}
+class ComparisonWarming extends ComparisonState {
+  final String query;
+  final String? storeType;
+  ComparisonWarming({required this.query, this.storeType});
+  @override
+  List<Object?> get props => [query, storeType];
+}
 class ComparisonLoaded extends ComparisonState {
   final List<dynamic> results;
   final String sortBy;
@@ -67,6 +74,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
   String? _lastStoreType;
   String _sortBy = 'true_cost';
   bool _isRoundTrip = true;
+  bool _isLoading = false;
 
   ComparisonCubit(this.apiClient, this.locationService) : super(ComparisonInitial());
 
@@ -125,19 +133,21 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     }
   }
 
-  Future<void> searchItem(String itemName, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip}) async {
+  Future<void> searchItem(String itemName, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip, bool isPolling = false}) async {
     if (itemName.isEmpty) return;
+    if (_isLoading && !isPolling) return; // Prevent duplicate API calls
 
     if (sortBy != null) _sortBy = sortBy;
     if (isRoundTrip != null) _isRoundTrip = isRoundTrip;
 
     // Skip if we already have results for this exact query + filter.
     // This prevents re-fetching when the user navigates between tabs.
-    if (!forceRefresh && state is ComparisonLoaded && _lastQuery == itemName && _lastStoreType == storeType && sortBy == null && isRoundTrip == null) {
+    if (!forceRefresh && !isPolling && state is ComparisonLoaded && _lastQuery == itemName && _lastStoreType == storeType && sortBy == null && isRoundTrip == null) {
       return;
     }
 
-    emit(ComparisonLoading());
+    if (!isPolling) emit(ComparisonLoading());
+    _isLoading = true;
     try {
       final position = await locationService.getCurrentLocation();
       final double userLat = position.latitude;
@@ -173,8 +183,19 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       _lastQuery = itemName;
       _lastStoreType = storeType;
 
+      final responseData = response.data;
+      if (responseData is Map && responseData['status'] == 'warming') {
+         emit(ComparisonWarming(query: itemName, storeType: storeType));
+         _pollWarming(itemName, storeType, _sortBy, _isRoundTrip, forceRefresh);
+         return;
+      }
+      
+      final results = responseData is Map && responseData['results'] != null 
+          ? responseData['results'] 
+          : responseData;
+
       // The backend now returns a list of UI-compatible comparison objects
-      emit(ComparisonLoaded(response.data, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng));
+      emit(ComparisonLoaded(results, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng));
     } on DioException catch (e) {
       if (e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.connectionTimeout) {
         emit(ComparisonError('Search is taking longer than expected. Please try again.'));
@@ -183,6 +204,31 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       }
     } catch (e) {
       emit(ComparisonError(e.toString()));
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+  void _pollWarming(String itemName, String? storeType, String sortBy, bool isRoundTrip, bool forceRefresh) async {
+    int attempts = 0;
+    while (attempts < 10) {
+      await Future.delayed(const Duration(seconds: 4));
+      // Only poll if we are still in warming state for this query
+      if (state is! ComparisonWarming) return;
+      final warmingState = state as ComparisonWarming;
+      if (warmingState.query != itemName) return;
+
+      attempts++;
+      // Set forceRefresh=false for polls so we hit DB cache
+      await searchItem(itemName, storeType: storeType, forceRefresh: false, sortBy: sortBy, isRoundTrip: isRoundTrip, isPolling: true);
+      
+      // If we got loaded results or an error, stop polling
+      if (state is ComparisonLoaded || state is ComparisonError) return;
+    }
+    
+    // If we hit max attempts and still warming, show error
+    if (state is ComparisonWarming) {
+      emit(ComparisonError('Still finding best prices. Try refreshing in a moment.'));
     }
   }
 

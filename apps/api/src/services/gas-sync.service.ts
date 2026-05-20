@@ -104,12 +104,8 @@ export class GasSyncService {
         try {
           await this.processStation(station, regionCode, lat, lng);
           synced++;
-          
-          // Respect Nominatim's strict 1 request/sec limit
-          // Await 1.2 seconds between geocoding requests to prevent 429 IP bans.
-          await new Promise(resolve => setTimeout(resolve, 1200));
         } catch (err: any) {
-          this.logger.error(`Failed to process station ${station.stationId}: ${err.message}`);
+          this.logger.warn(`Skipping station ${station.stationId}: ${err.message}`);
         }
       }
 
@@ -332,22 +328,26 @@ export class GasSyncService {
 
     // If scraper fallback gave 0,0, try to geocode it based on the region
     if (finalLat === 0 && finalLng === 0) {
-      // Nominatim works MUCH better with pure zip-coded addresses directly (e.g. "320 Middle Country Rd, Smithtown, NY 11787")
-      // Only append regionCode if the scraper address is missing or unknown.
+      // Google Maps Geocoding works well with full addresses or store name + region.
       const query = (station.address && station.address !== 'Unknown' && station.address.trim().length > 5)
         ? station.address
         : `${station.name} ${regionCode}`;
-        
-      const { geocodePlace } = require('../utils/geocoding.util');
-      const geo = await geocodePlace(query);
-      
-      if (geo) {
-        finalLat = geo.lat;
-        finalLng = geo.lng;
-        finalAddress = geo.displayName;
-        this.logger.log(`[GEO SUCCESS] ${station.name} -> ${finalLat}, ${finalLng}`);
-      } else {
-        this.logger.warn(`[GEO FAIL] Could not find coordinates for: ${query}`);
+
+      try {
+        const geo = await geocodePlace(query);
+        if (geo) {
+          finalLat = geo.lat;
+          finalLng = geo.lng;
+          finalAddress = geo.displayName;
+          this.logger.log(`[GEO SUCCESS] ${station.name} -> ${finalLat}, ${finalLng}`);
+        } else {
+          this.logger.warn(`[GEO SKIP] No coordinates found for: ${query}. Skipping station.`);
+          return; // Skip this station entirely
+        }
+      } catch (geoErr: any) {
+        this.logger.warn(`[GEO FAIL] Geocoding error for ${station.name}: ${geoErr.message}. Using 'US' region fallback.`);
+        // Don't crash — skip this station if we still have 0,0
+        return;
       }
     }
 
