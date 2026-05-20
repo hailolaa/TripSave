@@ -83,33 +83,14 @@ export class GasSyncService {
 
     try {
       const mergedStations = new Map<string, NormalizedGasStation>();
-
-      this.logger.log(`Fetching Regular and Diesel gas prices via Google Maps (Parallel)...`);
-      const [regularResult, dieselResult] = await Promise.allSettled([
-        this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations'),
-        this.googleMapsScraper.searchNearbyStores(regionCode, 'diesel gas stations'),
-      ]);
-
-      if (regularResult.status === 'fulfilled') {
-        for (const s of regularResult.value) {
+      this.logger.log(`Fetching gas prices via Google Maps...`);
+      try {
+        const regularStations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
+        for (const s of regularStations) {
           mergedStations.set(s.stationId, s);
         }
-      } else {
-        this.logger.error(`[Regular Gas Sync Fail] Scraper threw error: ${regularResult.reason?.message || regularResult.reason}`);
-      }
-
-      if (dieselResult.status === 'fulfilled') {
-        for (const s of dieselResult.value) {
-          if (mergedStations.has(s.stationId)) {
-            const existing = mergedStations.get(s.stationId)!;
-            if (s.prices.diesel !== null) existing.prices.diesel = s.prices.diesel;
-            if (s.prices.regular !== null && existing.prices.regular === null) existing.prices.regular = s.prices.regular;
-          } else {
-            mergedStations.set(s.stationId, s);
-          }
-        }
-      } else {
-        this.logger.error(`[Diesel Gas Sync Fail] Scraper threw error: ${dieselResult.reason?.message || dieselResult.reason}`);
+      } catch (err: any) {
+        this.logger.error(`[Gas Sync Fail] Scraper threw error: ${err.message}`);
       }
 
       const stations = Array.from(mergedStations.values());
