@@ -346,7 +346,7 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
                       children: [
                     Text(
                       isGas
-                          ? '\$${result['price_per_gallon'] ?? (result['products'] != null && (result['products'] as List).isNotEmpty ? result['products'][0]['price'] : '0.00')}/g'
+                          ? '\$${result['price_per_gallon'] ?? (result['products'] != null && result['products'] is List && (result['products'] as List).isNotEmpty ? result['products'][0]['price'] : '0.00')}/g'
                           : '\$${result['item_total'] ?? '0.00'}',
                       style: TextStyle(
                         color: isSelected ? AppTheme.primaryBlue : AppTheme.textDark,

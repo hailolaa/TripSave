@@ -190,9 +190,15 @@ class ComparisonCubit extends Cubit<ComparisonState> {
          return;
       }
       
-      final results = responseData is Map && responseData['results'] != null 
-          ? responseData['results'] 
-          : responseData;
+      // Normalize: always extract a List from the response
+      List<dynamic> results;
+      if (responseData is List) {
+        results = responseData;
+      } else if (responseData is Map && responseData['results'] is List) {
+        results = responseData['results'] as List<dynamic>;
+      } else {
+        results = [];
+      }
 
       // The backend now returns a list of UI-compatible comparison objects
       emit(ComparisonLoaded(results, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng));

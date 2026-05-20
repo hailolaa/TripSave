@@ -483,7 +483,7 @@ class _CompareScreenState extends State<CompareScreen> {
     final store = comparison['store'];
     final chain = store['chain'];
     final isPharmacy = chain['type'] == 'pharmacy';
-    final products = comparison['products'] as List<dynamic>;
+    final products = comparison['products'] is List ? comparison['products'] as List<dynamic> : [];
 
     showModalBottomSheet(
       context: context,
