@@ -25,6 +25,7 @@ export class GasSyncService {
   private readonly logger = new Logger(GasSyncService.name);
 
   private readonly recentSyncs = new Map<string, number>();
+  private readonly inFlightSyncs = new Map<string, Promise<{ success: boolean; count: number; stale: boolean }>>();
 
   constructor(
     private readonly gasBuddyScraper: GasBuddyScraperService,
@@ -42,6 +43,32 @@ export class GasSyncService {
    * On failure, marks existing data as stale instead of crashing.
    */
   async syncGasPrices(regionCode: string = 'TX', lat?: number, lng?: number): Promise<{ success: boolean; count: number; stale: boolean }> {
+    const cleanRegion = regionCode.trim().toLowerCase();
+    const coordKey = (lat !== undefined && lng !== undefined) ? `coords:${lat.toFixed(2)},${lng.toFixed(2)}` : null;
+
+    const existingSync = this.inFlightSyncs.get(cleanRegion) || (coordKey ? this.inFlightSyncs.get(coordKey) : null);
+    if (existingSync) {
+      this.logger.log(`[SYNC JOIN] Joining in-flight sync for region "${regionCode}" / ${coordKey || 'N/A'}`);
+      return existingSync;
+    }
+
+    const promise = this._executeSyncGasPrices(regionCode, lat, lng);
+    this.inFlightSyncs.set(cleanRegion, promise);
+    if (coordKey) {
+      this.inFlightSyncs.set(coordKey, promise);
+    }
+
+    try {
+      return await promise;
+    } finally {
+      this.inFlightSyncs.delete(cleanRegion);
+      if (coordKey) {
+        this.inFlightSyncs.delete(coordKey);
+      }
+    }
+  }
+
+  private async _executeSyncGasPrices(regionCode: string = 'TX', lat?: number, lng?: number): Promise<{ success: boolean; count: number; stale: boolean }> {
     const now = Date.now();
     const cleanRegion = regionCode.trim().toLowerCase();
     const lastSyncTime = this.recentSyncs.get(cleanRegion);
@@ -57,20 +84,22 @@ export class GasSyncService {
     try {
       const mergedStations = new Map<string, NormalizedGasStation>();
 
-      try {
-        this.logger.log(`Fetching Regular gas prices via Google Maps...`);
-        const regularStations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
-        for (const s of regularStations) {
+      this.logger.log(`Fetching Regular and Diesel gas prices via Google Maps (Parallel)...`);
+      const [regularResult, dieselResult] = await Promise.allSettled([
+        this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations'),
+        this.googleMapsScraper.searchNearbyStores(regionCode, 'diesel gas stations'),
+      ]);
+
+      if (regularResult.status === 'fulfilled') {
+        for (const s of regularResult.value) {
           mergedStations.set(s.stationId, s);
         }
-      } catch (err: any) {
-        this.logger.error(`[Regular Gas Sync Fail] Scraper threw error: ${err.message}`);
+      } else {
+        this.logger.error(`[Regular Gas Sync Fail] Scraper threw error: ${regularResult.reason?.message || regularResult.reason}`);
       }
 
-      try {
-        this.logger.log(`Fetching Diesel gas prices via Google Maps...`);
-        const dieselStations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'diesel gas stations');
-        for (const s of dieselStations) {
+      if (dieselResult.status === 'fulfilled') {
+        for (const s of dieselResult.value) {
           if (mergedStations.has(s.stationId)) {
             const existing = mergedStations.get(s.stationId)!;
             if (s.prices.diesel !== null) existing.prices.diesel = s.prices.diesel;
@@ -79,8 +108,8 @@ export class GasSyncService {
             mergedStations.set(s.stationId, s);
           }
         }
-      } catch (err: any) {
-        this.logger.error(`[Diesel Gas Sync Fail] Scraper threw error: ${err.message}`);
+      } else {
+        this.logger.error(`[Diesel Gas Sync Fail] Scraper threw error: ${dieselResult.reason?.message || dieselResult.reason}`);
       }
 
       const stations = Array.from(mergedStations.values());
