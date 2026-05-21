@@ -63,7 +63,8 @@ export class ProductsService {
     if (products.length === 0) return null;
 
     const freshnessThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const isStale = products.some(sp => !sp.last_verified_at || sp.last_verified_at < freshnessThreshold);
+    const staleCount = products.filter(sp => !sp.last_verified_at || sp.last_verified_at < freshnessThreshold).length;
+    const isStale = staleCount > (products.length / 2); // Only stale if majority (>50%) are stale
 
     return {
       isStale,

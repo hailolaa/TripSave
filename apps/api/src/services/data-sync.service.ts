@@ -29,7 +29,7 @@ export class DataSyncService {
   /** Refresh gas prices every 6 hours */
   @Cron(CRON_SCHEDULES.GAS_REFRESH)
   async refreshGasPrices(): Promise<void> {
-    const log = await this.createLog('gasbuddy');
+    const log = await this.createLog('google_maps');
     try {
       this.logger.log('⛽ Cron: Refreshing gas prices...');
       const result = await this.gasSyncService.syncGasPrices('TX');
@@ -45,6 +45,7 @@ export class DataSyncService {
     try {
       let count = 0;
       switch (provider) {
+        case 'google_maps':
         case 'gasbuddy':
         case 'gas':
           const gasResult = await this.gasSyncService.syncGasPrices(params?.regionCode || 'TX');

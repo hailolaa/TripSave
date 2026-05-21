@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { GasBuddyScraperService } from '../providers/oxylabs/gasbuddy-scraper.service';
+
 import { GoogleMapsGasScraperService } from '../providers/oxylabs/google-maps-gas-scraper.service';
 import { EiaDieselService } from '../providers/eia/eia-diesel.service';
 import { ProductNormalizerService } from '../providers/normalizer/product-normalizer.service';
@@ -28,7 +28,7 @@ export class GasSyncService {
   private readonly inFlightSyncs = new Map<string, Promise<{ success: boolean; count: number; stale: boolean }>>();
 
   constructor(
-    private readonly gasBuddyScraper: GasBuddyScraperService,
+
     private readonly googleMapsScraper: GoogleMapsGasScraperService,
     private readonly eiaDieselService: EiaDieselService,
     @InjectRepository(GasPrice) private readonly gasPriceRepo: Repository<GasPrice>,
@@ -315,7 +315,7 @@ export class GasSyncService {
         name: finalChainName,
         slug,
         type: StoreChainType.GAS,
-        logo_url: brandInfo.logo || station.logoUrl || `https://img.logo.dev/gasbuddy.com?token=${process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg'}`,
+        logo_url: brandInfo.logo || station.logoUrl || null,
       });
       chain = await this.chainRepo.save(newChain);
     } else if (brandInfo.logo && (!chain.logo_url || chain.logo_url.includes('gasbuddy.com'))) {
@@ -369,7 +369,7 @@ export class GasSyncService {
         lat: finalLat,
         lng: finalLng,
         external_id: station.stationId,
-        source: DataSource.GASBUDDY,
+        source: DataSource.GOOGLE_MAPS,
         is_active: true,
       }));
     } else {
@@ -393,7 +393,7 @@ export class GasSyncService {
     let gasPrice = await this.gasPriceRepo.findOne({ where: { store_id: store.id } });
     const priceData: any = {
       store_id: store.id,
-      source: DataSource.GASBUDDY,
+      source: DataSource.GOOGLE_MAPS,
       last_updated: new Date(),
       is_stale: false,
     };
@@ -430,7 +430,7 @@ export class GasSyncService {
       const gasProduct = await this.productRepo.findOne({ where: { category: ProductCategory.GAS } });
       if (gasProduct) {
         let sp = await this.storeProductRepo.findOne({ where: { store_id: store.id, product_id: gasProduct.id } });
-        const source = DataSource.GASBUDDY;
+        const source = DataSource.GOOGLE_MAPS;
         const spData = { 
           store_id: store.id, 
           product_id: gasProduct.id, 
@@ -449,6 +449,6 @@ export class GasSyncService {
   }
 
   private async markAllStale(): Promise<void> {
-    await this.gasPriceRepo.createQueryBuilder().update().set({ is_stale: true }).where('source = :src', { src: DataSource.GASBUDDY }).execute();
+    await this.gasPriceRepo.createQueryBuilder().update().set({ is_stale: true }).where('source IN (:...sources)', { sources: [DataSource.GOOGLE_MAPS, DataSource.GASBUDDY] }).execute();
   }
 }

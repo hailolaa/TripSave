@@ -18,11 +18,10 @@ export class KrogerScraperService extends OxylabsBaseService {
     this.logger.log(`Scraping Kroger for "${query}"`);
 
     try {
-      const html = await this.scrape('', {
-        source: 'kroger_search',
-        query,
+      const html = await this.scrape(url, {
+        source: 'universal',
         render: true,
-        geo_location: zip ? `US-${zip}` : undefined,
+        geo_location: zip || undefined,
       });
 
       return this.parse(html);

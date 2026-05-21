@@ -10,7 +10,7 @@ import { TargetScraperService } from './oxylabs/target-scraper.service';
 import { KrogerScraperService } from './oxylabs/kroger-scraper.service';
 import { InstacartScraperService } from './oxylabs/instacart-scraper.service';
 import { GoogleMapsGasScraperService } from './oxylabs/google-maps-gas-scraper.service';
-import { GasBuddyScraperService } from './oxylabs/gasbuddy-scraper.service';
+
 import { AggregatorService } from './oxylabs/aggregator.service';
 import { SearchCacheService } from './oxylabs/search-cache.service';
 import { EiaDieselService } from './eia/eia-diesel.service';
@@ -39,7 +39,7 @@ import { StoresModule } from '../stores/stores.module';
     KrogerScraperService,
     InstacartScraperService,
     GoogleMapsGasScraperService,
-    GasBuddyScraperService,
+
     EiaDieselService,
     AggregatorService,
     SearchCacheService,
@@ -49,7 +49,7 @@ import { StoresModule } from '../stores/stores.module';
     AggregatorService,
     SearchCacheService,
     GoogleMapsGasScraperService,
-    GasBuddyScraperService,
+
     EiaDieselService,
   ],
 })

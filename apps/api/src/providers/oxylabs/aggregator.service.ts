@@ -5,7 +5,7 @@ import { TargetScraperService } from './target-scraper.service';
 import { KrogerScraperService } from './kroger-scraper.service';
 import { InstacartScraperService } from './instacart-scraper.service';
 import { GoogleMapsGasScraperService } from './google-maps-gas-scraper.service';
-import { GasBuddyScraperService } from './gasbuddy-scraper.service';
+
 import { SearchCacheService } from './search-cache.service';
 import { OxylabsBaseService, ScrapedProduct } from './oxylabs-base.service';
 import { StoresService } from '../../stores/stores.service';
@@ -56,7 +56,7 @@ export class AggregatorService {
     private readonly krogerScraper: KrogerScraperService,
     private readonly instacartScraper: InstacartScraperService,
     private readonly googleMapsScraper: GoogleMapsGasScraperService,
-    private readonly gasBuddyScraper: GasBuddyScraperService,
+
     private readonly storesService: StoresService,
     private readonly cache: SearchCacheService,
   ) {}
@@ -147,13 +147,9 @@ export class AggregatorService {
           this.TARGETED_GMAPS_TIMEOUT_MS
         ).catch(() => [])
       )).then(results => results.flat()),
-      // Run GasBuddy for gas stations
-      (isGas || isAll)
-        ? this.runWithTimeout('GasBuddy', () => this.gasBuddyScraper.searchNearbyStores(resolvedZip), SCRAPER_TIMEOUT_MS).catch(() => [])
-        : Promise.resolve([])
     ];
 
-    const scraperNames = ['Walmart', 'Target', 'Kroger', 'Instacart', 'GoogleMaps', 'GasBuddy'];
+    const scraperNames = ['Walmart', 'Target', 'Kroger', 'Instacart', 'GoogleMaps'];
     const scraperResults = await Promise.allSettled(scraperPromises);
 
     // 3. Collect and tag results
@@ -188,19 +184,6 @@ export class AggregatorService {
                 lng: gs.longitude,
               };
             }));
-          } else if (scraperNames[i] === 'GasBuddy') {
-            const stations = result.value as any[];
-            allProducts.push(...stations.map(gs => ({
-              store: gs.name,
-              product: 'Regular Gasoline',
-              price: gs.prices?.regular || 0,
-              image: gs.logoUrl || '',
-              source: 'gasbuddy' as const,
-              category: 'gas' as const,
-              address: gs.address,
-              lat: gs.latitude,
-              lng: gs.longitude,
-            })));
           } else {
             const products = (result.value as ScrapedProduct[]).map(p => ({
               ...p,

@@ -9,7 +9,7 @@ export enum DataSource {
   /** Data from Flipp multi-store aggregation */
   FLIPP = 'flipp',
 
-  /** Data from GasBuddy GraphQL API */
+  /** @deprecated GasBuddy removed — kept for backward compatibility with existing DB records. Use GOOGLE_MAPS instead. */
   GASBUDDY = 'gasbuddy',
 
   /** Generic external API source */
