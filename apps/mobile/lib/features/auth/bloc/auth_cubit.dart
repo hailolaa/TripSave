@@ -41,8 +41,10 @@ class AuthCubit extends Cubit<AuthState> {
   final AuthRepository authRepository;
   final SettingsService settingsService;
   final List<void Function()>? onLogout;
+  final List<void Function()>? onLogin;
+  bool _hasTriggeredLogin = false;
 
-  AuthCubit(this.authRepository, this.settingsService, {this.onLogout}) : super(AuthInitial()) {
+  AuthCubit(this.authRepository, this.settingsService, {this.onLogout, this.onLogin}) : super(AuthInitial()) {
     stream.listen((state) {
       if (state is AuthAuthenticated || 
           state is AuthUnauthenticated || 
@@ -71,6 +73,7 @@ class AuthCubit extends Cubit<AuthState> {
 
     // Fast path: immediately let the user in with a minimal authenticated state
     emit(AuthAuthenticated());
+    _triggerOnLogin();
 
     // Lazy load the full profile asynchronously
     _loadFullProfile();
@@ -114,6 +117,7 @@ class AuthCubit extends Cubit<AuthState> {
       emit(AuthPaymentRequired());
     } else {
       emit(AuthAuthenticated(userName: profile['name'] ?? ''));
+      _triggerOnLogin();
     }
 
     // Trigger notification check for subscription
@@ -145,6 +149,7 @@ class AuthCubit extends Cubit<AuthState> {
         _resolveAuthState(user);
       } else {
         emit(AuthAuthenticated());
+        _triggerOnLogin();
       }
     } catch (e) {
       final msg = _parseError(e);
@@ -229,7 +234,17 @@ class AuthCubit extends Cubit<AuthState> {
         clearFn();
       }
     }
+    _hasTriggeredLogin = false;
     emit(AuthUnauthenticated());
+  }
+
+  void _triggerOnLogin() {
+    if (!_hasTriggeredLogin && onLogin != null) {
+      _hasTriggeredLogin = true;
+      for (var fn in onLogin!) {
+        fn();
+      }
+    }
   }
 
   String _parseError(dynamic e) {
@@ -300,10 +315,12 @@ class AuthCubit extends Cubit<AuthState> {
           _resolveAuthState(profile);
         } else {
           emit(AuthAuthenticated());
+          _triggerOnLogin();
         }
       } catch (e) {
         // Fallback: payment was successful, so we MUST let them in
         emit(AuthAuthenticated());
+        _triggerOnLogin();
       }
     } catch (e) {
       final msg = _parseError(e);

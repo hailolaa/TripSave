@@ -57,7 +57,7 @@ export class AuthService {
     });
 
     // Optional: still send the email in background but don't wait/block
-    this.mailService.sendVerificationCode(user.email, verificationCode).catch(() => {});
+    // this.mailService.sendVerificationCode(user.email, verificationCode).catch(() => {});
 
     const tokenPayload = await this.login(user);
 

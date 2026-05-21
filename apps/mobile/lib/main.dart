@@ -86,19 +86,19 @@ class MyApp extends StatelessWidget {
             return ListCubit(
               getIt<ListRepository>(),
               getIt<LocationService>(),
-            )..fetchCart();
+            );
           },
         ),
         BlocProvider<DealsCubit>(
           create: (_) {
             debugPrint("[DEBUG] Creating DealsCubit...");
-            return DealsCubit(getIt<DealsRepository>())..fetchDeals();
+            return DealsCubit(getIt<DealsRepository>());
           },
         ),
         BlocProvider<SavingsCubit>(
           create: (_) {
             debugPrint("[DEBUG] Creating SavingsCubit...");
-            return SavingsCubit(getIt<SavingsRepository>())..loadSavings();
+            return SavingsCubit(getIt<SavingsRepository>());
           },
         ),
         // --- Cubits that depend on others above ---
@@ -112,7 +112,7 @@ class MyApp extends StatelessWidget {
               locationService: getIt<LocationService>(),
               listCubit: context.read<ListCubit>(),
               locationCubit: context.read<LocationCubit>(),
-            )..loadDashboard();
+            );
           },
         ),
         // --- AuthCubit LAST because onLogout references all cubits above ---
@@ -128,6 +128,15 @@ class MyApp extends StatelessWidget {
                 () { try { context.read<ComparisonCubit>().clear(); } catch (_) {} },
                 () { try { context.read<DealsCubit>().clear(); } catch (_) {} },
                 () { try { context.read<SavingsCubit>().clear(); } catch (_) {} },
+              ],
+              onLogin: [
+                () { try { context.read<ListCubit>().fetchCart(); } catch (_) {} },
+                () { try { context.read<DealsCubit>().fetchDeals(); } catch (_) {} },
+                () { try { context.read<SavingsCubit>().loadSavings(); } catch (_) {} },
+                // Note: HomeCubit.loadDashboard() will automatically fire because 
+                // ListCubit emits ListLoaded after fetchCart() completes.
+                // However, we explicitly call it here just in case the list was empty or failed.
+                () { try { context.read<HomeCubit>().loadDashboard(); } catch (_) {} },
               ],
             );
             // Defer checkAuth so it doesn't block the first frame
