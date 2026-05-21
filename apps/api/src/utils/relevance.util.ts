@@ -4,7 +4,10 @@ export const CATEGORY_BLOCKLIST: Record<string, string[]> = {
     'almond milk cookie', 'milk bath', 'milk cleanser',
     'coconut milk candy', 'milk makeup', 'milk paint',
     'condensed milk cake', 'evaporated milk dessert',
-    'milkshake'
+    'milkshake', 'yogurt', 'yoghurt', 'shampoo', 'conditioner', 
+    'lotion', 'cheese', 'coffee', 'latte', 'lassi', 'ice cream', 
+    'creamer', 'protein shake', 'body wash', 'body scrub', 
+    'hair mask', 'facial cleanser', 'protein powder', 'cereal'
   ],
   eggs: [
     'egg rolls', 'egg noodles', 'egg drop soup mix',
