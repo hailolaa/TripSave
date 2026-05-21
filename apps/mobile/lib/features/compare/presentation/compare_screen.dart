@@ -123,17 +123,14 @@ class _CompareScreenState extends State<CompareScreen> {
                       ),
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (text) {
-                          if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-                          _debounceTimer = Timer(const Duration(milliseconds: 600), () {
-                            if (text.isNotEmpty && mounted) {
-                              context.read<ComparisonCubit>().searchItem(
-                                text, 
-                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                forceRefresh: false,
-                              );
-                            }
-                          });
+                        onSubmitted: (text) {
+                          if (text.isNotEmpty && mounted) {
+                            context.read<ComparisonCubit>().searchItem(
+                              text, 
+                              storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                              forceRefresh: false,
+                            );
+                          }
                         },
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
                         decoration: InputDecoration(
@@ -172,7 +169,7 @@ class _CompareScreenState extends State<CompareScreen> {
                           context.read<ComparisonCubit>().searchItem(
                             query, 
                             storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                            forceRefresh: true,
+                            forceRefresh: false,
                           );
                         },
                         child: const Padding(
