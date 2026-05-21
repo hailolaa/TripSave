@@ -185,7 +185,18 @@ export class ComparisonService {
       
       const validResults = allResults.filter(Boolean);
       if (validResults.length > 0) {
-        mergedDbProducts = validResults.flatMap(r => r!.products);
+        const allProducts = validResults.flatMap(r => r!.products);
+        // Deduplicate products from overlapping ZIP caches
+        const seen = new Set<string>();
+        mergedDbProducts = allProducts.filter(p => {
+          const storeName = typeof p.store === 'string' ? p.store : (p.store as any)?.name || '';
+          const productName = typeof p.product === 'string' ? p.product : (p.product as any)?.name || '';
+          const key = `${storeName.toLowerCase().trim()}|${productName.toLowerCase().trim()}|${p.price}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        this.logger.log(`Multi-ZIP merge: ${allProducts.length} total → ${mergedDbProducts.length} after dedup`);
         // Determine staleness and cachedAt from the combined results
         isStale = validResults.some(r => r!.isStale);
         cachedAt = validResults.reduce((max, r) =>
@@ -370,10 +381,9 @@ export class ComparisonService {
         if (storeData.lat !== 0 && storeData.lng !== 0) {
           distance = haversineDistanceMiles(userLat, userLng, storeData.lat, storeData.lng);
         } else {
-          // Final fallback for development/unknown locations
-          // Adding a bit of jitter (0.8 to 2.5 miles) so stores don't all look identical
-          const jitter = (item.store.length % 10) / 5; // Deterministic jitter based on store name length
-          distance = 1.2 + jitter;
+          // No coordinates available — assign a very large distance so it gets
+          // filtered out by the preferredRadius check downstream.
+          distance = 999;
         }
       }
 
