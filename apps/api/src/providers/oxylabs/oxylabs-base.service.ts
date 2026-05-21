@@ -15,6 +15,7 @@ export interface ScrapedProduct {
   address?: string;
   lat?: number;
   lng?: number;
+  relevanceScore?: number;
 }
 
 /**

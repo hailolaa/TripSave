@@ -15,6 +15,7 @@ import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { calculateDriveCost, calculateTrueCost, metersToMiles, haversineDistanceMiles } from '../utils/geo.util';
 import { geocodePlaceNear } from '../utils/geocoding.util';
 import { GasSyncService } from '../services/gas-sync.service';
+import { isBlocklisted, scoreProductRelevance, classifySearchIntent } from '../utils/relevance.util';
 
 @Injectable()
 export class ComparisonService {
@@ -103,6 +104,35 @@ export class ComparisonService {
   }
 
   /**
+   * Applies blocklist and relevance scoring to raw products.
+   * Discards products below the threshold (default 40).
+   * Gracefully degrades threshold to 20 if less than 5 products pass.
+   */
+  private applyRelevanceFilter(products: ScrapedProduct[], query: string): ScrapedProduct[] {
+    const intent = classifySearchIntent(query);
+    const searchWord = intent ? intent.canonical : query;
+
+    let scored = products
+      .filter(p => !isBlocklisted(p.product, searchWord))
+      .map(p => ({
+        ...p,
+        relevanceScore: scoreProductRelevance(p.product, searchWord)
+      }));
+
+    let filtered = scored.filter(p => p.relevanceScore! >= 40);
+
+    // Graceful degradation
+    if (filtered.length < 5) {
+      filtered = scored.filter(p => p.relevanceScore! >= 20);
+      if (filtered.length < scored.length) {
+        this.logger.warn(`[ComparisonService] Relevance filter relaxed for query: "${query}" — only ${filtered.length} results passed strict filter.`);
+      }
+    }
+
+    return filtered.sort((a, b) => b.relevanceScore! - a.relevanceScore!);
+  }
+
+  /**
    * Internal execution of compareItem, separated for in-flight dedup.
    */
   private async _executeCompareItem(
@@ -129,8 +159,10 @@ export class ComparisonService {
     if (dbCheck && dbCheck.products && dbCheck.products.length > 0) {
       const isStale = dbCheck.isStale;
       
-      this.logger.log(`DB cache hit: ${dbCheck.products.length} results for "${itemName}" (Stale: ${isStale}).`);
-      let items = await this.formatScrapedForUI(dbCheck.products, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
+      const filteredDbProducts = this.applyRelevanceFilter(dbCheck.products, itemName);
+      
+      this.logger.log(`DB cache hit: ${filteredDbProducts.length} relevant results for "${itemName}" (Stale: ${isStale}).`);
+      let items = await this.formatScrapedForUI(filteredDbProducts, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
 
       // Apply store type filter if provided
       if (storeType && storeType !== 'all' as any) {
@@ -166,9 +198,12 @@ export class ComparisonService {
     this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: forceRefresh })
       .then(async (scraperResult) => {
         if (scraperResult.data.length > 0) {
-          this.logger.log(`Background scrape returned ${scraperResult.data.length} results for "${itemName}".`);
-          await this.productsService.upsertScrapedProducts(scraperResult.data, resolvedZip)
-            .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
+          const filtered = this.applyRelevanceFilter(scraperResult.data, itemName);
+          this.logger.log(`Background scrape returned ${scraperResult.data.length} results, ${filtered.length} passed relevance for "${itemName}".`);
+          if (filtered.length > 0) {
+            await this.productsService.upsertScrapedProducts(filtered, resolvedZip)
+              .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
+          }
         }
       })
       .catch(err => this.logger.error(`Background scrape failed for "${itemName}": ${err.message}`));
@@ -337,6 +372,7 @@ export class ComparisonService {
         products: [{ name: productName, price: item.price, image: (item as any).image, category: itemCategory }],
         source: source === 'database' ? 'database' : (item as any).source,
         category: itemCategory,
+        relevance_score: item.relevanceScore || 0,
       };
     }).filter((item: any) => {
       // Filter out stores that are beyond the preferred radius
@@ -389,15 +425,22 @@ export class ComparisonService {
 
     await Promise.all(searchItems.map(async (item) => {
       try {
-        const results = await this.compareItem(
+        const compareResponse = await this.compareItem(
           item.name, userLat, userLng, userMpg, gasPrice, resolvedZip, storeType, isRoundTrip, 'true_cost', false, preferredRadius
         );
+
+        // compareItem returns { status: 'ready'|'warming', results: [...] }
+        const resultItems = compareResponse?.results;
+        if (!Array.isArray(resultItems) || resultItems.length === 0) {
+          this.logger.warn(`No results available for cart item "${item.name}" (status: ${compareResponse?.status})`);
+          return;
+        }
 
         // Keep track of which stores we've already added THIS item for.
         // Since compareItem results are sorted by true_cost, the first match per store is the cheapest.
         const fulfilledStoreIds = new Set<string>();
 
-        for (const result of results) {
+        for (const result of resultItems) {
           const storeId = result.store.id;
           
           if (fulfilledStoreIds.has(storeId)) {
@@ -589,20 +632,31 @@ export class ComparisonService {
       savings: Number((mostExpensive - c.true_cost).toFixed(2))
     }));
 
-    switch (sortBy) {
-      case 'item_total':
-        return results.sort((a, b) => a.item_total - b.item_total);
-      case 'driving_cost':
-        return results.sort((a, b) => a.driving_cost - b.driving_cost);
-      case 'distance':
-      case 'driving_distance':
-        return results.sort((a, b) => a.driving_distance - b.driving_distance);
-      case 'savings':
-        return results.sort((a, b) => b.savings - a.savings);
-      case 'true_cost':
-      default:
-        return results.sort((a, b) => a.true_cost - b.true_cost);
-    }
+    // First sort by relevance (descending), then by selected criteria
+    return results.sort((a, b) => {
+      const relA = a.relevance_score ?? 0;
+      const relB = b.relevance_score ?? 0;
+      
+      if (relA !== relB) {
+        return relB - relA; // Descending
+      }
+      
+      // Fallback to chosen criteria
+      switch (sortBy) {
+        case 'item_total':
+          return a.item_total - b.item_total;
+        case 'driving_cost':
+          return a.driving_cost - b.driving_cost;
+        case 'distance':
+        case 'driving_distance':
+          return a.driving_distance - b.driving_distance;
+        case 'savings':
+          return b.savings - a.savings;
+        case 'true_cost':
+        default:
+          return a.true_cost - b.true_cost;
+      }
+    });
   }
 
   /**
