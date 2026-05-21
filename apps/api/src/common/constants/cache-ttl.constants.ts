@@ -2,13 +2,19 @@
  * Cache TTL (Time-To-Live) constants in milliseconds.
  * Data older than these thresholds is considered stale
  * and will be refreshed by the cron scheduler.
+ *
+ * Strategy: Scrape once, cache long, refresh on schedule.
+ * Grocery prices barely change daily. Gas changes more often.
  */
 export const CACHE_TTL = {
-  /** Gas prices: refresh every 6 hours */
-  GAS_PRICES_MS: 6 * 60 * 60 * 1000,
+  /** Gas prices: refresh every 4 hours */
+  GAS_PRICES_MS: 4 * 60 * 60 * 1000,
 
-  /** Grocery prices: refresh every 3 days (72 hours) */
-  GROCERY_PRICES_MS: 3 * 24 * 60 * 60 * 1000,
+  /** Grocery prices: refresh every 24 hours */
+  GROCERY_PRICES_MS: 24 * 60 * 60 * 1000,
+
+  /** Pharmacy prices: refresh every 48 hours (very stable) */
+  PHARMACY_PRICES_MS: 48 * 60 * 60 * 1000,
 
   /** Store info: refresh every 24 hours */
   STORE_INFO_MS: 24 * 60 * 60 * 1000,
@@ -16,17 +22,15 @@ export const CACHE_TTL = {
 
 /**
  * Cron expressions for background data refresh jobs.
+ * All scraping happens on schedule, never in response to user requests.
  */
 export const CRON_SCHEDULES = {
-  /** Disabled: Gas is now synced strictly on-demand. Running once a year to satisfy cron validation without API load. */
-  GAS_REFRESH: '0 0 1 1 *', // Jan 1st at midnight
+  /** Gas prices: every 4 hours */
+  GAS_REFRESH: '0 */4 * * *',
 
-  /** Every 3 days */
-  GROCERY_REFRESH: '0 2 */3 * *',
+  /** Grocery + pharmacy: daily at 2 AM (off-peak) */
+  GROCERY_REFRESH: '0 2 * * *',
 
-  /** Once daily at 3 AM */
+  /** Store info: once daily at 3 AM */
   STORE_REFRESH: '0 3 * * *',
-
-  /** Once every 3 days at 4 AM to minimize API calls */
-  WARM_CACHE_REFRESH: '0 4 */3 * *',
 } as const;

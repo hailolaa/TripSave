@@ -49,6 +49,8 @@ export class AggregatorService {
    * get the same Promise instead of spawning a duplicate scrape.
    */
   private readonly inFlightRequests = new Map<string, Promise<SearchResponse>>();
+  private readonly scraperFailCount = new Map<string, number>();
+  private readonly scraperFailTime = new Map<string, number>();
 
   constructor(
     private readonly walmartScraper: WalmartScraperService,
@@ -121,9 +123,6 @@ export class AggregatorService {
   ): Promise<SearchResponse> {
     this.logger.log(`Searching "${query}" in ZIP ${resolvedZip} — running all scrapers...`);
 
-    // Timeout: 120s. Waiting longer gives scrapers more time to finish if the proxy is slow.
-    const SCRAPER_TIMEOUT_MS = 120000;
-
     // 1. Determine which GMaps searches to run
     const isGas = this.shouldScrapeGas(query);
     const isPharmacy = this.shouldScrapePharmacy(query);
@@ -133,12 +132,29 @@ export class AggregatorService {
     if (isPharmacy || isAll) gMapsTypes.push('pharmacies');
     if (!isGas || isAll) gMapsTypes.push('grocery stores');
 
+    // Check Kroger Circuit Breaker
+    const krogerFailKey = `kroger:${resolvedZip}`;
+    const krogerFails = this.scraperFailCount.get(krogerFailKey) ?? 0;
+    const krogerLastFail = this.scraperFailTime.get(krogerFailKey) ?? 0;
+    let skipKroger = false;
+    
+    if (krogerFails >= 3) {
+      // 1 hour cooldown
+      if (Date.now() - krogerLastFail < 60 * 60 * 1000) {
+        this.logger.warn(`Kroger scraper disabled for ZIP ${resolvedZip} for 1 hour — 3 consecutive 0-result responses`);
+        skipKroger = true;
+      } else {
+        // Reset after 1 hour
+        this.scraperFailCount.delete(krogerFailKey);
+      }
+    }
+
     // 2. Prepare all scraper promises
     const scraperPromises: Promise<any>[] = [
-      this.runWithTimeout('Walmart', () => this.walmartScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
-      this.runWithTimeout('Target', () => this.targetScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
-      this.runWithTimeout('Kroger', () => this.krogerScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
-      this.runWithTimeout('Instacart', () => this.instacartScraper.search(query, resolvedZip), SCRAPER_TIMEOUT_MS),
+      this.runWithTimeout('Walmart', () => this.walmartScraper.search(query, resolvedZip), 15000),
+      this.runWithTimeout('Target', () => this.targetScraper.search(query, resolvedZip), 15000),
+      skipKroger ? Promise.resolve([]) : this.runWithTimeout('Kroger', () => this.krogerScraper.search(query, resolvedZip), 15000),
+      this.runWithTimeout('Instacart', () => this.instacartScraper.search(query, resolvedZip), 20000),
       // Run multiple GMaps searches in parallel if needed
       Promise.all(gMapsTypes.map(type => 
         this.runWithTimeout(
@@ -158,10 +174,24 @@ export class AggregatorService {
 
     for (let i = 0; i < scraperResults.length; i++) {
       const result = scraperResults[i];
+      const scraperName = scraperNames[i];
+
+      // Kroger Circuit Breaker Logic
+      if (scraperName === 'Kroger' && !skipKroger) {
+        const isFailed = result.status === 'rejected' || (result.status === 'fulfilled' && Array.isArray(result.value) && result.value.length === 0);
+        if (isFailed) {
+          const fails = (this.scraperFailCount.get(krogerFailKey) ?? 0) + 1;
+          this.scraperFailCount.set(krogerFailKey, fails);
+          this.scraperFailTime.set(krogerFailKey, Date.now());
+        } else {
+          this.scraperFailCount.delete(krogerFailKey);
+        }
+      }
+
       if (result.status === 'fulfilled') {
-        scraperStatus[scraperNames[i]] = 'ok';
+        scraperStatus[scraperName] = 'ok';
         if (result.value) {
-          if (scraperNames[i] === 'GoogleMaps') {
+          if (scraperName === 'GoogleMaps') {
             const stations = result.value as any[];
             allProducts.push(...stations.map(gs => {
               const name = gs.name.toLowerCase();
@@ -195,8 +225,8 @@ export class AggregatorService {
       } else {
         const reason = String(result.reason);
         const isTimeout = reason.includes('timed out');
-        scraperStatus[scraperNames[i]] = isTimeout ? 'timeout' : 'failed';
-        this.logger.warn(`${scraperNames[i]}: ${isTimeout ? 'TIMEOUT' : 'FAILED'} — ${reason}`);
+        scraperStatus[scraperName] = isTimeout ? 'timeout' : 'failed';
+        this.logger.warn(`${scraperName}: ${isTimeout ? 'TIMEOUT' : 'FAILED'} — ${reason}`);
       }
     }
 

@@ -30,6 +30,8 @@ class ComparisonLoaded extends ComparisonState {
   final DateTime fetchedAt;
   final bool isLocalCache;
   final bool isStoreShells;
+  final String? cacheAgeLabel;
+  final int? cacheAgeHours;
   
   ComparisonLoaded(
     this.results, {
@@ -40,10 +42,12 @@ class ComparisonLoaded extends ComparisonState {
     DateTime? fetchedAt,
     this.isLocalCache = false,
     this.isStoreShells = false,
+    this.cacheAgeLabel,
+    this.cacheAgeHours,
   }) : fetchedAt = fetchedAt ?? DateTime.now();
   
   @override
-  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng, fetchedAt, isLocalCache, isStoreShells];
+  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng, fetchedAt, isLocalCache, isStoreShells, cacheAgeLabel, cacheAgeHours];
 
   ComparisonLoaded copyWith({
     List<dynamic>? results,
@@ -54,6 +58,8 @@ class ComparisonLoaded extends ComparisonState {
     DateTime? fetchedAt,
     bool? isLocalCache,
     bool? isStoreShells,
+    String? cacheAgeLabel,
+    int? cacheAgeHours,
   }) {
     return ComparisonLoaded(
       results ?? this.results,
@@ -64,6 +70,8 @@ class ComparisonLoaded extends ComparisonState {
       fetchedAt: fetchedAt ?? this.fetchedAt,
       isLocalCache: isLocalCache ?? this.isLocalCache,
       isStoreShells: isStoreShells ?? this.isStoreShells,
+      cacheAgeLabel: cacheAgeLabel ?? this.cacheAgeLabel,
+      cacheAgeHours: cacheAgeHours ?? this.cacheAgeHours,
     );
   }
 }
@@ -266,8 +274,20 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         results = [];
       }
 
+      final meta = responseData is Map ? responseData['meta'] : null;
+      final cacheAgeLabel = meta?['label'] as String?;
+      final cacheAgeHours = meta?['ageHours'] as int?;
+
       await _saveToLocalCache(cacheKey, results);
-      emit(ComparisonLoaded(results, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng));
+      emit(ComparisonLoaded(
+        results, 
+        sortBy: _sortBy, 
+        isRoundTrip: _isRoundTrip, 
+        userLat: userLat, 
+        userLng: userLng,
+        cacheAgeLabel: cacheAgeLabel,
+        cacheAgeHours: cacheAgeHours,
+      ));
       
     } on DioException catch (e) {
       if (!isRetry && (e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.connectionTimeout)) {

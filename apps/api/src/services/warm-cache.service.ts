@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
+import { SearchActivity } from '../models/search-activity.entity';
 import { User } from '../users/user.entity';
 import { CRON_SCHEDULES } from '../common/constants/cache-ttl.constants';
 
@@ -11,14 +12,12 @@ import { CRON_SCHEDULES } from '../common/constants/cache-ttl.constants';
  * Pre-warms the search cache for the 50 most popular grocery products.
  *
  * Strategy:
- * 1. Query distinct ZIP codes from real user locations stored in the DB.
- * 2. For each ZIP, iterate through all 50 popular products.
- * 3. Call AggregatorService.search() — this populates the **in-memory** cache (1h TTL).
- * 4. Call ProductsService.upsertScrapedProducts() — populates the **DB** cache (24h freshness).
- * 5. Stagger requests (30s between each) to avoid slamming the Oxylabs API.
+ * 1. Query distinct ZIP codes from `search_activity` that were active in the last 24h.
+ * 2. For each active ZIP, iterate through priority products + any custom user queries.
+ * 3. Call AggregatorService.search() — populates the DB cache (24h freshness).
+ * 4. Stagger requests (3s between each) to avoid slamming the Oxylabs API.
  *
- * Result: When a user searches for "milk", "eggs", etc. the response is instant
- * from either the in-memory or DB cache, instead of waiting 1-2 min for a cold scrape.
+ * Result: Users get instant cached results, and we only pay to scrape ZIPs that are actively used.
  */
 @Injectable()
 export class WarmCacheService {
@@ -101,7 +100,7 @@ export class WarmCacheService {
   ];
 
   /** Delay between scraping each product (ms) — prevents API rate-limiting */
-  private readonly STAGGER_DELAY_MS = 30_000; // 30 seconds
+  private readonly STAGGER_DELAY_MS = 3000; // 3 seconds
 
   /** Fallback ZIP if no users have set a location yet */
   private readonly DEFAULT_ZIP = '75201';
@@ -117,6 +116,8 @@ export class WarmCacheService {
     private readonly productsService: ProductsService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(SearchActivity)
+    private readonly searchActivityRepository: Repository<SearchActivity>,
   ) {}
 
   /**
@@ -156,12 +157,11 @@ export class WarmCacheService {
   }
 
   /**
-   * Cron job: runs every 6 hours.
-   * If the previous cycle is still running, the new invocation is skipped
-   * to prevent overlapping heavy scrape loads.
+   * Cron job: runs daily at 2am (off-peak).
+   * Only refreshes ZIPs and queries that had user activity in the last 24 hours.
    */
-  @Cron('0 */6 * * *')
-  async onCron(): Promise<void> {
+  @Cron(CRON_SCHEDULES.GROCERY_REFRESH)
+  async dailyGroceryCron(): Promise<void> {
     if (this.isRunning) {
       this.logger.warn('⏭ Warm-cache cycle already in progress — skipping this tick.');
       return;
@@ -189,13 +189,24 @@ export class WarmCacheService {
     let totalWarmed = 0;
 
     try {
-      // ── Resolve ZIP codes from real user locations ──────────────
-      const zips = await this.resolveUserZipCodes();
-      this.logger.log(`🔥 Warm-cache cycle starting for ${zips.length} ZIP(s): ${zips.join(', ')} — ${this.top15Items.length} priority products each`);
+      // ── Find active ZIPs and their custom queries from the last 24h ──────────────
+      const activeData = await this.getActiveZipsAndQueries();
+      const zips = Array.from(activeData.keys());
+
+      if (zips.length === 0) {
+        this.logger.log('No search activity in the last 24h. Skipping warm cycle.');
+        return { success: true, zips: [], productsWarmed: 0, durationMs: Date.now() - startTime };
+      }
+
+      this.logger.log(`🔥 Daily Warm-cache starting for ${zips.length} active ZIP(s)`);
 
       for (const zip of zips) {
-        for (let i = 0; i < this.top15Items.length; i++) {
-          const product = this.top15Items[i];
+        const customQueries = activeData.get(zip) || [];
+        // Deduplicate priority items + custom queries
+        const itemsToScrape = Array.from(new Set([...this.top15Items, ...customQueries]));
+
+        for (let i = 0; i < itemsToScrape.length; i++) {
+          const product = itemsToScrape[i];
           try {
             this.logger.log(`[${zip}] Warming ${i + 1}/${this.top15Items.length}: "${product}"`);
 
@@ -213,8 +224,8 @@ export class WarmCacheService {
             this.logger.error(`[${zip}] ✗ "${product}" failed: ${err.message}`);
           }
 
-          // Stagger to avoid Oxylabs rate-limits (skip delay after the last product)
-          if (i < this.top15Items.length - 1) {
+          // Stagger to avoid Oxylabs rate-limits
+          if (i < itemsToScrape.length - 1) {
             await this.sleep(this.STAGGER_DELAY_MS);
           }
         }
@@ -232,35 +243,34 @@ export class WarmCacheService {
   }
 
   /**
-   * Query distinct ZIP codes from users who have set a real location.
-   * Falls back to DEFAULT_ZIP if no users have a ZIP set.
+   * Queries search_activity to find ZIPs searched in the last 24 hours,
+   * along with the distinct queries searched in each ZIP.
    */
-  private async resolveUserZipCodes(): Promise<string[]> {
+  private async getActiveZipsAndQueries(): Promise<Map<string, string[]>> {
     try {
-      // Query top 20 most popular ZIP codes based on user count
-      const rows: { zip_code: string, count: string }[] = await this.userRepository
-        .createQueryBuilder('u')
-        .select('u.zip_code', 'zip_code')
-        .addSelect('COUNT(u.id)', 'count')
-        .where('u.zip_code IS NOT NULL')
-        .andWhere("u.zip_code != ''")
-        .groupBy('u.zip_code')
-        .orderBy('count', 'DESC')
-        .limit(20)
-        .getRawMany();
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      const activities = await this.searchActivityRepository
+        .createQueryBuilder('sa')
+        .where('sa.searched_at > :yesterday', { yesterday })
+        .getMany();
 
-      const zips = rows.map(r => r.zip_code).filter(Boolean);
-
-      if (zips.length === 0) {
-        this.logger.warn('No user ZIP codes found in DB — using default ZIP');
-        return [this.DEFAULT_ZIP];
+      const map = new Map<string, Set<string>>();
+      for (const act of activities) {
+        if (!map.has(act.zip)) map.set(act.zip, new Set());
+        map.get(act.zip)!.add(act.query);
       }
 
-      this.logger.log(`Resolved ${zips.length} unique user ZIP code(s) for warm-cache`);
-      return zips;
+      // Convert Sets to Arrays
+      const resultMap = new Map<string, string[]>();
+      for (const [zip, queries] of map.entries()) {
+        resultMap.set(zip, Array.from(queries));
+      }
+
+      return resultMap;
     } catch (err: any) {
-      this.logger.error(`Failed to resolve user ZIPs: ${err.message}. Falling back to default.`);
-      return [this.DEFAULT_ZIP];
+      this.logger.error(`Failed to fetch active ZIPs from search_activity: ${err.message}.`);
+      return new Map();
     }
   }
 

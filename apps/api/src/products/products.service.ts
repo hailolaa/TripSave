@@ -51,7 +51,7 @@ export class ProductsService {
    * Search for products in the local database, allowing stale data (older than 24h).
    * Returns whether the data is stale, allowing stale-while-revalidate patterns.
    */
-  async searchFromDbWithStaleness(query: string, zip: string): Promise<{ products: ScrapedProduct[], isStale: boolean } | null> {
+  async searchFromDbWithStaleness(query: string, zip: string): Promise<{ products: ScrapedProduct[], isStale: boolean, newestVerifiedAt: Date } | null> {
     const products = await this.storeProductsRepository.createQueryBuilder('sp')
       .leftJoinAndSelect('sp.product', 'p')
       .leftJoinAndSelect('sp.store', 's')
@@ -66,8 +66,15 @@ export class ProductsService {
     const staleCount = products.filter(sp => !sp.last_verified_at || sp.last_verified_at < freshnessThreshold).length;
     const isStale = staleCount > (products.length / 2); // Only stale if majority (>50%) are stale
 
+    // Find the most recent verification timestamp for cache age display
+    const newestVerifiedAt = products.reduce((max, sp) =>
+      sp.last_verified_at && sp.last_verified_at > max ? sp.last_verified_at : max,
+      new Date(0)
+    );
+
     return {
       isStale,
+      newestVerifiedAt,
       products: products.map(sp => ({
         store: sp.store.name,
         product: sp.product.name,

@@ -16,6 +16,7 @@ import { Store } from '../stores/store.entity';
 import { StoreChain } from '../stores/store-chain.entity';
 import { Product } from '../products/product.entity';
 import { DataSyncLog } from '../models/data-sync-log.entity';
+import { SearchActivity } from '../models/search-activity.entity';
 import { User } from '../users/user.entity';
 import { AdminUiController } from './admin-ui.controller';
 
@@ -35,6 +36,7 @@ import { AdminUiController } from './admin-ui.controller';
       StoreChain,
       Product,
       DataSyncLog,
+      SearchActivity,
       User,
     ]),
   ],

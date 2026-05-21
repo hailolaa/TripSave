@@ -13,7 +13,7 @@ interface CacheEntry<T> {
 export class SearchCacheService {
   private readonly logger = new Logger(SearchCacheService.name);
   private readonly cache = new Map<string, CacheEntry<any>>();
-  private readonly DEFAULT_TTL_MS = 60 * 60 * 1000; // 1 hour
+  private readonly DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
   /** Build a cache key from query + zip */
   makeKey(query: string, zip: string): string {

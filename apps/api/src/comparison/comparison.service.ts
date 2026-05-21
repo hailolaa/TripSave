@@ -16,6 +16,7 @@ import { calculateDriveCost, calculateTrueCost, metersToMiles, haversineDistance
 import { geocodePlaceNear } from '../utils/geocoding.util';
 import { GasSyncService } from '../services/gas-sync.service';
 import { isBlocklisted, scoreProductRelevance, classifySearchIntent } from '../utils/relevance.util';
+import { SearchActivity } from '../models/search-activity.entity';
 
 @Injectable()
 export class ComparisonService {
@@ -24,8 +25,8 @@ export class ComparisonService {
   /** In-flight request deduplication — prevents duplicate DB/scrape calls for the same query+zip */
   private readonly inFlight = new Map<string, Promise<any>>();
   
-  /** In-memory L1 cache (5 min TTL) to avoid DB trips for repeated identical searches */
-  private readonly l1Cache = new NodeCache({ stdTTL: 300 });
+  /** In-memory L1 cache (24h default TTL) to avoid DB trips for repeated identical searches */
+  private readonly l1Cache = new NodeCache({ stdTTL: 86400 });
 
   constructor(
     private readonly osrmService: OsrmService,
@@ -41,7 +42,21 @@ export class ComparisonService {
     private productRepository: Repository<Product>,
     @InjectRepository(Store)
     private storesRepository: Repository<Store>,
+    @InjectRepository(SearchActivity)
+    private searchActivityRepository: Repository<SearchActivity>,
   ) {}
+
+  private async recordSearchActivity(zip: string, query: string) {
+    try {
+      const cleanQuery = query.toLowerCase().trim();
+      await this.searchActivityRepository.upsert(
+        { zip, query: cleanQuery, searched_at: new Date() },
+        ['zip', 'query']
+      );
+    } catch (err: any) {
+      this.logger.error(`Failed to record search activity for ${query} in ${zip}: ${err.message}`);
+    }
+  }
 
   /**
    * Compare prices for a single item across all nearby stores.
@@ -86,11 +101,12 @@ export class ComparisonService {
     }
 
     const promise = this._executeCompareItem(
-      itemName, userLat, userLng, userMpg, gasPrice,
+      dedupeKey, itemName, userLat, userLng, userMpg, gasPrice,
       resolvedZip, storeType, isRoundTrip, sortBy, forceRefresh, preferredRadius,
     ).then(result => {
       if (result && result.status === 'ready' && result.results.length > 0) {
-        this.l1Cache.set(dedupeKey, result);
+        const ttl = storeType === 'gas' || itemName.toLowerCase() === 'gas' ? 4 * 3600 : 24 * 3600; // 4h gas, 24h grocery
+        this.l1Cache.set(dedupeKey, result, ttl);
       }
       return result;
     });
@@ -136,6 +152,7 @@ export class ComparisonService {
    * Internal execution of compareItem, separated for in-flight dedup.
    */
   private async _executeCompareItem(
+    dedupeKey: string,
     itemName: string,
     userLat: number,
     userLng: number,
@@ -151,6 +168,9 @@ export class ComparisonService {
     // ── Step 1: Check DB for data (allow stale) ────────────
     this.logger.log(`Checking DB for data: "${itemName}" in ZIP ${resolvedZip}`);
     
+    // Record search activity so cron knows this is active
+    this.recordSearchActivity(resolvedZip, itemName);
+    
     let dbCheck = null;
     if (!forceRefresh) {
       dbCheck = await this.productsService.searchFromDbWithStaleness(itemName, resolvedZip);
@@ -158,10 +178,13 @@ export class ComparisonService {
 
     if (dbCheck && dbCheck.products && dbCheck.products.length > 0) {
       const isStale = dbCheck.isStale;
+      const cachedAt = dbCheck.newestVerifiedAt || new Date();
+      const ageMs = Date.now() - cachedAt.getTime();
+      const ageHours = Math.floor(ageMs / 3600000);
       
       const filteredDbProducts = this.applyRelevanceFilter(dbCheck.products, itemName);
       
-      this.logger.log(`DB cache hit: ${filteredDbProducts.length} relevant results for "${itemName}" (Stale: ${isStale}).`);
+      this.logger.log(`DB cache hit: ${filteredDbProducts.length} relevant results for "${itemName}" (Stale: ${isStale}, Age: ${ageHours}h).`);
       let items = await this.formatScrapedForUI(filteredDbProducts, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
 
       // Apply store type filter if provided
@@ -172,23 +195,21 @@ export class ComparisonService {
         );
       }
 
-      const formattedResults = { status: 'ready', results: this.sortComparisons(items, sortBy) };
-
-      // STALE-WHILE-REVALIDATE: If stale, serve now but trigger background scrape
       if (isStale) {
-        this.logger.log(`Data for "${itemName}" is stale. Firing background re-scrape for ZIP ${resolvedZip}...`);
-        this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: true })
-          .then(async (scraperResult) => {
-            if (scraperResult.data.length > 0) {
-              this.logger.log(`Background re-scrape returned ${scraperResult.data.length} results for "${itemName}".`);
-              await this.productsService.upsertScrapedProducts(scraperResult.data, resolvedZip)
-                .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
-            }
-          })
-          .catch(err => this.logger.error(`Background re-scrape failed for "${itemName}": ${err.message}`));
+        this.logger.log(`Data for "${itemName}" is stale but serving from cache. Cron will refresh.`);
       }
 
-      return formattedResults;
+      return { 
+        status: 'ready', 
+        results: this.sortComparisons(items, sortBy),
+        meta: {
+          cachedAt: cachedAt.toISOString(),
+          ageHours,
+          label: ageHours < 1 ? 'Prices updated just now'
+               : ageHours < 24 ? `Prices updated ${ageHours}h ago`
+               : 'Prices updated yesterday'
+        }
+      };
     }
 
     // ── Step 2: No DB data — fire scrape as background job ─────

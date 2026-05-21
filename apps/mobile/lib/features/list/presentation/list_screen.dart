@@ -244,8 +244,6 @@ class _ListScreenState extends State<ListScreen> {
   Widget _buildCartSummary(Map<String, dynamic> summary) {
     final itemsFound = summary['items_found'] ?? 0;
     final basketTotal = summary['item_total'] ?? 0.0;
-    final driveCost = summary['driving_cost'] ?? 0.0;
-    final trueCost = summary['true_cost'] ?? 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -336,27 +334,6 @@ class _ListScreenState extends State<ListScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryPill(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: Colors.grey.shade600),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              text, 
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
       ),
     );
   }

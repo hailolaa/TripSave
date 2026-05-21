@@ -60,12 +60,6 @@ class _CompareScreenState extends State<CompareScreen> {
     return _favoriteStores.contains(storeName.toLowerCase());
   }
 
-  String _formatFetchedAt(DateTime fetchedAt) {
-    final hour = fetchedAt.hour.toString().padLeft(2, '0');
-    final minute = fetchedAt.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -334,27 +328,20 @@ class _CompareScreenState extends State<CompareScreen> {
               ),
             ),
               const SizedBox(height: 24),
-              BlocSelector<ComparisonCubit, ComparisonState, DateTime?>(
+              BlocSelector<ComparisonCubit, ComparisonState, String?>(
                 selector: (state) {
-                  if (state is ComparisonLoaded) return state.fetchedAt;
+                  if (state is ComparisonLoaded) return state.cacheAgeLabel;
                   return null;
                 },
-                builder: (context, fetchedAt) {
-                  if (fetchedAt == null) return const SizedBox.shrink();
+                builder: (context, label) {
+                  if (label == null) return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
-                        Icon(Icons.schedule, size: 14, color: Colors.grey.shade600),
+                        Icon(Icons.schedule, size: 14, color: Colors.grey.shade500),
                         const SizedBox(width: 6),
-                        Text(
-                          'Last updated ${_formatFetchedAt(fetchedAt)}',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                       ],
                     ),
                   );

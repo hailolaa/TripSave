@@ -83,8 +83,20 @@ export class ComparisonController {
     );
 
     // Normalize response shape: always { status, results }
-    if (result && result.status) return result;
-    return { status: 'ready', results: Array.isArray(result) ? result : [] };
+    const response = (result && result.status) ? result : { status: 'ready', results: Array.isArray(result) ? result : [] };
+    
+    if (!isUSA) {
+      return {
+        ...response,
+        meta: {
+          forcedZip: '75201',
+          forcedLocation: 'Uptown Dallas, TX',
+          reason: 'GPS coordinates outside USA'
+        }
+      };
+    }
+    
+    return response;
   }
 
   // @UseGuards(JwtAuthGuard)
