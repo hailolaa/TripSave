@@ -109,6 +109,22 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     });
   }
 
+  void changeSort(String sortBy) {
+    _sortBy = sortBy;
+    if (state is ComparisonLoaded) {
+      final currentState = state as ComparisonLoaded;
+      final sortedResults = List<dynamic>.from(currentState.results);
+      
+      sortedResults.sort((a, b) {
+        final aVal = a[sortBy] ?? 0.0;
+        final bVal = b[sortBy] ?? 0.0;
+        return (aVal as num).compareTo(bVal as num);
+      });
+
+      emit(currentState.copyWith(results: sortedResults, sortBy: sortBy));
+    }
+  }
+
   Future<void> _saveToLocalCache(String key, List<dynamic> results) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('cache_$key', jsonEncode(results));
@@ -277,6 +293,14 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final meta = responseData is Map ? responseData['meta'] : null;
       final cacheAgeLabel = meta?['label'] as String?;
       final cacheAgeHours = meta?['ageHours'] as int?;
+
+      if (meta != null && meta['forcedZip'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('resolved_zip', meta['forcedZip']);
+        await prefs.setDouble('resolved_lat', 32.776664);
+        await prefs.setDouble('resolved_lng', -96.796987);
+        locationService.setLocation(meta['forcedLocation'] ?? 'Dallas, TX', lat: 32.776664, lng: -96.796987);
+      }
 
       await _saveToLocalCache(cacheKey, results);
       emit(ComparisonLoaded(

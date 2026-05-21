@@ -255,9 +255,7 @@ class _CompareScreenState extends State<CompareScreen> {
                           ],
                           onChanged: (val) {
                             if (val != null) {
-                              final filter = _filters[_selectedFilterIndex].toLowerCase();
-                              final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
-                              context.read<ComparisonCubit>().searchItem(query, storeType: filter, sortBy: val, forceRefresh: false);
+                              context.read<ComparisonCubit>().changeSort(val);
                             }
                           },
                         ),

@@ -89,6 +89,7 @@ export class ComparisonController {
       return {
         ...response,
         meta: {
+          ...(response.meta || {}),
           forcedZip: '75201',
           forcedLocation: 'Uptown Dallas, TX',
           reason: 'GPS coordinates outside USA'
