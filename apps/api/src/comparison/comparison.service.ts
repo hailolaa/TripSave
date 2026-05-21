@@ -679,13 +679,13 @@ export class ComparisonService {
       savings: Number((mostExpensive - c.true_cost).toFixed(2))
     }));
 
-    // First sort by relevance (descending), then by selected criteria
+    // First sort by missing items (fewer missing items is better), then by selected criteria
     return results.sort((a, b) => {
-      const relA = a.relevance_score ?? 0;
-      const relB = b.relevance_score ?? 0;
+      const missingA = a.missing_items ?? 0;
+      const missingB = b.missing_items ?? 0;
       
-      if (relA !== relB) {
-        return relB - relA; // Descending
+      if (missingA !== missingB) {
+        return missingA - missingB; // Ascending: 0 missing items comes before 1 missing item
       }
       
       // Fallback to chosen criteria
@@ -698,10 +698,10 @@ export class ComparisonService {
         case 'driving_distance':
           return a.driving_distance - b.driving_distance;
         case 'savings':
-          return b.savings - a.savings;
+          return b.savings - a.savings; // Descending for savings (higher is better)
         case 'true_cost':
         default:
-          return a.true_cost - b.true_cost;
+          return a.true_cost - b.true_cost; // Ascending for true cost (lower is better)
       }
     });
   }

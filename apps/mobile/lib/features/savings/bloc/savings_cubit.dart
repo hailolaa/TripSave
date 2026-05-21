@@ -17,7 +17,9 @@ class SavingsLoaded extends SavingsState {
 class SavingsCubit extends Cubit<SavingsState> {
   final SavingsRepository _repository;
 
-  SavingsCubit(this._repository) : super(SavingsInitial());
+  SavingsCubit(this._repository) : super(SavingsInitial()) {
+    loadSavings();
+  }
 
   void loadSavings() {
     emit(SavingsLoading());

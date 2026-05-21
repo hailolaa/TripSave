@@ -57,7 +57,7 @@ class SavingsScreen extends StatelessWidget {
 
           BlocBuilder<SavingsCubit, SavingsState>(
             builder: (context, state) {
-          if (state is SavingsLoading) {
+          if (state is SavingsLoading || state is SavingsInitial) {
             return const Center(child: CircularProgressIndicator());
           }
           if (state is SavingsLoaded) {

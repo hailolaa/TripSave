@@ -312,7 +312,10 @@ class AuthCubit extends Cubit<AuthState> {
       try {
         final profile = await authRepository.getProfile();
         if (profile != null) {
-          _resolveAuthState(profile);
+          // Force subscription status to 'trialing' since we just activated it
+          final Map<String, dynamic> updatedProfile = Map<String, dynamic>.from(profile);
+          updatedProfile['subscription_status'] = 'trialing';
+          _resolveAuthState(updatedProfile);
         } else {
           emit(AuthAuthenticated());
           _triggerOnLogin();
