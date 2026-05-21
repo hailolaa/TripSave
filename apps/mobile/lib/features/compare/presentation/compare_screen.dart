@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:latlong2/latlong.dart';
 import 'compare_map_view.dart';
 import '../bloc/comparison_cubit.dart';
@@ -40,7 +41,7 @@ class _CompareScreenState extends State<CompareScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
-    // No auto-fetch on initState – wait for user to click "Compare"
+    context.read<ComparisonCubit>().prefetch();
   }
 
   void _loadFavorites() {
@@ -451,14 +452,14 @@ class _CompareScreenState extends State<CompareScreen> {
                           if (isBest) {
                             card = Column(
                               children: [
-                                _buildBestOptionCard(comparison, true, sortBy: sortBy),
+                                RepaintBoundary(child: _buildBestOptionCard(comparison, true, sortBy: sortBy)),
                                 const SizedBox(height: 16),
                               ],
                             );
                           } else {
                             card = Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildRegularStoreCard(comparison, false, sortBy: sortBy),
+                              child: RepaintBoundary(child: _buildRegularStoreCard(comparison, false, sortBy: sortBy)),
                             );
                           }
 
@@ -793,13 +794,15 @@ class _CompareScreenState extends State<CompareScreen> {
                   _buildBestOptionMetric(
                     'Basket', 
                     '\$${comparison['item_total']}', 
-                    isPrimary: sortBy == 'item_total'
+                    isPrimary: sortBy == 'item_total',
+                    isLoading: comparison['is_loading'] == true,
                   ),
                   Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
                   _buildBestOptionMetric(
                     'Drive', 
                     '\$${comparison['driving_cost']}', 
-                    isPrimary: sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance'
+                    isPrimary: sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance',
+                    isLoading: comparison['is_loading'] == true,
                   ),
                   Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
                   _buildBestOptionMetric(
@@ -807,12 +810,23 @@ class _CompareScreenState extends State<CompareScreen> {
                     isGas 
                         ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}/gal'
                         : '\$${comparison['true_cost']}', 
-                    isPrimary: sortBy == 'true_cost' || sortBy == 'savings' || sortBy == null
+                    isPrimary: sortBy == 'true_cost' || sortBy == 'savings' || sortBy == null,
+                    isLoading: comparison['is_loading'] == true,
                   ),
                 ],
               ),
             const SizedBox(height: 24),
-            if (comparison['savings'] != null && comparison['savings'] > 0)
+            if (comparison['is_loading'] == true)
+               Shimmer.fromColors(
+                 baseColor: primaryColor.withValues(alpha: 0.05),
+                 highlightColor: primaryColor.withValues(alpha: 0.1),
+                 child: Container(
+                   width: double.infinity,
+                   height: 48,
+                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                 ),
+               )
+            else if (comparison['savings'] != null && comparison['savings'] > 0)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -839,19 +853,25 @@ class _CompareScreenState extends State<CompareScreen> {
      .moveY(begin: 0, end: -6, duration: 3.seconds, curve: Curves.easeInOut);
   }
 
-  Widget _buildBestOptionMetric(String label, String value, {bool isPrimary = false}) {
+  Widget _buildBestOptionMetric(String label, String value, {bool isPrimary = false, bool isLoading = false}) {
     return Column(
       children: [
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
         const SizedBox(height: 6),
-        Text(
-          value, 
-          style: TextStyle(
-            fontSize: isPrimary ? 20 : 16, 
-            fontWeight: FontWeight.w900, 
-            color: isPrimary ? AppTheme.savingsGreen : AppTheme.textDark
-          )
-        ),
+        isLoading 
+          ? Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade100,
+              child: Container(width: 50, height: 20, color: Colors.white),
+            )
+          : Text(
+              value, 
+              style: TextStyle(
+                fontSize: isPrimary ? 20 : 16, 
+                fontWeight: FontWeight.w900, 
+                color: isPrimary ? AppTheme.savingsGreen : AppTheme.textDark
+              )
+            ),
       ],
     );
   }
@@ -900,13 +920,19 @@ class _CompareScreenState extends State<CompareScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        sortBy == 'item_total' ? '\$${comparison['item_total']}' :
-                        (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? '\$${comparison['driving_cost']}' :
-                        sortBy == 'savings' ? 'Save \$${comparison['savings']}' :
-                        (isGas ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}' : '\$${comparison['true_cost']}'), 
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppTheme.textDark)
-                      ),
+                      comparison['is_loading'] == true
+                        ? Shimmer.fromColors(
+                            baseColor: Colors.grey.shade300,
+                            highlightColor: Colors.grey.shade100,
+                            child: Container(width: 40, height: 16, color: Colors.white),
+                          )
+                        : Text(
+                            sortBy == 'item_total' ? '\$${comparison['item_total']}' :
+                            (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? '\$${comparison['driving_cost']}' :
+                            sortBy == 'savings' ? 'Save \$${comparison['savings']}' :
+                            (isGas ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}' : '\$${comparison['true_cost']}'), 
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppTheme.textDark)
+                          ),
                       Text(
                         sortBy == 'item_total' ? 'items' :
                         (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? 'drive' :

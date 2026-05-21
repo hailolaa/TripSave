@@ -47,6 +47,36 @@ export class ProductsService {
     }));
   }
 
+  /**
+   * Search for products in the local database, allowing stale data (older than 24h).
+   * Returns whether the data is stale, allowing stale-while-revalidate patterns.
+   */
+  async searchFromDbWithStaleness(query: string, zip: string): Promise<{ products: ScrapedProduct[], isStale: boolean } | null> {
+    const products = await this.storeProductsRepository.createQueryBuilder('sp')
+      .leftJoinAndSelect('sp.product', 'p')
+      .leftJoinAndSelect('sp.store', 's')
+      .where('s.zip = :zip', { zip })
+      .andWhere('(p.name LIKE :q OR p.normalized_name LIKE :q)', { q: `%${query}%` })
+      .orderBy('sp.price', 'ASC')
+      .getMany();
+
+    if (products.length === 0) return null;
+
+    const freshnessThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const isStale = products.some(sp => !sp.last_verified_at || sp.last_verified_at < freshnessThreshold);
+
+    return {
+      isStale,
+      products: products.map(sp => ({
+        store: sp.store.name,
+        product: sp.product.name,
+        price: Number(sp.price),
+        image: sp.product.image_url || '',
+        source: sp.source as any,
+      }))
+    };
+  }
+
   private cleanName(name: string): string {
     if (!name) return name;
     let cleaned = name.split('$')[0];

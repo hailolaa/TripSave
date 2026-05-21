@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ComparisonService } from './comparison.service';
 import { ComparisonController } from './comparison.controller';
+import { CacheController } from './cache.controller';
 import { OsrmModule } from '../integrations/osrm/osrm.module';
 import { StoresModule } from '../stores/stores.module';
 import { UsersModule } from '../users/users.module';
@@ -24,6 +25,6 @@ import { AdminModule } from '../admin/admin.module';
     TypeOrmModule.forFeature([StoreProduct, GasPrice, Product, Store])
   ],
   providers: [ComparisonService],
-  controllers: [ComparisonController],
+  controllers: [ComparisonController, CacheController],
 })
 export class ComparisonModule {}

@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/location_service.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 abstract class ComparisonState extends Equatable {
   @override
@@ -25,6 +28,8 @@ class ComparisonLoaded extends ComparisonState {
   final double? userLat;
   final double? userLng;
   final DateTime fetchedAt;
+  final bool isLocalCache;
+  final bool isStoreShells;
   
   ComparisonLoaded(
     this.results, {
@@ -33,10 +38,12 @@ class ComparisonLoaded extends ComparisonState {
     this.userLat,
     this.userLng,
     DateTime? fetchedAt,
+    this.isLocalCache = false,
+    this.isStoreShells = false,
   }) : fetchedAt = fetchedAt ?? DateTime.now();
   
   @override
-  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng, fetchedAt];
+  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng, fetchedAt, isLocalCache, isStoreShells];
 
   ComparisonLoaded copyWith({
     List<dynamic>? results,
@@ -45,6 +52,8 @@ class ComparisonLoaded extends ComparisonState {
     double? userLat,
     double? userLng,
     DateTime? fetchedAt,
+    bool? isLocalCache,
+    bool? isStoreShells,
   }) {
     return ComparisonLoaded(
       results ?? this.results,
@@ -53,6 +62,8 @@ class ComparisonLoaded extends ComparisonState {
       userLat: userLat ?? this.userLat,
       userLng: userLng ?? this.userLng,
       fetchedAt: fetchedAt ?? this.fetchedAt,
+      isLocalCache: isLocalCache ?? this.isLocalCache,
+      isStoreShells: isStoreShells ?? this.isStoreShells,
     );
   }
 }
@@ -67,30 +78,53 @@ class ComparisonCubit extends Cubit<ComparisonState> {
   final ApiClient apiClient;
   final LocationService locationService;
 
-  /// Tracks the last successful query + filter to avoid redundant API calls.
-  /// When the user navigates away and comes back, the cubit already has data
-  /// and won't re-fetch unless the user explicitly searches or changes filters.
   String? _lastQuery;
   String? _lastStoreType;
   String _sortBy = 'true_cost';
   bool _isRoundTrip = true;
   bool _isLoading = false;
 
-  ComparisonCubit(this.apiClient, this.locationService) : super(ComparisonInitial());
+  ComparisonCubit(this.apiClient, this.locationService) : super(ComparisonInitial()) {
+    _initConnectivityListener();
+  }
 
   String get currentSortBy => _sortBy;
   bool get currentIsRoundTrip => _isRoundTrip;
-
-  /// Whether we already have loaded results (used by the UI to skip initState fetch).
   bool get hasData => state is ComparisonLoaded;
+
+  void _initConnectivityListener() {
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      if (!results.contains(ConnectivityResult.none) && _lastQuery != null) {
+        // Re-fetch when connectivity is restored silently
+        searchItem(_lastQuery!, storeType: _lastStoreType, forceRefresh: false, isSilent: true);
+      }
+    });
+  }
+
+  Future<void> _saveToLocalCache(String key, List<dynamic> results) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('cache_$key', jsonEncode(results));
+  }
+
+  Future<List<dynamic>?> _loadFromLocalCache(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedData = prefs.getString('cache_$key');
+    if (cachedData != null) {
+      return jsonDecode(cachedData) as List<dynamic>;
+    }
+    return null;
+  }
+
+  Future<void> prefetch() async {
+    // Silently fetch default item on app open
+    await searchItem('milk', forceRefresh: false, isSilent: true);
+  }
 
   Future<void> fetchComparisons(List<dynamic> items, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip}) async {
     final key = 'cart:${items.map((i) => i['product_id']).join(',')}';
-    
     if (sortBy != null) _sortBy = sortBy;
     if (isRoundTrip != null) _isRoundTrip = isRoundTrip;
 
-    // Skip if we already have results for this exact query
     if (!forceRefresh && state is ComparisonLoaded && _lastQuery == key && _lastStoreType == storeType && sortBy == null && isRoundTrip == null) {
       return;
     }
@@ -110,10 +144,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         }).toList(),
       };
 
-      if (storeType != null && storeType != 'all') {
-        data['storeType'] = storeType;
-      }
-      
+      if (storeType != null && storeType != 'all') data['storeType'] = storeType;
       data['sortBy'] = _sortBy;
       data['isRoundTrip'] = _isRoundTrip;
 
@@ -122,36 +153,76 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       _lastQuery = key;
       _lastStoreType = storeType;
       emit(ComparisonLoaded(response.data, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng));
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.connectionTimeout) {
-        emit(ComparisonError('Search is taking longer than expected. Please try again.'));
-      } else {
-        emit(ComparisonError('Failed to fetch comparisons. Please check your connection.'));
-      }
     } catch (e) {
       emit(ComparisonError(e.toString()));
     }
   }
 
-  Future<void> searchItem(String itemName, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip, bool isPolling = false}) async {
+  Future<void> searchItem(String itemName, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip, bool isPolling = false, bool isSilent = false, bool isRetry = false}) async {
     if (itemName.isEmpty) return;
-    if (_isLoading && !isPolling) return; // Prevent duplicate API calls
+    if (_isLoading && !isPolling && !isRetry) return;
 
     if (sortBy != null) _sortBy = sortBy;
     if (isRoundTrip != null) _isRoundTrip = isRoundTrip;
 
-    // Skip if we already have results for this exact query + filter.
-    // This prevents re-fetching when the user navigates between tabs.
-    if (!forceRefresh && !isPolling && state is ComparisonLoaded && _lastQuery == itemName && _lastStoreType == storeType && sortBy == null && isRoundTrip == null) {
-      return;
+    final cacheKey = '${itemName}_${storeType}_$_sortBy';
+
+    if (!forceRefresh && !isPolling && !isRetry && !isSilent) {
+      if (state is ComparisonLoaded && _lastQuery == itemName && _lastStoreType == storeType && sortBy == null && isRoundTrip == null) {
+        return;
+      }
+      
+      // Local cache check first
+      final cachedResults = await _loadFromLocalCache(cacheKey);
+      if (cachedResults != null && cachedResults.isNotEmpty) {
+        emit(ComparisonLoaded(cachedResults, sortBy: _sortBy, isRoundTrip: _isRoundTrip, isLocalCache: true));
+      } else {
+        emit(ComparisonLoading());
+      }
+    } else if (!isPolling && !isSilent && state is! ComparisonLoaded) {
+      emit(ComparisonLoading());
     }
 
-    if (!isPolling) emit(ComparisonLoading());
     _isLoading = true;
     try {
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none) && !isRetry) {
+        if (state is! ComparisonLoaded) emit(ComparisonError('No internet connection. Please try again.'));
+        _isLoading = false;
+        return;
+      }
+
       final position = await locationService.getCurrentLocation();
       final double userLat = position.latitude;
       final double userLng = position.longitude;
+
+      // PROGRESSIVE LOADING: fetch stores instantly first
+      if (!isPolling && !isSilent && state is! ComparisonLoaded) {
+        try {
+          final storesResponse = await apiClient.dio.get('/stores', queryParameters: {'lat': userLat, 'lng': userLng, 'radius': 20});
+          if (storesResponse.data is List) {
+            final stores = storesResponse.data as List<dynamic>;
+            final shellResults = stores.map((s) => {
+              'store': {
+                'name': s['store']['name'],
+                'chain': s['store']['chain'],
+                'address': s['store']['address'],
+                'id': s['store']['id']
+              },
+              'driving_distance': s['distance'],
+              'driving_cost': 0.0,
+              'true_cost': 0.0,
+              'item_total': 0.0,
+              'is_loading': true
+            }).toList();
+            if (shellResults.isNotEmpty) {
+              emit(ComparisonLoaded(shellResults, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng, isStoreShells: true));
+            }
+          }
+        } catch (e) {
+          // Ignore store fetch error, wait for prices
+        }
+      }
 
       final Map<String, dynamic> queryParams = {
         'lat': userLat,
@@ -169,28 +240,23 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         response = await apiClient.dio.get('/comparison/gas', queryParameters: queryParams);
       } else {
         queryParams['item'] = itemName;
-        if (storeType != null && storeType != 'all') {
-          queryParams['storeType'] = storeType;
-        }
+        if (storeType != null && storeType != 'all') queryParams['storeType'] = storeType;
         queryParams['sortBy'] = _sortBy;
         queryParams['isRoundTrip'] = _isRoundTrip.toString();
-        // Ensure backend can bypass DB + in-memory cache when user refreshes.
         queryParams['forceRefresh'] = forceRefresh.toString();
         response = await apiClient.dio.get('/comparison/compare', queryParameters: queryParams);
       }
 
-      // Track what we fetched so we can skip duplicate requests
       _lastQuery = itemName;
       _lastStoreType = storeType;
 
       final responseData = response.data;
       if (responseData is Map && responseData['status'] == 'warming') {
-         emit(ComparisonWarming(query: itemName, storeType: storeType));
+         if (!isSilent) emit(ComparisonWarming(query: itemName, storeType: storeType));
          _pollWarming(itemName, storeType, _sortBy, _isRoundTrip, forceRefresh);
          return;
       }
       
-      // Normalize: always extract a List from the response
       List<dynamic> results;
       if (responseData is List) {
         results = responseData;
@@ -200,16 +266,25 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         results = [];
       }
 
-      // The backend now returns a list of UI-compatible comparison objects
+      await _saveToLocalCache(cacheKey, results);
       emit(ComparisonLoaded(results, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng));
+      
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.connectionTimeout) {
-        emit(ComparisonError('Search is taking longer than expected. Please try again.'));
-      } else {
-        emit(ComparisonError('Failed to fetch comparisons. Please check your connection.'));
+      if (!isRetry && (e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.connectionTimeout)) {
+        // Automatic retry once
+        await Future.delayed(const Duration(seconds: 2));
+        return searchItem(itemName, storeType: storeType, forceRefresh: forceRefresh, sortBy: sortBy, isRoundTrip: isRoundTrip, isRetry: true, isSilent: isSilent);
+      }
+      
+      if (!isSilent) {
+        if (state is! ComparisonLoaded) {
+          emit(ComparisonError('Failed to fetch comparisons. Please check your connection.'));
+        }
       }
     } catch (e) {
-      emit(ComparisonError(e.toString()));
+      if (!isSilent && state is! ComparisonLoaded) {
+        emit(ComparisonError(e.toString()));
+      }
     } finally {
       _isLoading = false;
     }
@@ -219,20 +294,16 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     int attempts = 0;
     while (attempts < 10) {
       await Future.delayed(const Duration(seconds: 4));
-      // Only poll if we are still in warming state for this query
       if (state is! ComparisonWarming) return;
       final warmingState = state as ComparisonWarming;
       if (warmingState.query != itemName) return;
 
       attempts++;
-      // Set forceRefresh=false for polls so we hit DB cache
       await searchItem(itemName, storeType: storeType, forceRefresh: false, sortBy: sortBy, isRoundTrip: isRoundTrip, isPolling: true);
       
-      // If we got loaded results or an error, stop polling
       if (state is ComparisonLoaded || state is ComparisonError) return;
     }
     
-    // If we hit max attempts and still warming, show error
     if (state is ComparisonWarming) {
       emit(ComparisonError('Still finding best prices. Try refreshing in a moment.'));
     }

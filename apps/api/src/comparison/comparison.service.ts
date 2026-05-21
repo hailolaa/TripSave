@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import NodeCache from 'node-cache';
 import { OsrmService } from '../integrations/osrm/osrm.service';
 import { StoresService } from '../stores/stores.service';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,6 +22,9 @@ export class ComparisonService {
 
   /** In-flight request deduplication — prevents duplicate DB/scrape calls for the same query+zip */
   private readonly inFlight = new Map<string, Promise<any>>();
+  
+  /** In-memory L1 cache (5 min TTL) to avoid DB trips for repeated identical searches */
+  private readonly l1Cache = new NodeCache({ stdTTL: 300 });
 
   constructor(
     private readonly osrmService: OsrmService,
@@ -63,7 +67,15 @@ export class ComparisonService {
     preferredRadius: number = 20,
   ) {
     const resolvedZip = zipCode || '75201';
-    const dedupeKey = `${itemName.toLowerCase().trim()}:${resolvedZip}`;
+    const dedupeKey = `${itemName.toLowerCase().trim()}:${resolvedZip}:${storeType || 'all'}:${isRoundTrip}:${preferredRadius}`;
+
+    if (!forceRefresh) {
+      const hit = this.l1Cache.get<any>(dedupeKey);
+      if (hit) {
+        this.logger.log(`L1 Cache hit for "${itemName}" in ${resolvedZip}`);
+        return hit;
+      }
+    }
 
     // ── In-flight deduplication — join existing request if identical ──
     const existingRequest = this.inFlight.get(dedupeKey);
@@ -75,7 +87,12 @@ export class ComparisonService {
     const promise = this._executeCompareItem(
       itemName, userLat, userLng, userMpg, gasPrice,
       resolvedZip, storeType, isRoundTrip, sortBy, forceRefresh, preferredRadius,
-    );
+    ).then(result => {
+      if (result && result.status === 'ready' && result.results.length > 0) {
+        this.l1Cache.set(dedupeKey, result);
+      }
+      return result;
+    });
     this.inFlight.set(dedupeKey, promise);
 
     try {
@@ -101,13 +118,19 @@ export class ComparisonService {
     forceRefresh: boolean = false,
     preferredRadius: number = 20,
   ) {
-    // ── Step 1: Check DB for fresh data (< 24 hours old) ────────────
-    this.logger.log(`Checking DB for fresh data: "${itemName}" in ZIP ${resolvedZip}`);
-    const dbResults = await this.productsService.searchFromDb(itemName, resolvedZip);
+    // ── Step 1: Check DB for data (allow stale) ────────────
+    this.logger.log(`Checking DB for data: "${itemName}" in ZIP ${resolvedZip}`);
+    
+    let dbCheck = null;
+    if (!forceRefresh) {
+      dbCheck = await this.productsService.searchFromDbWithStaleness(itemName, resolvedZip);
+    }
 
-    if (dbResults && dbResults.length > 0 && !forceRefresh) {
-      this.logger.log(`DB cache hit: ${dbResults.length} fresh results for "${itemName}". Skipping scrape.`);
-      let items = await this.formatScrapedForUI(dbResults, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
+    if (dbCheck && dbCheck.products && dbCheck.products.length > 0) {
+      const isStale = dbCheck.isStale;
+      
+      this.logger.log(`DB cache hit: ${dbCheck.products.length} results for "${itemName}" (Stale: ${isStale}).`);
+      let items = await this.formatScrapedForUI(dbCheck.products, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
 
       // Apply store type filter if provided
       if (storeType && storeType !== 'all' as any) {
@@ -117,11 +140,27 @@ export class ComparisonService {
         );
       }
 
-      return { status: 'ready', results: this.sortComparisons(items, sortBy) };
+      const formattedResults = { status: 'ready', results: this.sortComparisons(items, sortBy) };
+
+      // STALE-WHILE-REVALIDATE: If stale, serve now but trigger background scrape
+      if (isStale) {
+        this.logger.log(`Data for "${itemName}" is stale. Firing background re-scrape for ZIP ${resolvedZip}...`);
+        this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: true })
+          .then(async (scraperResult) => {
+            if (scraperResult.data.length > 0) {
+              this.logger.log(`Background re-scrape returned ${scraperResult.data.length} results for "${itemName}".`);
+              await this.productsService.upsertScrapedProducts(scraperResult.data, resolvedZip)
+                .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
+            }
+          })
+          .catch(err => this.logger.error(`Background re-scrape failed for "${itemName}": ${err.message}`));
+      }
+
+      return formattedResults;
     }
 
-    // ── Step 2: No fresh DB data — fire scrape as background job ─────
-    this.logger.log(`No fresh DB data for "${itemName}". Firing background scrape for ZIP ${resolvedZip}...`);
+    // ── Step 2: No DB data — fire scrape as background job ─────
+    this.logger.log(`No DB data for "${itemName}". Firing background scrape for ZIP ${resolvedZip}...`);
 
     // Fire the scrape as a background job — do NOT await it
     this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: forceRefresh })

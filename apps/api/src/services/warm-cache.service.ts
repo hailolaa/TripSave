@@ -156,11 +156,11 @@ export class WarmCacheService {
   }
 
   /**
-   * Cron job: runs every 45 minutes.
+   * Cron job: runs every 6 hours.
    * If the previous cycle is still running, the new invocation is skipped
    * to prevent overlapping heavy scrape loads.
    */
-  @Cron(CRON_SCHEDULES.WARM_CACHE_REFRESH)
+  @Cron('0 */6 * * *')
   async onCron(): Promise<void> {
     if (this.isRunning) {
       this.logger.warn('⏭ Warm-cache cycle already in progress — skipping this tick.');
@@ -191,13 +191,13 @@ export class WarmCacheService {
     try {
       // ── Resolve ZIP codes from real user locations ──────────────
       const zips = await this.resolveUserZipCodes();
-      this.logger.log(`🔥 Warm-cache cycle starting for ${zips.length} ZIP(s): ${zips.join(', ')} — ${WarmCacheService.POPULAR_PRODUCTS.length} products each`);
+      this.logger.log(`🔥 Warm-cache cycle starting for ${zips.length} ZIP(s): ${zips.join(', ')} — ${this.top15Items.length} priority products each`);
 
       for (const zip of zips) {
-        for (let i = 0; i < WarmCacheService.POPULAR_PRODUCTS.length; i++) {
-          const product = WarmCacheService.POPULAR_PRODUCTS[i];
+        for (let i = 0; i < this.top15Items.length; i++) {
+          const product = this.top15Items[i];
           try {
-            this.logger.log(`[${zip}] Warming ${i + 1}/${WarmCacheService.POPULAR_PRODUCTS.length}: "${product}"`);
+            this.logger.log(`[${zip}] Warming ${i + 1}/${this.top15Items.length}: "${product}"`);
 
             // This populates the in-memory cache (SearchCacheService, 1h TTL)
             const result = await this.aggregatorService.search(product, zip);
@@ -214,7 +214,7 @@ export class WarmCacheService {
           }
 
           // Stagger to avoid Oxylabs rate-limits (skip delay after the last product)
-          if (i < WarmCacheService.POPULAR_PRODUCTS.length - 1) {
+          if (i < this.top15Items.length - 1) {
             await this.sleep(this.STAGGER_DELAY_MS);
           }
         }
@@ -237,11 +237,16 @@ export class WarmCacheService {
    */
   private async resolveUserZipCodes(): Promise<string[]> {
     try {
-      const rows: { zip_code: string }[] = await this.userRepository
+      // Query top 20 most popular ZIP codes based on user count
+      const rows: { zip_code: string, count: string }[] = await this.userRepository
         .createQueryBuilder('u')
-        .select('DISTINCT u.zip_code', 'zip_code')
+        .select('u.zip_code', 'zip_code')
+        .addSelect('COUNT(u.id)', 'count')
         .where('u.zip_code IS NOT NULL')
         .andWhere("u.zip_code != ''")
+        .groupBy('u.zip_code')
+        .orderBy('count', 'DESC')
+        .limit(20)
         .getRawMany();
 
       const zips = rows.map(r => r.zip_code).filter(Boolean);
