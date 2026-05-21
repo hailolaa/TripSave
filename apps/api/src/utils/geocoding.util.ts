@@ -187,3 +187,25 @@ export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeR
     };
   }
 }
+
+/**
+ * Get neighboring ZIP codes by geocoding 4 offset points (approx 5 miles in each direction).
+ */
+export async function getNeighboringZips(lat: number, lng: number, zip: string): Promise<string[]> {
+  const offsets = [
+    [lat + 0.07, lng],  // north
+    [lat - 0.07, lng],  // south
+    [lat, lng + 0.07],  // east
+    [lat, lng - 0.07],  // west
+  ];
+  
+  const neighborZips = await Promise.all(
+    offsets.map(async ([oLat, oLng]) => {
+      const result = await reverseGeocode(oLat, oLng);
+      return result?.zipCode;
+    })
+  );
+  
+  const allZips = [zip, ...neighborZips].filter(Boolean) as string[];
+  return [...new Set(allZips)];
+}

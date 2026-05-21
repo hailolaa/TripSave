@@ -6,6 +6,7 @@ import { StoreProduct } from './store-product.entity';
 import { Store } from '../stores/store.entity';
 import { StoreChain, StoreChainType } from '../stores/store-chain.entity';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
+import { geocodePlace } from '../utils/geocoding.util';
 
 @Injectable()
 export class ProductsService {
@@ -175,15 +176,38 @@ export class ProductsService {
             await this.chainsRepository.update(chain.id, { logo_url: brand.logo });
           }
 
+          // Validate and heal coordinates
+          let lat = item.lat || 0;
+          let lng = item.lng || 0;
+          let coordsConfident = true;
+
+          const inUSA = lat > 24 && lat < 50 && lng > -125 && lng < -66;
+          
+          if (!lat || !lng || lat === 0 || lng === 0 || !inUSA) {
+            console.warn(`Missing or invalid coords for ${cleanedStoreName} — geocoding address`);
+            const coords = await geocodePlace(`${cleanedStoreName} ${zip}`);
+            if (coords && coords.lat && coords.lng) {
+              lat = coords.lat;
+              lng = coords.lng;
+            } else {
+              console.warn(`Failed to geocode coords for ${cleanedStoreName} — dropping confidence`);
+              coordsConfident = false;
+              // default to 0,0 if still invalid so it gets pushed down in distance sorting
+              lat = 0;
+              lng = 0;
+            }
+          }
+
           // Create dummy store if not exists
           store = await this.storesRepository.save({
             name: cleanedStoreName,
             zip,
-            lat: 0,
-            lng: 0,
+            lat,
+            lng,
             source: item.source as any,
             is_active: true,
-            chain_id: chain.id
+            chain_id: chain.id,
+            coords_confident: coordsConfident
           });
         }
 

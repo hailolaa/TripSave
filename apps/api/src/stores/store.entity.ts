@@ -50,6 +50,9 @@ export class Store {
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 
+  @Column({ type: 'boolean', default: true })
+  coords_confident: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   last_verified_at: Date;
 

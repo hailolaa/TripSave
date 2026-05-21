@@ -13,7 +13,7 @@ import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { calculateDriveCost, calculateTrueCost, metersToMiles, haversineDistanceMiles } from '../utils/geo.util';
-import { geocodePlaceNear } from '../utils/geocoding.util';
+import { geocodePlaceNear, getNeighboringZips } from '../utils/geocoding.util';
 import { GasSyncService } from '../services/gas-sync.service';
 import { isBlocklisted, scoreProductRelevance, classifySearchIntent } from '../utils/relevance.util';
 import { SearchActivity } from '../models/search-activity.entity';
@@ -166,25 +166,39 @@ export class ComparisonService {
     preferredRadius: number = 20,
   ) {
     // ── Step 1: Check DB for data (allow stale) ────────────
-    this.logger.log(`Checking DB for data: "${itemName}" in ZIP ${resolvedZip}`);
+    this.logger.log(`Checking DB for data: "${itemName}" in ZIP ${resolvedZip} and its neighbors`);
     
     // Record search activity so cron knows this is active
     this.recordSearchActivity(resolvedZip, itemName);
     
-    let dbCheck = null;
+    // Get all neighboring ZIPs
+    const zipsToSearch = await getNeighboringZips(userLat, userLng, resolvedZip);
+    
+    let isStale = false;
+    let cachedAt = new Date();
+    let mergedDbProducts: ScrapedProduct[] = [];
+
     if (!forceRefresh) {
-      dbCheck = await this.productsService.searchFromDbWithStaleness(itemName, resolvedZip);
+      const allResults = await Promise.all(
+        zipsToSearch.map(z => this.productsService.searchFromDbWithStaleness(itemName, z))
+      );
+      
+      const validResults = allResults.filter(Boolean);
+      if (validResults.length > 0) {
+        mergedDbProducts = validResults.flatMap(r => r!.products);
+        // Determine staleness and cachedAt from the combined results
+        isStale = validResults.some(r => r!.isStale);
+        cachedAt = validResults.reduce((max, r) =>
+          r!.newestVerifiedAt > max ? r!.newestVerifiedAt : max,
+          new Date(0)
+        );
+      }
     }
 
-    if (dbCheck && dbCheck.products && dbCheck.products.length > 0) {
-      const isStale = dbCheck.isStale;
-      const cachedAt = dbCheck.newestVerifiedAt || new Date();
-      const ageMs = Date.now() - cachedAt.getTime();
-      const ageHours = Math.floor(ageMs / 3600000);
+    if (mergedDbProducts.length > 0) {
+      const filteredDbProducts = this.applyRelevanceFilter(mergedDbProducts, itemName);
       
-      const filteredDbProducts = this.applyRelevanceFilter(dbCheck.products, itemName);
-      
-      this.logger.log(`DB cache hit: ${filteredDbProducts.length} relevant results for "${itemName}" (Stale: ${isStale}, Age: ${ageHours}h).`);
+      this.logger.log(`DB cache hit: ${filteredDbProducts.length} relevant results for "${itemName}" across ${zipsToSearch.length} ZIPs (Stale: ${isStale}).`);
       let items = await this.formatScrapedForUI(filteredDbProducts, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
 
       // Apply store type filter if provided
@@ -204,30 +218,32 @@ export class ComparisonService {
         results: this.sortComparisons(items, sortBy),
         meta: {
           cachedAt: cachedAt.toISOString(),
-          ageHours,
-          label: ageHours < 1 ? 'Prices updated just now'
-               : ageHours < 24 ? `Prices updated ${ageHours}h ago`
+          ageHours: Math.floor((Date.now() - cachedAt.getTime()) / 3600000),
+          label: Math.floor((Date.now() - cachedAt.getTime()) / 3600000) < 1 ? 'Prices updated just now'
+               : Math.floor((Date.now() - cachedAt.getTime()) / 3600000) < 24 ? `Prices updated ${Math.floor((Date.now() - cachedAt.getTime()) / 3600000)}h ago`
                : 'Prices updated yesterday'
         }
       };
     }
 
     // ── Step 2: No DB data — fire scrape as background job ─────
-    this.logger.log(`No DB data for "${itemName}". Firing background scrape for ZIP ${resolvedZip}...`);
+    this.logger.log(`No DB data for "${itemName}". Firing background scrapes for ZIPs: ${zipsToSearch.join(', ')}...`);
 
-    // Fire the scrape as a background job — do NOT await it
-    this.aggregatorService.search(itemName, resolvedZip, undefined, { bypassCache: forceRefresh })
-      .then(async (scraperResult) => {
-        if (scraperResult.data.length > 0) {
-          const filtered = this.applyRelevanceFilter(scraperResult.data, itemName);
-          this.logger.log(`Background scrape returned ${scraperResult.data.length} results, ${filtered.length} passed relevance for "${itemName}".`);
-          if (filtered.length > 0) {
-            await this.productsService.upsertScrapedProducts(filtered, resolvedZip)
-              .catch(err => this.logger.error(`Background DB save failed for "${itemName}": ${err.message}`));
+    // Fire the scrape as a background job for all neighboring ZIPs
+    zipsToSearch.forEach(zip => {
+      this.aggregatorService.search(itemName, zip, undefined, { bypassCache: forceRefresh })
+        .then(async (scraperResult) => {
+          if (scraperResult.data.length > 0) {
+            const filtered = this.applyRelevanceFilter(scraperResult.data, itemName);
+            this.logger.log(`Background scrape for ZIP ${zip} returned ${scraperResult.data.length} results, ${filtered.length} passed relevance for "${itemName}".`);
+            if (filtered.length > 0) {
+              await this.productsService.upsertScrapedProducts(filtered, zip)
+                .catch(err => this.logger.error(`Background DB save failed for "${itemName}" in ${zip}: ${err.message}`));
+            }
           }
-        }
-      })
-      .catch(err => this.logger.error(`Background scrape failed for "${itemName}": ${err.message}`));
+        })
+        .catch(err => this.logger.error(`Background scrape failed for "${itemName}" in ${zip}: ${err.message}`));
+    });
 
     // Return warming status immediately — client will poll
     return { status: 'warming', results: [] };

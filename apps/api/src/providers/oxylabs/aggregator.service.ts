@@ -130,7 +130,16 @@ export class AggregatorService {
 
     const gMapsTypes: string[] = [];
     if (isPharmacy || isAll) gMapsTypes.push('pharmacies');
-    if (!isGas || isAll) gMapsTypes.push('grocery stores');
+    if (!isGas || isAll) {
+      gMapsTypes.push(
+        'grocery stores',
+        'supermarket',
+        'supercenter',
+        'food market',
+        'warehouse club',
+        'discount store'
+      );
+    }
 
     // Check Kroger Circuit Breaker
     const krogerFailKey = `kroger:${resolvedZip}`;
@@ -162,7 +171,15 @@ export class AggregatorService {
           () => this.googleMapsScraper.searchNearbyStores(resolvedZip, type),
           this.TARGETED_GMAPS_TIMEOUT_MS
         ).catch(() => [])
-      )).then(results => results.flat()),
+      )).then(results => {
+        const allStores = results.flat();
+        const seen = new Set<string>();
+        return allStores.filter(store => {
+          if (seen.has(store.stationId)) return false;
+          seen.add(store.stationId);
+          return true;
+        });
+      }),
     ];
 
     const scraperNames = ['Walmart', 'Target', 'Kroger', 'Instacart', 'GoogleMaps'];
