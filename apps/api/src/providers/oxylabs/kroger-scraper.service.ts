@@ -22,6 +22,9 @@ export class KrogerScraperService extends OxylabsBaseService {
         source: 'universal',
         render: true,
         geo_location: zip || undefined,
+        browser_instructions: [
+          { type: 'wait', wait_time: 6000 } // Wait 6s for Kroger's heavy SPA to hydrate
+        ]
       });
 
       return this.parse(html);
@@ -85,21 +88,28 @@ export class KrogerScraperService extends OxylabsBaseService {
 
     // Fallback: Extremely loose regex looking for anything that looks like a product (JSON chunks)
     if (products.length === 0) {
-      const looseRegex = /"description":"([^"]{5,80})"[^}]*?"(?:price|regular|promo)":(\d+\.\d{2})/gi;
-      let match;
+      // Look for description/name and price patterns
+      const regexes = [
+        /"description":"([^"]{5,100})"[^}]*?"(?:price|regular|promo)":(\d+\.\d{2})/gi,
+        /"name":"([^"]{5,100})"([^}]+)?"price":(\d+\.\d{2})/gi
+      ];
       const seen = new Set();
-      while ((match = looseRegex.exec(html)) !== null) {
-        if (products.length >= 15) break;
-        const name = match[1].replace(/\\u[0-9A-Fa-f]{4}/g, '').trim();
-        if (!seen.has(name) && !name.includes('Policy') && !name.includes('Center')) {
-          seen.add(name);
-          products.push({
-            store: 'Kroger',
-            product: name,
-            price: parseFloat(match[2]),
-            image: '',
-            source: 'oxylabs'
-          });
+      
+      for (const regex of regexes) {
+        let match;
+        while ((match = regex.exec(html)) !== null && products.length < 15) {
+          const name = match[1].replace(/\\u[0-9A-Fa-f]{4}/g, '').trim();
+          const price = parseFloat(match[regex === regexes[0] ? 2 : 3]);
+          if (!seen.has(name) && !name.includes('Policy') && !name.includes('Center') && price > 0) {
+            seen.add(name);
+            products.push({
+              store: 'Kroger',
+              product: name,
+              price,
+              image: '',
+              source: 'oxylabs'
+            });
+          }
         }
       }
     }
