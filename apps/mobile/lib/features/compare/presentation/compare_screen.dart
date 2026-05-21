@@ -255,8 +255,6 @@ class _CompareScreenState extends State<CompareScreen> {
                             DropdownMenuItem(value: 'true_cost', child: Text('Total Cost', style: TextStyle(fontSize: 13))),
                             DropdownMenuItem(value: 'item_total', child: Text('Item Price', style: TextStyle(fontSize: 13))),
                             DropdownMenuItem(value: 'driving_cost', child: Text('Drive Cost', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'distance', child: Text('Distance', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'savings', child: Text('Savings', style: TextStyle(fontSize: 13))),
                           ],
                           onChanged: (val) {
                             if (val != null) {
