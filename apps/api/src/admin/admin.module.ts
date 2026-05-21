@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdminController } from './admin.controller';
@@ -26,7 +26,7 @@ import { AdminUiController } from './admin-ui.controller';
   imports: [
     ScheduleModule.forRoot(),
     ProvidersModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     ProductsModule,
     TypeOrmModule.forFeature([
       StoreProduct,
