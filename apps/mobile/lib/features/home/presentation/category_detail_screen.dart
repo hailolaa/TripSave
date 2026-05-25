@@ -54,6 +54,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       final lat = position.latitude;
       final lng = position.longitude;
 
+      dynamic responseData;
+
       if (isGas) {
         // Flow 2: Gas True Cost — calls dedicated endpoint
         final response = await listRepo.apiClient.dio.get('/comparison/gas', queryParameters: {
@@ -66,11 +68,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           'locationName': await locationService.getLocationName(),
           'preferredRadius': settings.preferredRadius,
         });
-        final results = List<dynamic>.from(response.data);
-        setState(() {
-          _results = results;
-          _isLoading = false;
-        });
+        responseData = response.data;
       } else {
         final storeType = isPharmacy ? 'pharmacy' : 'grocery';
         final defaultQuery = isPharmacy ? 'tylenol' : 'milk';
@@ -83,12 +81,26 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           'sortBy': 'true_cost',
           'isRoundTrip': 'true',
         });
-        final results = List<dynamic>.from(response.data);
-        setState(() {
-          _results = results;
-          _isLoading = false;
-        });
+        responseData = response.data;
       }
+
+      List<dynamic> results = [];
+      if (responseData is List) {
+        results = responseData;
+      } else if (responseData is Map) {
+        if (responseData['status'] == 'warming') {
+          // Gracefully poll/retry on warming states
+          await Future.delayed(const Duration(seconds: 4));
+          return _fetchData();
+        } else if (responseData['results'] is List) {
+          results = responseData['results'] as List<dynamic>;
+        }
+      }
+
+      setState(() {
+        _results = results;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -187,7 +199,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     final savings = data['savings'] ?? 0;
     final products = (data['products'] as List?) ?? const [];
     final fallbackFuelPrice = products.isNotEmpty ? products.first['price'] : '0.00';
-    final distance = (data['driving_distance'] / 2).toStringAsFixed(1);
+    final distanceVal = double.tryParse(data['driving_distance']?.toString() ?? '0') ?? 0.0;
+    final distance = (distanceVal / 2).toStringAsFixed(1);
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -293,8 +306,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   Widget _buildListItem(Map<String, dynamic> data, {bool isBest = false}) {
     final store = data['store'];
-    final price = isGas ? (data['price_per_gallon'] ?? data['products'][0]['price']) : data['true_cost'];
-    final distance = (data['driving_distance'] / 2).toStringAsFixed(1);
+    final productsList = data['products'] as List?;
+    final price = isGas 
+        ? (data['price_per_gallon'] ?? (productsList != null && productsList.isNotEmpty ? productsList.first['price'] : '0.00')) 
+        : data['true_cost'];
+    final distanceVal = double.tryParse(data['driving_distance']?.toString() ?? '0') ?? 0.0;
+    final distance = (distanceVal / 2).toStringAsFixed(1);
     
     return Container(
       padding: const EdgeInsets.all(16),

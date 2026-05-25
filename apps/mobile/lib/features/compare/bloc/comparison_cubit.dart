@@ -225,7 +225,29 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         try {
           final storesResponse = await apiClient.dio.get('/stores', queryParameters: {'lat': userLat, 'lng': userLng, 'radius': 20});
           if (storesResponse.data is List) {
-            final stores = storesResponse.data as List<dynamic>;
+            var stores = storesResponse.data as List<dynamic>;
+            
+            // Smart progressive shell filtering to prevent UI glitches & mismatched store types
+            final isGasSearch = storeType == 'gas' || itemName.toLowerCase() == 'gas' || itemName.toLowerCase().contains('fuel');
+            
+            if (isGasSearch) {
+              // Strictly gas stations
+              stores = stores.where((s) {
+                final type = s['store']?['chain']?['type']?.toString().toLowerCase();
+                return type == 'gas';
+              }).toList();
+            } else {
+              // Grocery or pharmacy search (no gas stations to prevent glitches)
+              stores = stores.where((s) {
+                final type = s['store']?['chain']?['type']?.toString().toLowerCase();
+                if (type == 'gas') return false; // exclude gas
+                if (storeType != null && storeType != 'all') {
+                  return type == storeType;
+                }
+                return true;
+              }).toList();
+            }
+
             final shellResults = stores.map((s) => {
               'store': {
                 'name': s['store']['name'],
