@@ -326,23 +326,8 @@ export class ProductsService {
       await this.productsRepository.save(genericProduct);
     }
 
-    // 2. Find other matching products
-    const dbResults = await this.productsRepository.find({
-      where: [
-        { name: ILike(`%${cleanQuery}%`) },
-        { normalized_name: ILike(`%${cleanQuery}%`) },
-      ],
-      take: 20, // limit to 20 results for dropdown autocomplete
-    });
-
-    // 3. Remove the generic product from dbResults if it's there to avoid duplicates
-    const filteredResults = dbResults.filter(p => p.id !== genericProduct!.id).map(p => {
-      if (!p.image_url) p.image_url = this.getFallbackImage(p.name);
-      return p;
-    });
-
-    // 4. Return generic product at the top
-    return [genericProduct, ...filteredResults];
+    // 2. Return only the generic product — no stale DB results from past scrapes
+    return [genericProduct];
   }
 
   async findByCategory(category: string): Promise<Product[]> {
