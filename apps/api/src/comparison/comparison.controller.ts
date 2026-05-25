@@ -4,7 +4,7 @@ import { ComparisonService } from './comparison.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { StoreChainType } from '../stores/store-chain.entity';
-import { reverseGeocode } from '../utils/geocoding.util';
+import { reverseGeocode, geocodePlace } from '../utils/geocoding.util';
 
 @Controller('comparison')
 @UseGuards(ThrottlerGuard)
@@ -15,6 +15,62 @@ export class ComparisonController {
     private readonly comparisonService: ComparisonService,
     private readonly usersService: UsersService,
   ) {}
+
+  private async resolveUserLocation(user: any, lat?: number, lng?: number): Promise<{ lat: number; lng: number; zipCode: string }> {
+    let finalLat = lat ? Number(lat) : 0;
+    let finalLng = lng ? Number(lng) : 0;
+
+    // Detect if default Dallas coordinates are passed
+    const isDallasDefault = 
+      (!finalLat || !finalLng) || 
+      (Math.abs(finalLat - 32.776664) < 0.0001 && Math.abs(finalLng - -96.796987) < 0.0001) ||
+      (Math.abs(finalLat - 32.7904) < 0.0001 && Math.abs(finalLng - -96.8044) < 0.0001);
+
+    if (isDallasDefault && user) {
+      if (user.location_lat && user.location_lng) {
+        finalLat = Number(user.location_lat);
+        finalLng = Number(user.location_lng);
+        this.logger.log(`Default Dallas coordinates detected. Overriding with user's profile location: ${finalLat}, ${finalLng}`);
+      } else if (user.zip_code) {
+        const coords = await geocodePlace(user.zip_code);
+        if (coords) {
+          finalLat = coords.lat;
+          finalLng = coords.lng;
+          this.logger.log(`Default Dallas coordinates detected. Overriding with geocoded user profile ZIP: ${finalLat}, ${finalLng}`);
+        }
+      }
+    }
+
+    // Default to Dallas if still invalid/missing
+    if (!finalLat || !finalLng) {
+      finalLat = 32.7904;
+      finalLng = -96.8044;
+    }
+
+    // Restriction: USA searches only. If outside, default to Dallas.
+    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
+    if (!isUSA) {
+      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Force defaulting to Uptown Dallas, TX (75201).`);
+      finalLat = 32.7904;
+      finalLng = -96.8044;
+    }
+
+    let resolvedZip = user?.zip_code;
+    try {
+      const geo = await reverseGeocode(finalLat, finalLng);
+      if (geo && geo.zipCode) {
+        resolvedZip = geo.zipCode;
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to reverse geocode user location for zip: ${e.message}`);
+    }
+
+    return {
+      lat: finalLat,
+      lng: finalLng,
+      zipCode: resolvedZip || '75201',
+    };
+  }
 
   // @UseGuards(JwtAuthGuard)
   @Throttle({ default: { ttl: 10000, limit: 5 } })
@@ -36,45 +92,15 @@ export class ComparisonController {
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
     const preferredRadius = user?.preferred_radius ?? 20;
     
-    // If coordinates are the default Dallas ones or missing, use user's saved location
-    let finalLat = Number(lat);
-    let finalLng = Number(lng);
-
-    if (user?.location_lat && user?.location_lng && (finalLat === 32.776664 || !finalLat)) {
-      finalLat = Number(user.location_lat);
-      finalLng = Number(user.location_lng);
-    }
-
-    // Restriction: USA searches only. If outside, default to Dallas.
-    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
-    if (!isUSA) {
-      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Force defaulting to Uptown Dallas, TX (75201).`);
-      finalLat = 32.7904;
-      finalLng = -96.8044;
-    }
-
-    let resolvedZip = user?.zip_code;
-    
-    // Reverse geocode to get the zip code of the selected location
-    try {
-      const geo = await reverseGeocode(finalLat, finalLng);
-      if (geo && geo.zipCode) {
-        resolvedZip = geo.zipCode;
-      }
-    } catch (e) {
-      this.logger.warn(`Failed to reverse geocode user location for zip: ${e.message}`);
-    }
-
-    // Fallback to Dallas if everything fails
-    resolvedZip = resolvedZip || '75201';
+    const location = await this.resolveUserLocation(user, lat, lng);
 
     const result = await this.comparisonService.compareItem(
       item,
-      finalLat,
-      finalLng,
+      location.lat,
+      location.lng,
       Number(userMpg),
       Number(userGasPrice),
-      resolvedZip,
+      location.zipCode,
       storeType,
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
@@ -85,7 +111,8 @@ export class ComparisonController {
     // Normalize response shape: always { status, results }
     const response = (result && result.status) ? result : { status: 'ready', results: Array.isArray(result) ? result : [] };
     
-    if (!isUSA) {
+    const isUSASelection = location.lat > 24 && location.lat < 49 && location.lng > -125 && location.lng < -66;
+    if (!isUSASelection) {
       return {
         ...response,
         meta: {
@@ -122,35 +149,19 @@ export class ComparisonController {
     const gasPriceValue = body.gasPrice ?? user?.default_gas_price ?? 3.50;
     const preferredRadius = user?.preferred_radius ?? 20;
 
-    let finalLat = body.userLat;
-    let finalLng = body.userLng;
-
-    // Restriction: USA searches only. If outside, default to Dallas.
-    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
-    if (!isUSA) {
-      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Force defaulting to Uptown Dallas, TX (75201).`);
-      finalLat = 32.7904;
-      finalLng = -96.8044;
-    }
-
-    let resolvedZip = user?.zip_code || '75201';
-    try {
-      const geo = await reverseGeocode(finalLat, finalLng);
-      if (geo && geo.zipCode) resolvedZip = geo.zipCode;
-    } catch {}
-
+    const location = await this.resolveUserLocation(user, body.userLat, body.userLng);
     const items = body.items || (body.productIds || []).map(id => ({ productId: id, quantity: 1 }));
 
     return this.comparisonService.getBestTrueCost(
-      finalLat,
-      finalLng,
+      location.lat,
+      location.lng,
       items,
       mpg,
       gasPriceValue,
       body.storeType,
       body.isRoundTrip ?? true,
       body.sortBy ?? 'true_cost',
-      resolvedZip,
+      location.zipCode,
       Number(preferredRadius)
     );
   }
@@ -193,35 +204,22 @@ export class ComparisonController {
 
     if (items.length === 0) return [];
 
-    let finalLat = body.userLat;
-    let finalLng = body.userLng;
-
-    // Restriction: USA searches only. If outside, default to Dallas.
-    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
-    if (!isUSA) {
-      finalLat = 32.7904;
-      finalLng = -96.8044;
-    }
-
-    let resolvedZip = user?.zip_code || '75201';
-    try {
-      const geo = await reverseGeocode(finalLat, finalLng);
-      if (geo && geo.zipCode) resolvedZip = geo.zipCode;
-    } catch {}
+    const location = await this.resolveUserLocation(user, body.userLat, body.userLng);
 
     return this.comparisonService.getBestTrueCost(
-      finalLat,
-      finalLng,
+      location.lat,
+      location.lng,
       items,
       Number(mpg),
       Number(gasPriceValue),
       body.storeType,
       body.isRoundTrip ?? true,
       body.sortBy ?? 'true_cost',
-      resolvedZip,
+      location.zipCode,
       Number(preferredRadius)
     );
   }
+
   // @UseGuards(JwtAuthGuard)
   @Get('gas')
   async compareGas(
@@ -242,31 +240,16 @@ export class ComparisonController {
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
     const preferredRadius = user?.preferred_radius ?? 20;
 
-    let finalLat = Number(lat);
-    let finalLng = Number(lng);
-    if (user?.location_lat && user?.location_lng && (finalLat === 32.776664 || !finalLat)) {
-      finalLat = Number(user.location_lat);
-      finalLng = Number(user.location_lng);
-    }
-
+    const location = await this.resolveUserLocation(user, lat, lng);
     let resolvedLocation = locationName || user?.location_name;
 
-    // Restriction: USA searches only. If outside, default to Dallas.
-    const isUSA = finalLat > 24 && finalLat < 49 && finalLng > -125 && finalLng < -66;
-    if (!isUSA) {
-      this.logger.log(`Location ${finalLat}, ${finalLng} is outside USA. Force defaulting to Uptown Dallas, TX (75201).`);
-      finalLat = 32.7904;
-      finalLng = -96.8044;
-      resolvedLocation = 'Dallas, TX';
-    }
-
     // If still no location name but we have coordinates, try to reverse geocode it
-    if (!resolvedLocation && finalLat && finalLng) {
+    if (!resolvedLocation && location.lat && location.lng) {
       try {
-        const geo = await reverseGeocode(finalLat, finalLng);
+        const geo = await reverseGeocode(location.lat, location.lng);
         if (geo) {
           resolvedLocation = geo.displayName;
-          this.logger.log(`Reverse geocoded ${finalLat}, ${finalLng} to: ${resolvedLocation}`);
+          this.logger.log(`Reverse geocoded ${location.lat}, ${location.lng} to: ${resolvedLocation}`);
         }
       } catch (e) {
         this.logger.warn(`Failed to reverse geocode user location: ${e.message}`);
@@ -274,8 +257,8 @@ export class ComparisonController {
     }
 
     return this.comparisonService.compareGasStations(
-      finalLat,
-      finalLng,
+      location.lat,
+      location.lng,
       Number(userMpg),
       Number(userGasPrice),
       gallons ? Number(gallons) : 15,

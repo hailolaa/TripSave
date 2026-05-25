@@ -300,11 +300,12 @@ export class ComparisonService {
     const MAX_GEOCODE = 10; // keep requests bounded and responsive
     await Promise.allSettled(
       missingCoordStoreNames.slice(0, MAX_GEOCODE).map(async (storeName) => {
-        // If we already have a nearby DB store match by name, no need to geocode
-        const localMatch = nearbyStores.find(ns =>
-          ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
-          storeName.toLowerCase().includes(ns.store.name.toLowerCase())
-        );
+        // If we already have a nearby DB store match by name within 8 miles, no need to geocode
+        const localMatch = nearbyStores.find(ns => {
+          const nameMatches = ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
+                             storeName.toLowerCase().includes(ns.store.name.toLowerCase());
+          return nameMatches && ns.distance <= 8;
+        });
         if (localMatch) return;
 
         const geo = await geocodePlaceNear(storeName, userLat, userLng, 0.35);
@@ -336,11 +337,22 @@ export class ComparisonService {
       const productName = typeof item.product === 'string' ? item.product : (item.product?.name || '');
       const itemCategory = (item as any).category || this.aggregatorService.determineCategory('', productName, storeName);
 
-      // Find the nearest local store that matches this retailer's name
-      const localMatch = nearbyStores.find(ns => 
-        ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
-        storeName.toLowerCase().includes(ns.store.name.toLowerCase())
-      );
+      // Find the nearest local store that matches this retailer's name within 8 miles
+      let localMatch = nearbyStores.find(ns => {
+        const nameMatches = ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
+                           storeName.toLowerCase().includes(ns.store.name.toLowerCase());
+        return nameMatches && ns.distance <= 8;
+      });
+
+      const override = storeCoordOverrides.get(storeName.toLowerCase());
+
+      // If no close match and no geocoded override, fall back to any match within the user's full search radius
+      if (!localMatch && !override) {
+        localMatch = nearbyStores.find(ns => 
+          ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
+          storeName.toLowerCase().includes(ns.store.name.toLowerCase())
+        );
+      }
 
       let distance = 0;
       let driveCost = 0;
@@ -358,7 +370,9 @@ export class ComparisonService {
       };
 
       if (localMatch) {
-        distance = localMatch.distance;
+        distance = (localMatch.distance !== null && localMatch.distance > 0)
+          ? localMatch.distance
+          : haversineDistanceMiles(userLat, userLng, Number(localMatch.store.lat), Number(localMatch.store.lng));
         storeData = {
           ...localMatch.store,
           chain: {
@@ -367,7 +381,6 @@ export class ComparisonService {
           }
         };
       } else {
-        const override = storeCoordOverrides.get(item.store.toLowerCase());
         if (override && (storeData.lat === 0 || storeData.lng === 0)) {
           storeData = {
             ...storeData,

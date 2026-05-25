@@ -185,7 +185,22 @@ export class ProductsService {
           
           if (!lat || !lng || lat === 0 || lng === 0 || !inUSA) {
             console.warn(`Missing or invalid coords for ${cleanedStoreName} — geocoding address`);
-            const coords = await geocodePlace(`${cleanedStoreName} ${zip}`);
+            
+            // First geocode the zip code to get a center location
+            const zipCoords = await geocodePlace(zip);
+            let coords = null;
+            if (zipCoords && zipCoords.lat && zipCoords.lng) {
+              // Dynamically require geocodePlaceNear to avoid circular deps if any
+              const { geocodePlaceNear } = require('../utils/geocoding.util');
+              // Geocode the store biased near the zip center to avoid getting a store in another city
+              coords = await geocodePlaceNear(cleanedStoreName, zipCoords.lat, zipCoords.lng, 0.35);
+            }
+            
+            // Fallback to plain geocoding if zip-biased geocoding fails or wasn't possible
+            if (!coords) {
+              coords = await geocodePlace(`${cleanedStoreName} ${zip}`);
+            }
+
             if (coords && coords.lat && coords.lng) {
               lat = coords.lat;
               lng = coords.lng;

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Store } from './store.entity';
+import { haversineDistanceMiles } from '../utils/geo.util';
 
 @Injectable()
 export class StoresService {
@@ -18,14 +19,17 @@ export class StoresService {
    */
   async findNearbyStores(lat: number, lng: number, radiusMiles: number = 10): Promise<{store: Store, distance: number}[]> {
     // 3959 is the radius of the earth in miles
+    // Clamping the acos input using LEAST and GREATEST prevents returning NULL/NaN due to floating-point precision issues
     const query = this.storesRepository.createQueryBuilder('store')
       .leftJoinAndSelect('store.chain', 'chain')
       .addSelect(`
-        ( 3959 * acos( cos( radians(:lat) ) 
+        ( 3959 * acos( LEAST( 1.0, GREATEST( -1.0, 
+          cos( radians(:lat) ) 
           * cos( radians( store.lat ) ) 
           * cos( radians( store.lng ) - radians(:lng) ) 
           + sin( radians(:lat) ) 
-          * sin( radians( store.lat ) ) ) )
+          * sin( radians( store.lat ) ) 
+        ) ) ) )
       `, 'distance')
       .where('store.is_active = :isActive', { isActive: true })
       .andWhere('store.lat != 0 AND store.lng != 0')
@@ -40,17 +44,38 @@ export class StoresService {
     const results = await query.getRawAndEntities();
     
     return results.entities.map((store) => {
-      // Find matching raw row by comparing store ID securely
-      const rawMatch = results.raw.find(r => 
-        r.store_id === store.id || 
-        r.id === store.id || 
-        r.store_id_alias === store.id ||
-        r.id_alias === store.id ||
-        Object.keys(r).some(key => key.toLowerCase().includes('id') && r[key] === store.id)
-      );
+      // Find matching raw row by comparing store ID securely, handling both string UUIDs and binary Buffers
+      const rawMatch = results.raw.find(r => {
+        const rawIds = [r.store_id, r.id, r.store_id_alias, r.id_alias];
+        return rawIds.some(val => {
+          if (!val) return false;
+          if (typeof val === 'string' && val.toLowerCase() === store.id.toLowerCase()) return true;
+          if (Buffer.isBuffer(val)) {
+            const hex = val.toString('hex').toLowerCase();
+            const cleanId = store.id.replace(/-/g, '').toLowerCase();
+            return hex === cleanId;
+          }
+          return false;
+        }) || Object.keys(r).some(key => {
+          if (!key.toLowerCase().includes('id')) return false;
+          const val = r[key];
+          if (!val) return false;
+          if (typeof val === 'string' && val.toLowerCase() === store.id.toLowerCase()) return true;
+          if (Buffer.isBuffer(val)) {
+            const hex = val.toString('hex').toLowerCase();
+            const cleanId = store.id.replace(/-/g, '').toLowerCase();
+            return hex === cleanId;
+          }
+          return false;
+        });
+      });
+
+      const dbDistance = rawMatch?.distance != null ? parseFloat(rawMatch.distance) : null;
+      const calculatedDistance = haversineDistanceMiles(lat, lng, Number(store.lat), Number(store.lng));
+
       return {
         store,
-        distance: rawMatch?.distance != null ? parseFloat(rawMatch.distance) : 0
+        distance: dbDistance !== null && !isNaN(dbDistance) && dbDistance > 0 ? dbDistance : calculatedDistance
       };
     });
   }
@@ -62,3 +87,4 @@ export class StoresService {
     });
   }
 }
+

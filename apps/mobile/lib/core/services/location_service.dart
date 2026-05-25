@@ -105,16 +105,28 @@ class LocationService {
         return _getFallbackPosition();
       } 
 
-      _currentPosition = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+      // 3. Try to get last known position first (instant check)
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        _currentPosition = lastKnown;
+        // Trigger background update to refresh it asynchronously
+        _refreshLocationInBackground().catchError((_) {});
+      } else {
+        // Fetch current position with a safety timeout of 6 seconds and medium accuracy
+        _currentPosition = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 6),
+          ),
+        );
+      }
       
       // Try to get city name
       try {
         List<Placemark> placemarks = await placemarkFromCoordinates(
           _currentPosition!.latitude, 
           _currentPosition!.longitude
-        );
+        ).timeout(const Duration(seconds: 4));
         if (placemarks.isNotEmpty) {
           Placemark place = placemarks[0];
           // Handle cases where locality is empty but subAdministrativeArea exists
@@ -130,14 +142,39 @@ class LocationService {
         }
       } catch (e) {
         // If geocoding fails but we have GPS, we just leave it or fetch it later
-        _currentCity = "Dallas, TX";
+        _currentCity ??= "Dallas, TX";
       }
       
       return _currentPosition!;
     } catch (e) {
-      // If GPS throws an error (very common on Desktop platforms), fallback to Dallas
+      // If GPS throws an error or times out, fallback to Dallas
       return _getFallbackPosition();
     }
+  }
+
+  /// Refreshes the location in the background without blocking the UI
+  Future<void> _refreshLocationInBackground() async {
+    try {
+      final freshPos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      _currentPosition = freshPos;
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        freshPos.latitude, 
+        freshPos.longitude
+      ).timeout(const Duration(seconds: 4));
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String city = place.locality ?? place.subAdministrativeArea ?? '';
+        String state = place.administrativeArea ?? '';
+        if (city.isNotEmpty && state.isNotEmpty) {
+          _currentCity = "$city, $state";
+        }
+      }
+    } catch (_) {}
   }
 
   Future<String> getLocationName() async {

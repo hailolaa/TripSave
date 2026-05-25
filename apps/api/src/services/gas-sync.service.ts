@@ -196,7 +196,11 @@ export class GasSyncService {
     const query = this.storeRepo.createQueryBuilder('store')
       .leftJoinAndSelect('store.chain', 'chain')
       .innerJoinAndMapOne('store.gasPrice', GasPrice, 'gp', 'gp.store_id = store.id')
-      .addSelect(`(3959 * acos(cos(radians(:lat)) * cos(radians(store.lat)) * cos(radians(store.lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(store.lat))))`, 'distance')
+      .addSelect(`
+        (3959 * acos(LEAST(1.0, GREATEST(-1.0, 
+          cos(radians(:lat)) * cos(radians(store.lat)) * cos(radians(store.lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(store.lat))
+        ))))
+      `, 'distance')
       .where('store.is_active = :isActive', { isActive: true })
       .andWhere('chain.type = :type', { type: StoreChainType.GAS })
       .having('distance <= :radiusMiles')
@@ -205,8 +209,23 @@ export class GasSyncService {
 
     const results = await query.getRawAndEntities();
 
+    const bufferToUuid = (buffer: any): string => {
+      if (!buffer) return '';
+      if (typeof buffer === 'string') return buffer;
+      if (!Buffer.isBuffer(buffer)) return String(buffer);
+      const hex = buffer.toString('hex');
+      if (hex.length !== 32) return hex;
+      return [
+        hex.substring(0, 8),
+        hex.substring(8, 12),
+        hex.substring(12, 16),
+        hex.substring(16, 20),
+        hex.substring(20)
+      ].join('-');
+    };
+
     return results.raw.map((raw: any) => ({
-      stationId: raw.store_id,
+      stationId: bufferToUuid(raw.store_id || raw.id),
       name: raw.store_name,
       chain: raw.chain_name,
       address: raw.store_address,
