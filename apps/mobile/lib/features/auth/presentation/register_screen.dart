@@ -146,194 +146,202 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final bool isSmall = constraints.maxHeight < 700;
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Spacer(flex: isSmall ? 1 : 3),
-                      ShopSaveLogo(textSize: isSmall ? 24 : 28, iconSize: isSmall ? 40 : 48)
-                          .animate()
-                          .fadeIn(duration: 800.ms)
-                          .slideY(begin: -0.1, end: 0),
-                      Spacer(flex: isSmall ? 1 : 2),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: isSmall ? 20 : 32),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(32),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
-                                blurRadius: 40,
-                                offset: const Offset(0, 10),
-                                spreadRadius: 0,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Create Account',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: isSmall ? 22 : 24,
-                                  color: const Color(0xFF111827),
-                                  letterSpacing: -0.5,
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Spacer(flex: isSmall ? 1 : 3),
+                            ShopSaveLogo(textSize: isSmall ? 24 : 28, iconSize: isSmall ? 40 : 48)
+                                .animate()
+                                .fadeIn(duration: 800.ms)
+                                .slideY(begin: -0.1, end: 0),
+                            Spacer(flex: isSmall ? 1 : 2),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                              child: Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.symmetric(horizontal: 24, vertical: isSmall ? 20 : 32),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(32),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.03),
+                                      blurRadius: 40,
+                                      offset: const Offset(0, 10),
+                                      spreadRadius: 0,
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              SizedBox(height: isSmall ? 20 : 32),
-                              _buildTextField(
-                                controller: _nameController,
-                                hint: 'Full Name',
-                                icon: Icons.person_outline_rounded,
-                                errorText: _nameError,
-                                isSmall: isSmall,
-                                onChanged: (_) => _clearFieldErrors(),
-                              ),
-                              SizedBox(height: isSmall ? 10 : 14),
-                              _buildTextField(
-                                controller: _emailController,
-                                hint: 'Email Address',
-                                icon: Icons.alternate_email_rounded,
-                                keyboardType: TextInputType.emailAddress,
-                                errorText: _emailError,
-                                isSmall: isSmall,
-                                onChanged: (_) => _clearFieldErrors(),
-                              ),
-                              SizedBox(height: isSmall ? 10 : 14),
-                              _buildTextField(
-                                controller: _passwordController,
-                                hint: 'Password',
-                                icon: Icons.lock_outline_rounded,
-                                isPassword: true,
-                                obscure: _obscurePassword,
-                                errorText: _passwordError,
-                                isSmall: isSmall,
-                                onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-                                onChanged: (_) => _clearFieldErrors(),
-                              ),
-                              SizedBox(height: isSmall ? 10 : 14),
-                              _buildTextField(
-                                controller: _confirmPasswordController,
-                                hint: 'Confirm Password',
-                                icon: Icons.lock_outline_rounded,
-                                isPassword: true,
-                                obscure: _obscureConfirm,
-                                errorText: _confirmError,
-                                isSmall: isSmall,
-                                onToggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                                onChanged: (_) => _clearFieldErrors(),
-                              ),
-                              SizedBox(height: isSmall ? 24 : 32),
-                              BlocBuilder<AuthCubit, AuthState>(
-                                builder: (context, state) {
-                                  final isLoading = state is AuthLoading;
-                                  return SizedBox(
-                                    width: double.infinity,
-                                    height: isSmall ? 48 : 52,
-                                    child: ElevatedButton(
-                                      onPressed: isLoading ? null : () {
-                                        if (_validateLocally()) {
-                                          context.read<AuthCubit>().register(
-                                            _nameController.text.trim(),
-                                            _emailController.text.trim(),
-                                            _passwordController.text,
-                                            _confirmPasswordController.text,
-                                          );
-                                        }
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF19409B),
-                                        foregroundColor: Colors.white,
-                                        elevation: 0,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
-                                        ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Create Account',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: isSmall ? 22 : 24,
+                                        color: const Color(0xFF111827),
+                                        letterSpacing: -0.5,
                                       ),
-                                      child: isLoading
-                                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                        : const Text(
-                                            'Create Account',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 16,
+                                    ),
+                                    SizedBox(height: isSmall ? 20 : 32),
+                                    _buildTextField(
+                                      controller: _nameController,
+                                      hint: 'Full Name',
+                                      icon: Icons.person_outline_rounded,
+                                      errorText: _nameError,
+                                      isSmall: isSmall,
+                                      onChanged: (_) => _clearFieldErrors(),
+                                    ),
+                                    SizedBox(height: isSmall ? 10 : 14),
+                                    _buildTextField(
+                                      controller: _emailController,
+                                      hint: 'Email Address',
+                                      icon: Icons.alternate_email_rounded,
+                                      keyboardType: TextInputType.emailAddress,
+                                      errorText: _emailError,
+                                      isSmall: isSmall,
+                                      onChanged: (_) => _clearFieldErrors(),
+                                    ),
+                                    SizedBox(height: isSmall ? 10 : 14),
+                                    _buildTextField(
+                                      controller: _passwordController,
+                                      hint: 'Password',
+                                      icon: Icons.lock_outline_rounded,
+                                      isPassword: true,
+                                      obscure: _obscurePassword,
+                                      errorText: _passwordError,
+                                      isSmall: isSmall,
+                                      onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                                      onChanged: (_) => _clearFieldErrors(),
+                                    ),
+                                    SizedBox(height: isSmall ? 10 : 14),
+                                    _buildTextField(
+                                      controller: _confirmPasswordController,
+                                      hint: 'Confirm Password',
+                                      icon: Icons.lock_outline_rounded,
+                                      isPassword: true,
+                                      obscure: _obscureConfirm,
+                                      errorText: _confirmError,
+                                      isSmall: isSmall,
+                                      onToggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                                      onChanged: (_) => _clearFieldErrors(),
+                                    ),
+                                    SizedBox(height: isSmall ? 24 : 32),
+                                    BlocBuilder<AuthCubit, AuthState>(
+                                      builder: (context, state) {
+                                        final isLoading = state is AuthLoading;
+                                        return SizedBox(
+                                          width: double.infinity,
+                                          height: isSmall ? 48 : 52,
+                                          child: ElevatedButton(
+                                            onPressed: isLoading ? null : () {
+                                              if (_validateLocally()) {
+                                                context.read<AuthCubit>().register(
+                                                  _nameController.text.trim(),
+                                                  _emailController.text.trim(),
+                                                  _passwordController.text,
+                                                  _confirmPasswordController.text,
+                                                );
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF19409B),
+                                              foregroundColor: Colors.white,
+                                              padding: EdgeInsets.zero,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                            ),
+                                            child: isLoading
+                                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                              : const Text(
+                                                  'Create Account',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Row(
+                                      children: [
+                                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                                          child: Text('OR', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w600, fontSize: 12)),
+                                        ),
+                                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                    BlocBuilder<AuthCubit, AuthState>(
+                                      builder: (context, state) {
+                                        final isLoading = state is AuthLoading;
+                                        return SizedBox(
+                                          width: double.infinity,
+                                          height: 52,
+                                          child: OutlinedButton(
+                                            onPressed: isLoading ? null : () => context.read<AuthCubit>().signInWithGoogle(),
+                                            style: OutlinedButton.styleFrom(
+                                              side: BorderSide(color: Colors.grey.shade300),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(Icons.login, size: 20, color: Color(0xFF374151)), // Placeholder for Google Icon
+                                                const SizedBox(width: 12),
+                                                const Text(
+                                                  'Sign up with Google',
+                                                  style: TextStyle(color: Color(0xFF374151), fontWeight: FontWeight.w600, fontSize: 15),
+                                                ),
+                                              ],
                                             ),
                                           ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  Expanded(child: Divider(color: Colors.grey.shade200)),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text('OR', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w600, fontSize: 12)),
-                                  ),
-                                  Expanded(child: Divider(color: Colors.grey.shade200)),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              BlocBuilder<AuthCubit, AuthState>(
-                                builder: (context, state) {
-                                  final isLoading = state is AuthLoading;
-                                  return SizedBox(
-                                    width: double.infinity,
-                                    height: 52,
-                                    child: OutlinedButton(
-                                      onPressed: isLoading ? null : () => context.read<AuthCubit>().signInWithGoogle(),
-                                      style: OutlinedButton.styleFrom(
-                                        side: BorderSide(color: Colors.grey.shade300),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.login, size: 20, color: Color(0xFF374151)), // Placeholder for Google Icon
-                                          const SizedBox(width: 12),
-                                          const Text(
-                                            'Sign up with Google',
-                                            style: TextStyle(color: Color(0xFF374151), fontWeight: FontWeight.w600, fontSize: 15),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
-                      ),
-                      Spacer(flex: isSmall ? 2 : 3),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'Already have an account? ',
-                            style: TextStyle(color: Color(0xFF6B7280), fontSize: 14, fontWeight: FontWeight.w500),
-                          ),
-                          GestureDetector(
-                            onTap: () => context.pop(),
-                            child: const Text(
-                              'Sign In',
-                              style: TextStyle(
-                                color: Color(0xFF19409B),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
+                                  ],
+                                ),
+                              ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
                             ),
-                          ),
-                        ],
-                      ).animate(delay: 400.ms).fadeIn(),
-                      Spacer(flex: isSmall ? 1 : 2),
-                    ],
+                            Spacer(flex: isSmall ? 2 : 3),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Already have an account? ',
+                                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 14, fontWeight: FontWeight.w500),
+                                ),
+                                GestureDetector(
+                                  onTap: () => context.pop(),
+                                  child: const Text(
+                                    'Sign In',
+                                    style: TextStyle(
+                                      color: Color(0xFF19409B),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ).animate(delay: 400.ms).fadeIn(),
+                            Spacer(flex: isSmall ? 1 : 2),
+                          ],
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),

@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:rxdart/rxdart.dart';
 import '../../../core/services/location_service.dart';
 import '../list_repository.dart';
+import '../../../core/network/api_client.dart';
 
 abstract class ListState extends Equatable {
   @override
@@ -77,16 +78,34 @@ class ListCubit extends Cubit<ListState> {
     return super.close();
   }
 
-  Future<void> fetchCart() async {
-    emit(ListLoading());
+  Future<void> fetchCart({bool isSilent = false}) async {
+    final currentState = state;
+    Map<String, dynamic>? currentSummary;
+    if (currentState is ListLoaded) {
+      currentSummary = currentState.cartSummary;
+    }
+
+    if (!isSilent) {
+      emit(ListLoading());
+    }
+
     try {
       final items = await _repository.getCart();
-      emit(ListLoaded(items: items));
+      if (state is ListLoaded) {
+        emit((state as ListLoaded).copyWith(items: items, cartSummary: currentSummary));
+      } else {
+        emit(ListLoaded(items: items, cartSummary: currentSummary));
+      }
+      
       if (items.isNotEmpty) {
         await fetchSummary();
+      } else {
+        if (state is ListLoaded) {
+          emit((state as ListLoaded).copyWith(cartSummary: null));
+        }
       }
     } catch (e) {
-      emit(ListError('Failed to load shopping list'));
+      emit(ListError(ApiClient.parseError(e)));
     }
   }
 
@@ -133,9 +152,9 @@ class ListCubit extends Cubit<ListState> {
       await _repository.addToCart(productId, 1);
       // Immediately clear search to close dropdown and refresh list
       emit(currentState.copyWith(searchResults: [], isSearching: false));
-      await fetchCart(); 
+      await fetchCart(isSilent: true); 
     } catch (e) {
-      emit(ListError('Failed to add item'));
+      emit(ListError(ApiClient.parseError(e)));
     }
   }
 
@@ -144,21 +163,40 @@ class ListCubit extends Cubit<ListState> {
       await removeFromCart(itemId);
       return;
     }
+    if (state is! ListLoaded) return;
+    final currentState = state as ListLoaded;
+
+    final updatedItems = currentState.items.map((item) {
+      if (item['id'] == itemId) {
+        return {...item, 'quantity': quantity};
+      }
+      return item;
+    }).toList();
+
+    emit(currentState.copyWith(items: updatedItems));
     
     try {
       await _repository.updateCartItem(itemId, quantity);
-      await fetchCart();
+      await fetchCart(isSilent: true);
     } catch (e) {
-      emit(ListError('Failed to update item'));
+      emit(ListError(ApiClient.parseError(e)));
+      await fetchCart(isSilent: true);
     }
   }
 
   Future<void> removeFromCart(String itemId) async {
+    if (state is! ListLoaded) return;
+    final currentState = state as ListLoaded;
+
+    final updatedItems = currentState.items.where((item) => item['id'] != itemId).toList();
+    emit(currentState.copyWith(items: updatedItems));
+
     try {
       await _repository.removeFromCart(itemId);
-      await fetchCart();
+      await fetchCart(isSilent: true);
     } catch (e) {
-      emit(ListError('Failed to remove item'));
+      emit(ListError(ApiClient.parseError(e)));
+      await fetchCart(isSilent: true);
     }
   }
 

@@ -5,6 +5,7 @@ import '../../../core/services/settings_service.dart';
 import '../../../core/router/app_router.dart';
 import '../../notifications/bloc/notification_cubit.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/network/api_client.dart';
 
 abstract class AuthState extends Equatable {
   @override
@@ -248,18 +249,13 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   String _parseError(dynamic e) {
-    // ... (rest of error parsing stays same)
     final str = e.toString();
     if (str.contains('409') || str.contains('already exists') || str.contains('ConflictException')) {
       return 'An account with this email already exists';
     } else if (str.contains('401') || str.contains('Unauthorized') || str.contains('Invalid')) {
       return 'Invalid email or password';
-    } else if (str.contains('400')) {
-      return 'Please check your input and try again';
-    } else if (str.contains('Connection refused') || str.contains('SocketException')) {
-      return 'Unable to connect to server. Please try again later.';
     }
-    return 'Something went wrong. Please try again.';
+    return ApiClient.parseError(e);
   }
 
   Future<void> updateRadius(int radius) async {

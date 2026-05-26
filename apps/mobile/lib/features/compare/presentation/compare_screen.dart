@@ -41,7 +41,23 @@ class _CompareScreenState extends State<CompareScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
-    context.read<ComparisonCubit>().prefetch();
+    final cubit = context.read<ComparisonCubit>();
+    final lastQuery = cubit.lastQuery;
+    if (lastQuery != null && lastQuery.isNotEmpty) {
+      if (lastQuery.startsWith('cart:')) {
+        _searchController.clear();
+      } else {
+        _searchController.text = lastQuery;
+      }
+    }
+    final lastStoreType = cubit.lastStoreType;
+    if (lastStoreType != null) {
+      final index = _filters.indexWhere((f) => f.toLowerCase() == lastStoreType.toLowerCase());
+      if (index != -1) {
+        _selectedFilterIndex = index;
+      }
+    }
+    cubit.prefetch();
   }
 
   void _loadFavorites() {
@@ -69,396 +85,450 @@ class _CompareScreenState extends State<CompareScreen> {
         backgroundColor: AppTheme.backgroundLight,
       ),
       body: SafeArea(
-        child: Stack(
-          children: [
-            // Background Blobs
-            Positioned(
-              top: -100,
-              right: -50,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withValues(alpha: 0.04),
-                  shape: BoxShape.circle,
-                ),
-              ).animate(onPlay: (c) => c.repeat(reverse: true))
-               .moveX(begin: 0, end: -30, duration: 10.seconds, curve: Curves.easeInOut)
-               .moveY(begin: 0, end: 50, duration: 12.seconds, curve: Curves.easeInOut),
-            ),
-            Positioned(
-              bottom: 100,
-              left: -80,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  color: AppTheme.savingsGreen.withValues(alpha: 0.03),
-                  shape: BoxShape.circle,
-                ),
-              ).animate(onPlay: (c) => c.repeat(reverse: true))
-               .moveX(begin: 0, end: 40, duration: 6.seconds, curve: Curves.easeInOut)
-               .moveY(begin: 0, end: -30, duration: 8.seconds, curve: Curves.easeInOut),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                children: [
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
+        child: BlocListener<ComparisonCubit, ComparisonState>(
+          listener: (context, state) {
+            if (state is ComparisonLoaded) {
+              final q = state.query;
+              if (q != null && q.isNotEmpty) {
+                if (q.startsWith('cart:')) {
+                  _searchController.clear();
+                } else if (_searchController.text != q) {
+                  _searchController.text = q;
+                }
+              }
+              final lastStoreType = context.read<ComparisonCubit>().lastStoreType;
+              if (lastStoreType != null) {
+                final index = _filters.indexWhere((f) => f.toLowerCase() == lastStoreType.toLowerCase());
+                if (index != -1 && index != _selectedFilterIndex) {
+                  setState(() {
+                    _selectedFilterIndex = index;
+                  });
+                }
+              }
+            }
+          },
+          child: Stack(
+            children: [
+              // Background Blobs
+              Positioned(
+                top: -100,
+                right: -50,
+                child: Container(
+                  width: 250,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.04),
+                    shape: BoxShape.circle,
+                  ),
+                ).animate(onPlay: (c) => c.repeat(reverse: true))
+                 .moveX(begin: 0, end: -30, duration: 10.seconds, curve: Curves.easeInOut)
+                 .moveY(begin: 0, end: 50, duration: 12.seconds, curve: Curves.easeInOut),
+              ),
+              Positioned(
+                bottom: 100,
+                left: -80,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    color: AppTheme.savingsGreen.withValues(alpha: 0.03),
+                    shape: BoxShape.circle,
+                  ),
+                ).animate(onPlay: (c) => c.repeat(reverse: true))
+                 .moveX(begin: 0, end: 40, duration: 6.seconds, curve: Curves.easeInOut)
+                 .moveY(begin: 0, end: -30, duration: 8.seconds, curve: Curves.easeInOut),
+              ),
+  
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Column(
+                  children: [
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          onSubmitted: (text) {
+                            if (text.isNotEmpty && mounted) {
+                              context.read<ComparisonCubit>().searchItem(
+                                text, 
+                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                forceRefresh: false,
+                              );
+                            }
+                          },
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
+                          decoration: InputDecoration(
+                            hintText: 'Search products to compare...',
+                            hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 15),
+                            prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue, size: 20),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Compare Button
+                    Container(
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primaryBlue, Color(0xFF1E40AF)],
+                        ),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: AppTheme.primaryBlue.withValues(alpha: 0.2),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: TextField(
-                        controller: _searchController,
-                        onSubmitted: (text) {
-                          if (text.isNotEmpty && mounted) {
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            final cubit = context.read<ComparisonCubit>();
+                            final query = _searchController.text.isNotEmpty ? _searchController.text : (cubit.lastQuery ?? 'milk');
                             context.read<ComparisonCubit>().searchItem(
-                              text, 
+                              query, 
                               storeType: _filters[_selectedFilterIndex].toLowerCase(),
                               forceRefresh: false,
                             );
-                          }
-                        },
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.w500),
-                        decoration: InputDecoration(
-                          hintText: 'Search products to compare...',
-                          hintStyle: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 15),
-                          prefixIcon: const Icon(Icons.search, color: AppTheme.primaryBlue, size: 20),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Compare Button
-                  Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.primaryBlue, Color(0xFF1E40AF)],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryBlue.withValues(alpha: 0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: () {
-                          final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
-                          context.read<ComparisonCubit>().searchItem(
-                            query, 
-                            storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                            forceRefresh: false,
-                          );
-                        },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Icon(Icons.compare_arrows, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
-              const SizedBox(height: 20),
-              // Horizontal Filters
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(_filters.length, (index) {
-                    final isSelected = _selectedFilterIndex == index;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedFilterIndex = index);
-                        final filter = _filters[index].toLowerCase();
-                        final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
-                        context.read<ComparisonCubit>().searchItem(query, storeType: filter, forceRefresh: false);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            if (index == 0) Icon(Icons.layers, size: 18, color: isSelected ? Colors.white : Colors.grey),
-                            if (index == 1) Icon(Icons.shopping_cart_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
-                            if (index == 2) Icon(Icons.local_gas_station_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
-                            if (index == 3) Icon(Icons.local_pharmacy_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
-                            if (index != 0) const SizedBox(width: 8),
-                            Text(
-                              _filters[index],
-                              style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.grey.shade700,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1),
-              const SizedBox(height: 16),
-              // Sort and Trip Type Settings
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Sort Dropdown
-                  BlocSelector<ComparisonCubit, ComparisonState, String>(
-                    selector: (state) {
-                      if (state is ComparisonLoaded) return state.sortBy;
-                      return 'true_cost';
-                    },
-                    builder: (context, currentSort) {
-                      
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: DropdownButton<String>(
-                          value: currentSort,
-                          underline: const SizedBox(),
-                          icon: const Icon(Icons.sort, size: 16, color: AppTheme.primaryBlue),
-                          items: const [
-                            DropdownMenuItem(value: 'true_cost', child: Text('Total Cost', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'item_total', child: Text('Item Price', style: TextStyle(fontSize: 13))),
-                            DropdownMenuItem(value: 'driving_cost', child: Text('Drive Cost', style: TextStyle(fontSize: 13))),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              context.read<ComparisonCubit>().changeSort(val);
-                            }
                           },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Icon(Icons.compare_arrows, color: Colors.white),
+                          ),
                         ),
-                      );
-                    },
-                  ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
-                  const SizedBox(width: 10),
-
-                  // Round Trip Toggle
-                  BlocSelector<ComparisonCubit, ComparisonState, bool>(
-                    selector: (state) {
-                      if (state is ComparisonLoaded) return state.isRoundTrip;
-                      return true;
-                    },
-                    builder: (context, isRoundTrip) {
-                      
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1),
+                const SizedBox(height: 20),
+                // Horizontal Filters
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(_filters.length, (index) {
+                      final isSelected = _selectedFilterIndex == index;
                       return GestureDetector(
                         onTap: () {
-                          final filter = _filters[_selectedFilterIndex].toLowerCase();
-                          final query = _searchController.text.isNotEmpty ? _searchController.text : 'milk';
-                          context.read<ComparisonCubit>().searchItem(query, storeType: filter, isRoundTrip: !isRoundTrip, forceRefresh: false);
+                          setState(() => _selectedFilterIndex = index);
+                          final filter = _filters[index].toLowerCase();
+                          final cubit = context.read<ComparisonCubit>();
+                          final query = _searchController.text.isNotEmpty ? _searchController.text : (cubit.lastQuery ?? 'milk');
+                          context.read<ComparisonCubit>().searchItem(query, storeType: filter, forceRefresh: false);
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isRoundTrip ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isRoundTrip ? AppTheme.primaryBlue.withValues(alpha: 0.3) : Colors.grey.shade200),
+                            color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
                             children: [
-                              Icon(isRoundTrip ? Icons.repeat : Icons.trending_flat, size: 16, color: isRoundTrip ? AppTheme.primaryBlue : Colors.grey),
-                              const SizedBox(width: 8),
-                              Text(isRoundTrip ? 'Round Trip' : 'One Way', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isRoundTrip ? AppTheme.primaryBlue : Colors.grey.shade700)),
+                              if (index == 0) Icon(Icons.layers, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                              if (index == 1) Icon(Icons.shopping_cart_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                              if (index == 2) Icon(Icons.local_gas_station_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                              if (index == 3) Icon(Icons.local_pharmacy_outlined, size: 18, color: isSelected ? Colors.white : Colors.grey),
+                              if (index != 0) const SizedBox(width: 8),
+                              Text(
+                                _filters[index],
+                                style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500),
+                              ),
                             ],
                           ),
                         ),
                       );
-                    },
-                  ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1),
-                  const SizedBox(width: 10),
-
-                  // Map/List Toggle
-                  GestureDetector(
-                    onTap: () => setState(() => _isMapView = !_isMapView),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _isMapView ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _isMapView ? AppTheme.primaryBlue.withValues(alpha: 0.3) : Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(_isMapView ? Icons.list : Icons.map_outlined, size: 16, color: _isMapView ? AppTheme.primaryBlue : Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(_isMapView ? 'List View' : 'Map View', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _isMapView ? AppTheme.primaryBlue : Colors.grey.shade700)),
-                        ],
-                      ),
-                    ),
-                  ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.1),
-                ],
-              ),
-            ),
-              const SizedBox(height: 24),
-              BlocSelector<ComparisonCubit, ComparisonState, String?>(
-                selector: (state) {
-                  if (state is ComparisonLoaded) return state.cacheAgeLabel;
-                  return null;
-                },
-                builder: (context, label) {
-                  if (label == null) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.schedule, size: 14, color: Colors.grey.shade500),
-                        const SizedBox(width: 6),
-                        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              // List of Results
-              Expanded(
-                child: BlocBuilder<ComparisonCubit, ComparisonState>(
-                  builder: (context, state) {
-                    if (state is ComparisonLoading || state is ComparisonInitial) {
-                      return const Center(child: CircularProgressIndicator(color: AppTheme.savingsGreen));
-                    } else if (state is ComparisonWarming) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const CircularProgressIndicator(color: AppTheme.primaryBlue),
-                            const SizedBox(height: 24),
-                            Text('Finding best prices near you...', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            const Text('This usually takes 10-15 seconds', style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
-                      );
-                    } else if (state is ComparisonError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                            const SizedBox(height: 16),
-                            Text(
-                              state.message,
-                              style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey.shade700),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                if (_searchController.text.isNotEmpty) {
-                                  context.read<ComparisonCubit>().searchItem(
-                                    _searchController.text,
-                                    storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                    forceRefresh: false,
-                                  );
-                                } else {
-                                  context.read<ComparisonCubit>().searchItem(
-                                    'milk',
-                                    storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                    forceRefresh: false,
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Try Again'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryBlue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    } else if (state is ComparisonLoaded) {
-                      final results = state.results;
-                      if (results.isEmpty) {
-                        return const Center(child: Text('No nearby stores found.'));
-                      }
-
-                      if (_isMapView) {
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: CompareMapView(
-                            results: results,
-                            userLocation: LatLng(
-                              state.userLat ?? 32.776664, 
-                              state.userLng ?? -96.796987
-                            ),
-                            onStoreTap: (comparison) => _showStoreDetails(context, comparison, results.indexOf(comparison) == 0),
+                    }),
+                  ),
+                ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1),
+                const SizedBox(height: 16),
+                // Sort and Trip Type Settings
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Sort Dropdown
+                    BlocSelector<ComparisonCubit, ComparisonState, String>(
+                      selector: (state) {
+                        if (state is ComparisonLoaded) return state.sortBy;
+                        return 'true_cost';
+                      },
+                      builder: (context, currentSort) {
+                        
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: DropdownButton<String>(
+                            value: currentSort,
+                            underline: const SizedBox(),
+                            icon: const Icon(Icons.sort, size: 16, color: AppTheme.primaryBlue),
+                            items: const [
+                              DropdownMenuItem(value: 'true_cost', child: Text('Total Cost', style: TextStyle(fontSize: 13))),
+                              DropdownMenuItem(value: 'item_total', child: Text('Item Price', style: TextStyle(fontSize: 13))),
+                              DropdownMenuItem(value: 'driving_cost', child: Text('Drive Cost', style: TextStyle(fontSize: 13))),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                context.read<ComparisonCubit>().changeSort(val);
+                              }
+                            },
                           ),
                         );
-                      }
-
-                      return ListView.builder(
-                        itemCount: results.length,
-                        itemBuilder: (context, index) {
-                          final comparison = results[index];
-                          final isBest = index == 0;
-                          
-                          final sortBy = state.sortBy;
-                          
-                          Widget card;
-                          if (isBest) {
-                            card = Column(
+                      },
+                    ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1),
+                    const SizedBox(width: 10),
+  
+                    // Round Trip Toggle
+                    BlocSelector<ComparisonCubit, ComparisonState, bool>(
+                      selector: (state) {
+                        if (state is ComparisonLoaded) return state.isRoundTrip;
+                        return true;
+                      },
+                      builder: (context, isRoundTrip) {
+                        
+                        return GestureDetector(
+                          onTap: () {
+                            final filter = _filters[_selectedFilterIndex].toLowerCase();
+                            final cubit = context.read<ComparisonCubit>();
+                            final query = _searchController.text.isNotEmpty ? _searchController.text : (cubit.lastQuery ?? 'milk');
+                            context.read<ComparisonCubit>().searchItem(query, storeType: filter, isRoundTrip: !isRoundTrip, forceRefresh: false);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isRoundTrip ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isRoundTrip ? AppTheme.primaryBlue.withValues(alpha: 0.3) : Colors.grey.shade200),
+                            ),
+                            child: Row(
                               children: [
-                                RepaintBoundary(child: _buildBestOptionCard(comparison, true, sortBy: sortBy)),
-                                const SizedBox(height: 16),
+                                Icon(isRoundTrip ? Icons.repeat : Icons.trending_flat, size: 16, color: isRoundTrip ? AppTheme.primaryBlue : Colors.grey),
+                                const SizedBox(width: 8),
+                                Text(isRoundTrip ? 'Round Trip' : 'One Way', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isRoundTrip ? AppTheme.primaryBlue : Colors.grey.shade700)),
                               ],
-                            );
-                          } else {
-                            card = Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: RepaintBoundary(child: _buildRegularStoreCard(comparison, false, sortBy: sortBy)),
-                            );
-                          }
-
-                          return card.animate(delay: (index * 100).ms).fadeIn(duration: 500.ms).slideX(begin: 0.1, end: 0);
-                        },
-                      );
-                    }
-                    return const SizedBox.shrink();
+                            ),
+                          ),
+                        );
+                      },
+                    ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1),
+                    const SizedBox(width: 10),
+  
+                    // Map/List Toggle
+                    GestureDetector(
+                      onTap: () => setState(() => _isMapView = !_isMapView),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _isMapView ? AppTheme.primaryBlue.withValues(alpha: 0.1) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _isMapView ? AppTheme.primaryBlue.withValues(alpha: 0.3) : Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(_isMapView ? Icons.list : Icons.map_outlined, size: 16, color: _isMapView ? AppTheme.primaryBlue : Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(_isMapView ? 'List View' : 'Map View', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _isMapView ? AppTheme.primaryBlue : Colors.grey.shade700)),
+                          ],
+                        ),
+                      ),
+                    ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.1),
+                  ],
+                ),
+              ),
+                const SizedBox(height: 24),
+                BlocSelector<ComparisonCubit, ComparisonState, String?>(
+                  selector: (state) {
+                    if (state is ComparisonLoaded) return state.cacheAgeLabel;
+                    return null;
+                  },
+                  builder: (context, label) {
+                    if (label == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.schedule, size: 14, color: Colors.grey.shade500),
+                          const SizedBox(width: 6),
+                          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                        ],
+                      ),
+                    );
                   },
                 ),
-              )
-            ],
+                // List of Results
+                Expanded(
+                  child: BlocBuilder<ComparisonCubit, ComparisonState>(
+                    builder: (context, state) {
+                      if (state is ComparisonLoading || state is ComparisonInitial) {
+                        return const Center(child: CircularProgressIndicator(color: AppTheme.savingsGreen));
+                      } else if (state is ComparisonWarming) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const CircularProgressIndicator(color: AppTheme.primaryBlue),
+                              const SizedBox(height: 24),
+                              Text('Finding best prices near you...', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              const Text('This usually takes 10-15 seconds', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        );
+                      } else if (state is ComparisonError) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                              const SizedBox(height: 16),
+                              Text(
+                                state.message,
+                                style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey.shade700),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  final cubit = context.read<ComparisonCubit>();
+                                  if (_searchController.text.isNotEmpty) {
+                                    cubit.searchItem(
+                                      _searchController.text,
+                                      storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                      forceRefresh: false,
+                                    );
+                                  } else {
+                                    cubit.searchItem(
+                                      cubit.lastQuery ?? 'milk',
+                                      storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                      forceRefresh: false,
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Try Again'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else if (state is ComparisonLoaded) {
+                        final results = state.results;
+                        if (results.isEmpty) {
+                          final queryText = _searchController.text.isNotEmpty 
+                            ? _searchController.text 
+                            : (context.read<ComparisonCubit>().lastQuery ?? '');
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  queryText.isNotEmpty 
+                                      ? 'No products found for "$queryText"' 
+                                      : 'No products found',
+                                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 32),
+                                  child: Text(
+                                    'Try adjusting your search terms or filters to find what you are looking for.',
+                                    style: TextStyle(color: Colors.grey),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+  
+                        if (_isMapView) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: CompareMapView(
+                              results: results,
+                              userLocation: LatLng(
+                                state.userLat ?? 32.776664, 
+                                state.userLng ?? -96.796987
+                              ),
+                              onStoreTap: (comparison) => _showStoreDetails(context, comparison, results.indexOf(comparison) == 0),
+                            ),
+                          );
+                        }
+  
+                        return ListView.builder(
+                          itemCount: results.length,
+                          itemBuilder: (context, index) {
+                            final comparison = results[index];
+                            final isBest = index == 0;
+                            
+                            final sortBy = state.sortBy;
+                            
+                            Widget card;
+                            if (isBest) {
+                              card = Column(
+                                children: [
+                                  RepaintBoundary(child: _buildBestOptionCard(comparison, true, sortBy: sortBy)),
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            } else {
+                              card = Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: RepaintBoundary(child: _buildRegularStoreCard(comparison, false, sortBy: sortBy)),
+                              );
+                            }
+  
+                            return card.animate(delay: (index * 100).ms).fadeIn(duration: 500.ms).slideX(begin: 0.1, end: 0);
+                          },
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   ),
 );
-}
+  }
 
   void _showStoreDetails(BuildContext context, Map<String, dynamic> comparison, bool isBest) {
     final store = comparison['store'];

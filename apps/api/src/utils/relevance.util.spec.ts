@@ -5,6 +5,7 @@ describe('Relevance Utilities', () => {
     it('should identify generic staples', () => {
       expect(classifySearchIntent('milk')).toEqual({ type: 'exact_staple', canonical: 'milk' });
       expect(classifySearchIntent('EGGS')).toEqual({ type: 'exact_staple', canonical: 'eggs' });
+      expect(classifySearchIntent('egg')).toEqual({ type: 'exact_staple', canonical: 'eggs' });
     });
 
     it('should return null for non-staples', () => {
@@ -19,6 +20,7 @@ describe('Relevance Utilities', () => {
       expect(isBlocklisted('Milk of Magnesia 12oz', 'milk')).toBe(true);
       expect(isBlocklisted('Almond Milk Cookie', 'milk')).toBe(true);
       expect(isBlocklisted('Milkshake Powder Mix', 'milk')).toBe(true); // milkshake added to blocklist
+      expect(isBlocklisted('Egg Rolls 6pk', 'egg')).toBe(true); // check variant blocks
     });
 
     it('should not block valid items', () => {
@@ -59,6 +61,8 @@ describe('Relevance Utilities', () => {
     it('should score exact matches as 100', () => {
       expect(scoreProductRelevance('Milk', 'milk')).toBe(100);
       expect(scoreProductRelevance('Milk 1 Gallon', 'milk')).toBe(100);
+      expect(scoreProductRelevance('Eggs 12ct', 'egg')).toBe(100); // Plural variant match
+      expect(scoreProductRelevance('Egg Large Grade A', 'eggs')).toBe(100); // Singular variant match
     });
   });
 });

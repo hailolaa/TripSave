@@ -26,46 +26,102 @@ export const CATEGORY_BLOCKLIST: Record<string, string[]> = {
   ],
 };
 
+/**
+ * Generate plural/singular variants of a query so that
+ * "egg" matches "eggs", "berry" matches "berries", etc.
+ */
+export function getQueryVariants(query: string): string[] {
+  const q = query.toLowerCase().trim();
+  const variants = new Set<string>([q]);
+
+  // Singular → Plural
+  if (q.endsWith('y') && !['a','e','i','o','u'].includes(q[q.length - 2])) {
+    variants.add(q.slice(0, -1) + 'ies');        // berry → berries
+  } else if (q.endsWith('s') || q.endsWith('sh') || q.endsWith('ch') || q.endsWith('x') || q.endsWith('z')) {
+    variants.add(q + 'es');                        // dish → dishes
+  } else {
+    variants.add(q + 's');                         // egg → eggs
+  }
+
+  // Plural → Singular
+  if (q.endsWith('ies')) {
+    variants.add(q.slice(0, -3) + 'y');            // berries → berry
+  } else if (q.endsWith('es')) {
+    variants.add(q.slice(0, -2));                  // dishes → dish
+    variants.add(q.slice(0, -1));                  // tomatoes → tomato (via -es → -e is wrong, but -es → '' is right)
+  } else if (q.endsWith('s') && !q.endsWith('ss')) {
+    variants.add(q.slice(0, -1));                  // eggs → egg
+  }
+
+  return [...variants];
+}
+
 export function classifySearchIntent(query: string): { type: string; canonical: string } | null {
   const q = query.toLowerCase().trim();
   const staples = ['milk', 'eggs', 'bread', 'chicken', 'rice', 'water', 'butter', 'cheese'];
-  
+
+  // Direct match
   if (staples.includes(q)) {
     return { type: 'exact_staple', canonical: q };
   }
+
+  // Check variants (e.g., "egg" → try "eggs")
+  const variants = getQueryVariants(q);
+  for (const v of variants) {
+    if (staples.includes(v)) {
+      return { type: 'exact_staple', canonical: v };
+    }
+  }
+
   return null;
 }
 
 export function isBlocklisted(productName: string, query: string): boolean {
   const q = query.toLowerCase().trim();
-  const patterns = CATEGORY_BLOCKLIST[q] ?? [];
   const name = productName.toLowerCase();
-  
-  return patterns.some(pattern => name.includes(pattern));
+
+  // Check blocklist for the query itself and all its variants
+  const variants = getQueryVariants(q);
+  for (const variant of variants) {
+    const patterns = CATEGORY_BLOCKLIST[variant] ?? [];
+    if (patterns.some(pattern => name.includes(pattern))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function scoreProductRelevance(productName: string, query: string): number {
   const name = productName.toLowerCase().trim();
   const q = query.toLowerCase().trim();
+  const variants = getQueryVariants(q);
 
-  // Exact match or starts with query + space
-  if (name === q || name.startsWith(q + ' ')) return 100;
+  let bestScore = 0;
 
-  // Query is a whole word at the start
-  const startsWithWord = new RegExp(`^${q}\\b`);
-  if (startsWithWord.test(name)) return 90;
+  for (const variant of variants) {
+    let score = 0;
 
-  // Query is a whole word anywhere
-  const wholeWord = new RegExp(`\\b${q}\\b`);
-  if (wholeWord.test(name)) {
-    // Penalize if query word comes after other strong category words
-    const firstWord = name.split(' ')[0];
-    if (firstWord !== q) return 40;
-    return 70;
+    // Exact match or starts with variant + space
+    if (name === variant || name.startsWith(variant + ' ')) {
+      score = 100;
+    }
+    // Variant is a whole word at the start
+    else if (new RegExp(`^${variant}\\b`).test(name)) {
+      score = 90;
+    }
+    // Variant is a whole word anywhere
+    else if (new RegExp(`\\b${variant}\\b`).test(name)) {
+      const firstWord = name.split(' ')[0];
+      score = (firstWord === variant) ? 70 : 40;
+    }
+    // Variant appears but not as a standalone word (e.g. "milkshake")
+    else if (name.includes(variant)) {
+      score = 10;
+    }
+
+    if (score > bestScore) bestScore = score;
   }
 
-  // Query appears but not as a standalone word (e.g. "milkshake")
-  if (name.includes(q)) return 10;
-
-  return 0;
+  return bestScore;
 }
+

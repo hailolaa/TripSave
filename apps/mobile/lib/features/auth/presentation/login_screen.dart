@@ -119,214 +119,222 @@ class _LoginScreenState extends State<LoginScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final bool isSmall = constraints.maxHeight < 700;
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Spacer(flex: isSmall ? 1 : 3),
-                      ShopSaveLogo(textSize: isSmall ? 24 : 28, iconSize: isSmall ? 40 : 48)
-                          .animate()
-                          .fadeIn(duration: 800.ms)
-                          .slideY(begin: -0.1, end: 0),
-                      Spacer(flex: isSmall ? 1 : 2),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: isSmall ? 20 : 32),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(32),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
-                                blurRadius: 40,
-                                offset: const Offset(0, 10),
-                                spreadRadius: 0,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Welcome Back',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: isSmall ? 22 : 24,
-                                  color: const Color(0xFF111827),
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Sign in to continue saving',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Color(0xFF6B7280),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                              SizedBox(height: isSmall ? 20 : 32),
-                              _buildTextField(
-                                controller: _emailController,
-                                hint: 'Email Address',
-                                icon: Icons.alternate_email_rounded,
-                                keyboardType: TextInputType.emailAddress,
-                                errorText: _emailError,
-                                isSmall: isSmall,
-                                onChanged: (_) => _clearFieldErrors(),
-                              ),
-                              SizedBox(height: isSmall ? 10 : 16),
-                              _buildTextField(
-                                controller: _passwordController,
-                                hint: 'Password',
-                                icon: Icons.lock_outline_rounded,
-                                isPassword: true,
-                                obscure: _obscurePassword,
-                                errorText: _passwordError,
-                                isSmall: isSmall,
-                                onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
-                                onChanged: (_) => _clearFieldErrors(),
-                              ),
-                              SizedBox(height: isSmall ? 8 : 12),
-                              Row(
-                                children: [
-                                  SizedBox(
-                                    height: 24,
-                                    width: 24,
-                                    child: Checkbox(
-                                      value: _rememberMe,
-                                      onChanged: (val) => setState(() => _rememberMe = val ?? true),
-                                      activeColor: const Color(0xFF19409B),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Spacer(flex: isSmall ? 1 : 3),
+                            ShopSaveLogo(textSize: isSmall ? 24 : 28, iconSize: isSmall ? 40 : 48)
+                                .animate()
+                                .fadeIn(duration: 800.ms)
+                                .slideY(begin: -0.1, end: 0),
+                            Spacer(flex: isSmall ? 1 : 2),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                              child: Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.symmetric(horizontal: 24, vertical: isSmall ? 20 : 32),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(32),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.03),
+                                      blurRadius: 40,
+                                      offset: const Offset(0, 10),
+                                      spreadRadius: 0,
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Remember Me',
-                                    style: TextStyle(color: Color(0xFF4B5563), fontSize: 13, fontWeight: FontWeight.w500),
-                                  ),
-                                  const Spacer(),
-                                  GestureDetector(
-                                    onTap: () {},
-                                    child: const Text(
-                                      'Forgot Password?',
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Welcome Back',
+                                      textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Color(0xFF19409B),
                                         fontWeight: FontWeight.w700,
-                                        fontSize: 13,
+                                        fontSize: isSmall ? 22 : 24,
+                                        color: const Color(0xFF111827),
+                                        letterSpacing: -0.5,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: isSmall ? 16 : 24),
-                              BlocBuilder<AuthCubit, AuthState>(
-                                builder: (context, state) {
-                                  final isLoading = state is AuthLoading;
-                                  return SizedBox(
-                                    width: double.infinity,
-                                    height: isSmall ? 48 : 52,
-                                    child: ElevatedButton(
-                                      onPressed: isLoading ? null : () {
-                                        if (_validateLocally()) {
-                                          context.read<AuthCubit>().login(
-                                            _emailController.text.trim(),
-                                            _passwordController.text,
-                                            rememberMe: _rememberMe,
-                                          );
-                                        }
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF19409B),
-                                        foregroundColor: Colors.white,
-                                        elevation: 0,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
-                                        ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Sign in to continue saving',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Color(0xFF6B7280),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
                                       ),
-                                      child: isLoading
-                                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                        : const Text(
-                                            'Sign In',
+                                    ),
+                                    SizedBox(height: isSmall ? 20 : 32),
+                                    _buildTextField(
+                                      controller: _emailController,
+                                      hint: 'Email Address',
+                                      icon: Icons.alternate_email_rounded,
+                                      keyboardType: TextInputType.emailAddress,
+                                      errorText: _emailError,
+                                      isSmall: isSmall,
+                                      onChanged: (_) => _clearFieldErrors(),
+                                    ),
+                                    SizedBox(height: isSmall ? 10 : 16),
+                                    _buildTextField(
+                                      controller: _passwordController,
+                                      hint: 'Password',
+                                      icon: Icons.lock_outline_rounded,
+                                      isPassword: true,
+                                      obscure: _obscurePassword,
+                                      errorText: _passwordError,
+                                      isSmall: isSmall,
+                                      onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                                      onChanged: (_) => _clearFieldErrors(),
+                                    ),
+                                    SizedBox(height: isSmall ? 8 : 12),
+                                    Row(
+                                      children: [
+                                        SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: Checkbox(
+                                            value: _rememberMe,
+                                            onChanged: (val) => setState(() => _rememberMe = val ?? true),
+                                            activeColor: const Color(0xFF19409B),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Remember Me',
+                                          style: TextStyle(color: Color(0xFF4B5563), fontSize: 13, fontWeight: FontWeight.w500),
+                                        ),
+                                        const Spacer(),
+                                        GestureDetector(
+                                          onTap: () {},
+                                          child: const Text(
+                                            'Forgot Password?',
                                             style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 16,
+                                              color: Color(0xFF19409B),
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
                                             ),
                                           ),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  Expanded(child: Divider(color: Colors.grey.shade200)),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text('OR', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w600, fontSize: 12)),
-                                  ),
-                                  Expanded(child: Divider(color: Colors.grey.shade200)),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              BlocBuilder<AuthCubit, AuthState>(
-                                builder: (context, state) {
-                                  final isLoading = state is AuthLoading;
-                                  return SizedBox(
-                                    width: double.infinity,
-                                    height: 52,
-                                    child: OutlinedButton(
-                                      onPressed: isLoading ? null : () => context.read<AuthCubit>().signInWithGoogle(),
-                                      style: OutlinedButton.styleFrom(
-                                        side: BorderSide(color: Colors.grey.shade300),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.login, size: 20, color: Color(0xFF374151)), // Placeholder for Google Icon
-                                          const SizedBox(width: 12),
-                                          const Text(
-                                            'Continue with Google',
-                                            style: TextStyle(color: Color(0xFF374151), fontWeight: FontWeight.w600, fontSize: 15),
+                                    SizedBox(height: isSmall ? 16 : 24),
+                                    BlocBuilder<AuthCubit, AuthState>(
+                                      builder: (context, state) {
+                                        final isLoading = state is AuthLoading;
+                                        return SizedBox(
+                                          width: double.infinity,
+                                          height: isSmall ? 48 : 52,
+                                          child: ElevatedButton(
+                                            onPressed: isLoading ? null : () {
+                                              if (_validateLocally()) {
+                                                context.read<AuthCubit>().login(
+                                                  _emailController.text.trim(),
+                                                  _passwordController.text,
+                                                  rememberMe: _rememberMe,
+                                                );
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF19409B),
+                                              foregroundColor: Colors.white,
+                                              padding: EdgeInsets.zero,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                            ),
+                                            child: isLoading
+                                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                              : const Text(
+                                                  'Sign In',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
                                           ),
-                                        ],
-                                      ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
-                      ),
-                      Spacer(flex: isSmall ? 2 : 3),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'New to TripSave? ',
-                            style: TextStyle(color: Color(0xFF6B7280), fontSize: 14, fontWeight: FontWeight.w500),
-                          ),
-                          GestureDetector(
-                            onTap: () => context.push('/register'),
-                            child: const Text(
-                              'Create Account',
-                              style: TextStyle(
-                                color: Color(0xFF19409B),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
+                                    const SizedBox(height: 20),
+                                    Row(
+                                      children: [
+                                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                                          child: Text('OR', style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w600, fontSize: 12)),
+                                        ),
+                                        Expanded(child: Divider(color: Colors.grey.shade200)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                    BlocBuilder<AuthCubit, AuthState>(
+                                      builder: (context, state) {
+                                        final isLoading = state is AuthLoading;
+                                        return SizedBox(
+                                          width: double.infinity,
+                                          height: 52,
+                                          child: OutlinedButton(
+                                            onPressed: isLoading ? null : () => context.read<AuthCubit>().signInWithGoogle(),
+                                            style: OutlinedButton.styleFrom(
+                                              side: BorderSide(color: Colors.grey.shade300),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(Icons.login, size: 20, color: Color(0xFF374151)), // Placeholder for Google Icon
+                                                const SizedBox(width: 12),
+                                                const Text(
+                                                  'Continue with Google',
+                                                  style: TextStyle(color: Color(0xFF374151), fontWeight: FontWeight.w600, fontSize: 15),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
                             ),
-                          ),
-                        ],
-                      ).animate(delay: 400.ms).fadeIn(),
-                      Spacer(flex: isSmall ? 1 : 2),
-                    ],
+                            Spacer(flex: isSmall ? 2 : 3),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'New to TripSave? ',
+                                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 14, fontWeight: FontWeight.w500),
+                                ),
+                                GestureDetector(
+                                  onTap: () => context.push('/register'),
+                                  child: const Text(
+                                    'Create Account',
+                                    style: TextStyle(
+                                      color: Color(0xFF19409B),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ).animate(delay: 400.ms).fadeIn(),
+                            Spacer(flex: isSmall ? 1 : 2),
+                          ],
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),

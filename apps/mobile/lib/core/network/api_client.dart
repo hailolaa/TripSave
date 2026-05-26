@@ -51,4 +51,55 @@ class ApiClient {
       },
     ));
   }
+
+  static String parseError(dynamic e) {
+    if (e is DioException) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return 'Connection timeout. Please check your network stability and try again.';
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        return 'Network connection error. Please make sure you are connected to the internet.';
+      }
+      
+      final response = e.response;
+      if (response != null) {
+        final statusCode = response.statusCode;
+        if (statusCode == 429) {
+          return 'Too many requests. Please slow down and try again in a few seconds.';
+        }
+        if (statusCode == 401) {
+          return 'Unauthorized. Please sign in again.';
+        }
+        if (statusCode == 403) {
+          return 'Access forbidden. Please contact support if this persists.';
+        }
+        if (statusCode == 404) {
+          return 'Requested product or service not found.';
+        }
+        if (statusCode != null && statusCode >= 500) {
+          return 'Server error. We are experiencing high load or technical issues. Please try again later.';
+        }
+        
+        // Check if backend returned a validation/message structure
+        final data = response.data;
+        if (data is Map && data['message'] != null) {
+          final msg = data['message'];
+          if (msg is String) return msg;
+          if (msg is List && msg.isNotEmpty) return msg.first.toString();
+        }
+      }
+    }
+    
+    final str = e.toString().toLowerCase();
+    if (str.contains('connection refused') || str.contains('socketexception') || str.contains('network_unreachable')) {
+      return 'Unable to connect to the server. Please check your internet connection and try again.';
+    }
+    if (str.contains('429')) {
+      return 'Too many requests. Please wait a moment and try again.';
+    }
+    
+    return 'Something went wrong. Please check your network and try again.';
+  }
 }

@@ -155,7 +155,7 @@ class HomeCubit extends Cubit<HomeState> {
       }
 
       // 3. Fetch comparisons
-      await comparisonCubit.fetchComparisons(cartItems, forceRefresh: true);
+      await comparisonCubit.fetchComparisons(cartItems, forceRefresh: false);
       
       if (comparisonCubit.state is ComparisonLoaded) {
         final results = (comparisonCubit.state as ComparisonLoaded).results;

@@ -7,6 +7,7 @@ import { Store } from '../stores/store.entity';
 import { StoreChain, StoreChainType } from '../stores/store-chain.entity';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { geocodePlace } from '../utils/geocoding.util';
+import { getQueryVariants } from '../utils/relevance.util';
 
 @Injectable()
 export class ProductsService {
@@ -320,11 +321,16 @@ export class ProductsService {
     }
     
     const cleanQuery = query.trim().toLowerCase();
+    const variants = getQueryVariants(cleanQuery);
     
-    // 1. Ensure a generic product exists for exactly what the user typed
-    let genericProduct = await this.productsRepository.findOne({
-      where: { name: ILike(cleanQuery) }
-    });
+    // 1. Try to find an existing generic product for any variant
+    let genericProduct: Product | null = null;
+    for (const variant of variants) {
+      genericProduct = await this.productsRepository.findOne({
+        where: { name: ILike(variant) }
+      });
+      if (genericProduct) break;
+    }
 
     if (!genericProduct) {
       // Create it if it doesn't exist so it can be added to the cart

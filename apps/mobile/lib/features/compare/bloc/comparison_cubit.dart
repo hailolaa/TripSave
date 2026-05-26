@@ -32,6 +32,7 @@ class ComparisonLoaded extends ComparisonState {
   final bool isStoreShells;
   final String? cacheAgeLabel;
   final int? cacheAgeHours;
+  final String? query;
   
   ComparisonLoaded(
     this.results, {
@@ -44,10 +45,11 @@ class ComparisonLoaded extends ComparisonState {
     this.isStoreShells = false,
     this.cacheAgeLabel,
     this.cacheAgeHours,
+    this.query,
   }) : fetchedAt = fetchedAt ?? DateTime.now();
   
   @override
-  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng, fetchedAt, isLocalCache, isStoreShells, cacheAgeLabel, cacheAgeHours];
+  List<Object?> get props => [results, sortBy, isRoundTrip, userLat, userLng, fetchedAt, isLocalCache, isStoreShells, cacheAgeLabel, cacheAgeHours, query];
 
   ComparisonLoaded copyWith({
     List<dynamic>? results,
@@ -60,6 +62,7 @@ class ComparisonLoaded extends ComparisonState {
     bool? isStoreShells,
     String? cacheAgeLabel,
     int? cacheAgeHours,
+    String? query,
   }) {
     return ComparisonLoaded(
       results ?? this.results,
@@ -72,6 +75,7 @@ class ComparisonLoaded extends ComparisonState {
       isStoreShells: isStoreShells ?? this.isStoreShells,
       cacheAgeLabel: cacheAgeLabel ?? this.cacheAgeLabel,
       cacheAgeHours: cacheAgeHours ?? this.cacheAgeHours,
+      query: query ?? this.query,
     );
   }
 }
@@ -139,7 +143,11 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     return null;
   }
 
+  String? get lastQuery => _lastQuery;
+  String? get lastStoreType => _lastStoreType;
+
   Future<void> prefetch() async {
+    if (_lastQuery != null) return;
     // Silently fetch default item on app open
     await searchItem('milk', forceRefresh: false, isSilent: true);
   }
@@ -176,9 +184,16 @@ class ComparisonCubit extends Cubit<ComparisonState> {
 
       _lastQuery = key;
       _lastStoreType = storeType;
-      emit(ComparisonLoaded(response.data, sortBy: _sortBy, isRoundTrip: _isRoundTrip, userLat: userLat, userLng: userLng));
+      emit(ComparisonLoaded(
+        response.data, 
+        sortBy: _sortBy, 
+        isRoundTrip: _isRoundTrip, 
+        userLat: userLat, 
+        userLng: userLng,
+        query: key,
+      ));
     } catch (e) {
-      emit(ComparisonError(e.toString()));
+      emit(ComparisonError(ApiClient.parseError(e)));
     }
   }
 
@@ -333,6 +348,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
         userLng: userLng,
         cacheAgeLabel: cacheAgeLabel,
         cacheAgeHours: cacheAgeHours,
+        query: itemName,
       ));
       
     } on DioException catch (e) {
@@ -344,12 +360,12 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       
       if (!isSilent) {
         if (state is! ComparisonLoaded) {
-          emit(ComparisonError('Failed to fetch comparisons. Please check your connection.'));
+          emit(ComparisonError(ApiClient.parseError(e)));
         }
       }
     } catch (e) {
       if (!isSilent && state is! ComparisonLoaded) {
-        emit(ComparisonError(e.toString()));
+        emit(ComparisonError(ApiClient.parseError(e)));
       }
     } finally {
       _isLoading = false;
