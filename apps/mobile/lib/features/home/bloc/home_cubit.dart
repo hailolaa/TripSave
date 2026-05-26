@@ -9,6 +9,7 @@ import '../../../core/services/location_service.dart';
 import '../../auth/auth_repository.dart';
 import '../../../core/di/injection.dart';
 import '../../location/bloc/location_cubit.dart';
+import '../../../core/network/api_client.dart';
 
 abstract class HomeState extends Equatable {
   @override
@@ -179,10 +180,7 @@ class HomeCubit extends Cubit<HomeState> {
         ));
       }
     } catch (e) {
-      final message = e.toString().contains('401') 
-          ? 'Session expired. Please log in again.' 
-          : 'Failed to load dashboard: ${e.toString()}';
-      emit(HomeError(message));
+      emit(HomeError(ApiClient.parseError(e)));
     }
   }
 

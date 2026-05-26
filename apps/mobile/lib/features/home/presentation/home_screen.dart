@@ -8,6 +8,7 @@ import '../../../core/widgets/shopsave_logo.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
+import '../../../core/widgets/app_error_widget.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/di/injection.dart';
 import '../../auth/auth_repository.dart';
@@ -346,7 +347,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (state is HomeLoading) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (state is HomeError) {
-                    return Center(child: Text(state.message));
+                    return AppErrorWidget(
+                      message: state.message,
+                      onRetry: () => context.read<HomeCubit>().loadDashboard(),
+                    );
                   } else if (state is HomeLoaded) {
                     return _buildDashboard(context, state);
                   }

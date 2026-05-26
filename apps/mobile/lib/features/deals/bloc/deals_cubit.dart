@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../deals_repository.dart';
+import '../../../core/network/api_client.dart';
 
 abstract class DealsState extends Equatable {
   @override
@@ -37,7 +38,7 @@ class DealsCubit extends Cubit<DealsState> {
       final deals = await _repository.getDeals(zip: zip);
       emit(DealsLoaded(deals));
     } catch (e) {
-      emit(DealsError('Failed to load deals: ${e.toString()}'));
+      emit(DealsError(ApiClient.parseError(e)));
     }
   }
 

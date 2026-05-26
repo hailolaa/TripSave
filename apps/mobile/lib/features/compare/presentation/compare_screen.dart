@@ -12,6 +12,7 @@ import '../../savings/bloc/savings_cubit.dart';
 import '../../../core/widgets/store_logo.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/widgets/app_error_widget.dart';
 import '../../../core/services/favorite_store_service.dart';
 
 class CompareScreen extends StatefulWidget {
@@ -401,46 +402,24 @@ class _CompareScreenState extends State<CompareScreen> {
                           ),
                         );
                       } else if (state is ComparisonError) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                              const SizedBox(height: 16),
-                              Text(
-                                state.message,
-                                style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey.shade700),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  final cubit = context.read<ComparisonCubit>();
-                                  if (_searchController.text.isNotEmpty) {
-                                    cubit.searchItem(
-                                      _searchController.text,
-                                      storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                      forceRefresh: false,
-                                    );
-                                  } else {
-                                    cubit.searchItem(
-                                      cubit.lastQuery ?? 'milk',
-                                      storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                      forceRefresh: false,
-                                    );
-                                  }
-                                },
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Try Again'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryBlue,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ],
-                          ),
+                        return AppErrorWidget(
+                          message: state.message,
+                          onRetry: () {
+                            final cubit = context.read<ComparisonCubit>();
+                            if (_searchController.text.isNotEmpty) {
+                              cubit.searchItem(
+                                _searchController.text,
+                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                forceRefresh: false,
+                              );
+                            } else {
+                              cubit.searchItem(
+                                cubit.lastQuery ?? 'milk',
+                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                forceRefresh: false,
+                              );
+                            }
+                          },
                         );
                       } else if (state is ComparisonLoaded) {
                         final results = state.results;

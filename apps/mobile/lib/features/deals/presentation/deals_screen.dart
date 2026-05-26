@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import 'package:trip_save/features/list/bloc/list_cubit.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
 import 'package:trip_save/features/deals/bloc/deals_cubit.dart';
+import '../../../core/widgets/app_error_widget.dart';
 
 class DealsScreen extends StatefulWidget {
   const DealsScreen({super.key});
@@ -73,7 +74,10 @@ class _DealsScreenState extends State<DealsScreen> {
               if (state is DealsLoading) {
                 return const Center(child: CircularProgressIndicator());
               } else if (state is DealsError) {
-                return Center(child: Text(state.message));
+                return AppErrorWidget(
+                  message: state.message,
+                  onRetry: () => context.read<DealsCubit>().fetchDeals(),
+                );
               } else if (state is DealsLoaded) {
                 final deals = state.deals.where((deal) => _matchesSelectedFilter(deal)).toList();
                 

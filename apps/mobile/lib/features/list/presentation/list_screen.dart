@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../bloc/list_cubit.dart';
 import '../../home/bloc/home_cubit.dart';
+import '../../../core/widgets/app_error_widget.dart';
 
 class ListScreen extends StatefulWidget {
   const ListScreen({super.key});
@@ -137,7 +138,10 @@ class _ListScreenState extends State<ListScreen> {
                       if (state is ListLoading) {
                         return const Center(child: CircularProgressIndicator());
                       } else if (state is ListError) {
-                        return Center(child: Text(state.message, style: const TextStyle(color: Colors.red)));
+                        return AppErrorWidget(
+                          message: state.message,
+                          onRetry: () => context.read<ListCubit>().fetchCart(),
+                        );
                       } else if (state is ListLoaded) {
                         if (state.items.isEmpty) {
                           return _buildEmptyState();
