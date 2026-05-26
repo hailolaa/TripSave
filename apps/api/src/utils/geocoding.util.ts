@@ -189,9 +189,23 @@ export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeR
 }
 
 /**
+ * Module-level cache for neighboring ZIPs.
+ * ZIP boundaries never change, so TTL is forever — eliminates 4 API calls per repeat location.
+ */
+const neighborZipCache = new Map<string, string[]>();
+
+/**
  * Get neighboring ZIP codes by geocoding 4 offset points (approx 5 miles in each direction).
+ * Results are cached indefinitely since ZIP boundaries do not change.
  */
 export async function getNeighboringZips(lat: number, lng: number, zip: string): Promise<string[]> {
+  // Round to 2 decimal places (~0.7 mile precision) for cache key
+  const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+
+  if (neighborZipCache.has(cacheKey)) {
+    return neighborZipCache.get(cacheKey)!;
+  }
+
   const offsets = [
     [lat + 0.07, lng],  // north
     [lat - 0.07, lng],  // south
@@ -207,5 +221,8 @@ export async function getNeighboringZips(lat: number, lng: number, zip: string):
   );
   
   const allZips = [zip, ...neighborZips].filter(Boolean) as string[];
-  return [...new Set(allZips)];
+  const unique = [...new Set(allZips)];
+
+  neighborZipCache.set(cacheKey, unique);
+  return unique;
 }

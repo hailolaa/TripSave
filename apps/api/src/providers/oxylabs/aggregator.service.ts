@@ -73,6 +73,8 @@ export class AggregatorService {
     zip?: string,
     req?: any,
     options?: { bypassCache?: boolean },
+    userLat?: number,
+    userLng?: number,
   ): Promise<SearchResponse> {
     const startTime = Date.now();
     const resolvedZip = zip || await resolveZipFromRequest(req, this.DEFAULT_ZIP);
@@ -99,7 +101,7 @@ export class AggregatorService {
     }
 
     // 3. Start a new scrape and register it as in-flight
-    const scrapePromise = this.executeScrape(query, resolvedZip, cacheKey, startTime, options);
+    const scrapePromise = this.executeScrape(query, resolvedZip, cacheKey, startTime, options, userLat, userLng);
     this.inFlightRequests.set(cacheKey, scrapePromise);
 
     try {
@@ -120,6 +122,8 @@ export class AggregatorService {
     cacheKey: string, 
     startTime: number,
     options?: { bypassCache?: boolean },
+    userLat?: number,
+    userLng?: number,
   ): Promise<SearchResponse> {
     this.logger.log(`Searching "${query}" in ZIP ${resolvedZip} — running all scrapers...`);
 
@@ -164,11 +168,13 @@ export class AggregatorService {
       this.runWithTimeout('Target', () => this.targetScraper.search(query, resolvedZip), 15000),
       skipKroger ? Promise.resolve([]) : this.runWithTimeout('Kroger', () => this.krogerScraper.search(query, resolvedZip), 15000),
       this.runWithTimeout('Instacart', () => this.instacartScraper.search(query, resolvedZip), 20000),
-      // Run multiple GMaps searches in parallel if needed
+      // Run multiple GMaps searches in parallel — use coords-based search when available for accuracy
       Promise.all(gMapsTypes.map(type => 
         this.runWithTimeout(
           `GoogleMaps (${type})`,
-          () => this.googleMapsScraper.searchNearbyStores(resolvedZip, type),
+          () => (userLat && userLng)
+            ? this.googleMapsScraper.searchNearbyStoresByCoords(userLat, userLng, type)
+            : this.googleMapsScraper.searchNearbyStores(resolvedZip, type),
           this.TARGETED_GMAPS_TIMEOUT_MS
         ).catch(() => [])
       )).then(results => {
@@ -374,6 +380,18 @@ export class AggregatorService {
       await Promise.all(searchPromises);
     }
 
+    // Step 4c: Fire-and-forget — persist newly discovered stores to DB so next request hits DB not Google Maps
+    const storesByName = new Map<string, ScrapedProduct>();
+    for (const p of allProducts) {
+      if (!p.lat || !p.lng || p.lat === 0 || p.lng === 0) continue;
+      const key = (p.store || '').toLowerCase().trim();
+      if (!storesByName.has(key)) storesByName.set(key, p);
+    }
+    if (storesByName.size > 0) {
+      this.storesService.upsertDiscoveredStores(Array.from(storesByName.values()))
+        .catch(err => this.logger.error(`Failed to upsert discovered stores: ${err.message}`));
+    }
+
     // If all scrapers failed, use fallback
     if (allProducts.length === 0) {
       this.logger.warn(`All scrapers failed for "${query}". Using fallback data.`);
@@ -439,10 +457,19 @@ export class AggregatorService {
       return true;
     });
 
-    // 4. Sort by price ascending
-    cleaned.sort((a, b) => a.price - b.price);
+    // 4. Cap per store at 5 results to prevent one retailer flooding the list and crowding out others
+    const byStore = new Map<string, ScrapedProduct[]>();
+    for (const p of cleaned) {
+      const key = (p.store || '').toLowerCase().trim();
+      if (!byStore.has(key)) byStore.set(key, []);
+      const storeProducts = byStore.get(key)!;
+      if (storeProducts.length < 5) storeProducts.push(p);
+    }
 
-    return cleaned.slice(0, 30);
+    // Flatten and sort by price ascending — no global cap, radius filtering happens downstream
+    const balanced = Array.from(byStore.values()).flat();
+    balanced.sort((a, b) => a.price - b.price);
+    return balanced;
   }
 
   private shouldScrapePharmacy(query: string): boolean {

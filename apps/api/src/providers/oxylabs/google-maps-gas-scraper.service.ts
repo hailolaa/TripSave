@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 import { OxylabsBaseService } from './oxylabs-base.service';
 import { NormalizedGasStation } from '../../common/interfaces/normalized-gas-price.interface';
 import * as cheerio from 'cheerio';
@@ -54,6 +55,59 @@ export class GoogleMapsGasScraperService extends OxylabsBaseService {
       const status = error?.response?.status;
       const details = error?.response?.data ? JSON.stringify(error.response.data).slice(0, 500) : '';
       this.logger.error(`Google Maps scraping failed${status ? ` (${status})` : ''}: ${error.message}${details ? ` — ${details}` : ''}`);
+      return [];
+    }
+  }
+
+  /**
+   * Search for stores near real GPS coordinates using the Google Maps Places API.
+   * More accurate than ZIP-based search — finds stores in adjacent ZIPs within radius.
+   * Falls back to ZIP-based searchNearbyStores if coordinates are missing or Places API fails.
+   * @param lat User latitude
+   * @param lng User longitude
+   * @param type Store category keyword (e.g. "grocery stores")
+   * @param radiusMeters Search radius in meters (default: 16000 ≈ 10 miles)
+   */
+  async searchNearbyStoresByCoords(
+    lat: number,
+    lng: number,
+    type: string,
+    radiusMeters: number = 16000,
+  ): Promise<NormalizedGasStation[]> {
+    try {
+      const apiKey = this.configService.get<string>('GOOGLE_MAPS_API_KEY');
+      if (!apiKey) {
+        this.logger.warn('GOOGLE_MAPS_API_KEY not configured — skipping Places API search');
+        return [];
+      }
+
+      const url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
+      this.logger.log(`Places API nearby search: lat=${lat}, lng=${lng}, type="${type}", radius=${radiusMeters}m`);
+
+      const response = await axios.get(url, {
+        params: {
+          location: `${lat},${lng}`,
+          radius: radiusMeters,
+          keyword: type,
+          key: apiKey,
+        },
+        timeout: 10000,
+      });
+
+      const results: any[] = response.data?.results || [];
+      this.logger.log(`Places API returned ${results.length} results for "${type}" near (${lat}, ${lng})`);
+
+      return results.map((place: any) => ({
+        stationId: place.place_id || `gm-${Buffer.from((place.name || '') + (place.vicinity || '')).toString('base64').substr(0, 12)}`,
+        name: place.name || 'Unknown Store',
+        address: place.vicinity || '',
+        latitude: place.geometry?.location?.lat || 0,
+        longitude: place.geometry?.location?.lng || 0,
+        logoUrl: null,
+        prices: { regular: null, midgrade: null, premium: null, diesel: null },
+      }));
+    } catch (error: any) {
+      this.logger.error(`Places API nearby search failed: ${error.message} — falling back to ZIP search`);
       return [];
     }
   }

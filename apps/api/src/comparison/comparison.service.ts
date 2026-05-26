@@ -16,6 +16,7 @@ import { calculateDriveCost, calculateTrueCost, metersToMiles, haversineDistance
 import { geocodePlaceNear, getNeighboringZips } from '../utils/geocoding.util';
 import { GasSyncService } from '../services/gas-sync.service';
 import { isBlocklisted, scoreProductRelevance, classifySearchIntent } from '../utils/relevance.util';
+import { combinedSimilarity } from '../utils/string-similarity.util';
 import { SearchActivity } from '../models/search-activity.entity';
 
 @Injectable()
@@ -242,7 +243,7 @@ export class ComparisonService {
 
     // Fire the scrape as a background job for all neighboring ZIPs
     zipsToSearch.forEach(zip => {
-      this.aggregatorService.search(itemName, zip, undefined, { bypassCache: forceRefresh })
+      this.aggregatorService.search(itemName, zip, undefined, { bypassCache: forceRefresh }, userLat, userLng)
         .then(async (scraperResult) => {
           if (scraperResult.data.length > 0) {
             const filtered = this.applyRelevanceFilter(scraperResult.data, itemName);
@@ -302,9 +303,11 @@ export class ComparisonService {
       missingCoordStoreNames.slice(0, MAX_GEOCODE).map(async (storeName) => {
         // If we already have a nearby DB store match by name within 8 miles, no need to geocode
         const localMatch = nearbyStores.find(ns => {
-          const nameMatches = ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
-                             storeName.toLowerCase().includes(ns.store.name.toLowerCase());
-          return nameMatches && ns.distance <= 8;
+          const score = Math.max(
+            combinedSimilarity(ns.store.name, storeName),
+            combinedSimilarity(ns.store.chain?.name || '', storeName),
+          );
+          return score >= 0.6 && ns.distance <= preferredRadius;
         });
         if (localMatch) return;
 
@@ -337,21 +340,26 @@ export class ComparisonService {
       const productName = typeof item.product === 'string' ? item.product : (item.product?.name || '');
       const itemCategory = (item as any).category || this.aggregatorService.determineCategory('', productName, storeName);
 
-      // Find the nearest local store that matches this retailer's name within 8 miles
+      // Find the nearest local store using fuzzy similarity — handles apostrophes, abbreviations, chain suffixes
       let localMatch = nearbyStores.find(ns => {
-        const nameMatches = ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
-                           storeName.toLowerCase().includes(ns.store.name.toLowerCase());
-        return nameMatches && ns.distance <= 8;
+        const score = Math.max(
+          combinedSimilarity(ns.store.name, storeName),
+          combinedSimilarity(ns.store.chain?.name || '', storeName),
+        );
+        return score >= 0.6 && ns.distance <= preferredRadius;
       });
 
       const override = storeCoordOverrides.get(storeName.toLowerCase());
 
-      // If no close match and no geocoded override, fall back to any match within the user's full search radius
+      // If no fuzzy match and no geocoded override, try a looser chain-prefix match within full radius
       if (!localMatch && !override) {
-        localMatch = nearbyStores.find(ns => 
-          ns.store.name.toLowerCase().includes(storeName.toLowerCase()) ||
-          storeName.toLowerCase().includes(ns.store.name.toLowerCase())
-        );
+        localMatch = nearbyStores.find(ns => {
+          const score = Math.max(
+            combinedSimilarity(ns.store.name, storeName),
+            combinedSimilarity(ns.store.chain?.name || '', storeName),
+          );
+          return score >= 0.4 && ns.distance <= preferredRadius;
+        });
       }
 
       let distance = 0;
@@ -394,9 +402,21 @@ export class ComparisonService {
         if (storeData.lat !== 0 && storeData.lng !== 0) {
           distance = haversineDistanceMiles(userLat, userLng, storeData.lat, storeData.lng);
         } else {
-          // No coordinates available — assign a very large distance so it gets
-          // filtered out by the preferredRadius check downstream.
-          distance = 999;
+          // Try chain-name prefix match from nearby stores as a last-resort coordinate source
+          const chainMatch = nearbyStores.find(ns => {
+            const chainName = (ns.store.chain?.name || '').toLowerCase();
+            const firstWord = storeName.toLowerCase().split(' ')[0];
+            return storeName.toLowerCase().includes(chainName) || chainName.includes(firstWord);
+          });
+          if (chainMatch) {
+            distance = haversineDistanceMiles(userLat, userLng, Number(chainMatch.store.lat), Number(chainMatch.store.lng));
+          } else if (override) {
+            distance = haversineDistanceMiles(userLat, userLng, override.lat, override.lng);
+          } else {
+            // Last resort: show just inside radius rather than silently hiding this store
+            distance = preferredRadius - 0.1;
+            this.logger.warn(`No coords found for "${storeName}" — showing with estimated distance (${(preferredRadius - 0.1).toFixed(1)} mi)`);
+          }
         }
       }
 
