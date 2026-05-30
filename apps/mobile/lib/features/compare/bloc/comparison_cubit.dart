@@ -147,9 +147,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
   String? get lastStoreType => _lastStoreType;
 
   Future<void> prefetch() async {
-    if (_lastQuery != null) return;
-    // Silently fetch default item on app open
-    await searchItem('milk', forceRefresh: false, isSilent: true);
+    return;
   }
 
   Future<void> fetchComparisons(List<dynamic> items, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip}) async {

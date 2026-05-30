@@ -58,7 +58,6 @@ class _CompareScreenState extends State<CompareScreen> {
         _selectedFilterIndex = index;
       }
     }
-    cubit.prefetch();
   }
 
   void _loadFavorites() {
@@ -387,7 +386,29 @@ class _CompareScreenState extends State<CompareScreen> {
                   child: BlocBuilder<ComparisonCubit, ComparisonState>(
                     builder: (context, state) {
                       if (state is ComparisonLoading || state is ComparisonInitial) {
-                        return const Center(child: CircularProgressIndicator(color: AppTheme.savingsGreen));
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_outlined, size: 64, color: Colors.grey.shade400),
+                              const SizedBox(height: 16),
+                              Text(
+                                state is ComparisonInitial ? 'Search a product to compare' : 'Loading compare data...',
+                                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 32),
+                                child: Text(
+                                  'Enter a product name to check current prices near you.',
+                                  style: TextStyle(color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
                       } else if (state is ComparisonWarming) {
                         return Center(
                           child: Column(
