@@ -318,7 +318,7 @@ class _ListScreenState extends State<ListScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => context.go('/compare'),
+          onTap: () => context.go('/home?section=compare'),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(

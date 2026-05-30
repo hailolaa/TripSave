@@ -26,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _dealsScrollController = ScrollController();
+  final GlobalKey _compareStoresKey = GlobalKey();
+  String? _handledSectionTarget;
 
   @override
   void initState() {
@@ -39,6 +41,41 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _dealsScrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final sectionTarget = GoRouterState.of(context).uri.queryParameters['section'];
+
+    if (sectionTarget == null) {
+      _handledSectionTarget = null;
+      return;
+    }
+
+    if (sectionTarget == _handledSectionTarget) {
+      return;
+    }
+
+    _handledSectionTarget = sectionTarget;
+
+    if (sectionTarget == 'compare') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        final compareContext = _compareStoresKey.currentContext;
+        if (compareContext != null) {
+          Scrollable.ensureVisible(
+            compareContext,
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOut,
+            alignment: 0.08,
+          );
+        }
+      });
+    }
   }
 
   void _showLocationPicker(BuildContext context, String currentLocation) {
@@ -514,8 +551,10 @@ class _HomeScreenState extends State<HomeScreen> {
           
         const SizedBox(height: 32),
         // Compare Stores Header
-        const Text('Compare Stores', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark, letterSpacing: -0.5))
-            .animate().fadeIn(delay: 400.ms),
+        Container(
+          key: _compareStoresKey,
+          child: const Text('Compare Stores', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: AppTheme.textDark, letterSpacing: -0.5)),
+        ).animate().fadeIn(delay: 400.ms),
         const SizedBox(height: 4),
         Text(state.cartItemCount > 0 
           ? 'Comparison for ${state.cartItemCount} items' 
