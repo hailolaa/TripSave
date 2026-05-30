@@ -417,7 +417,7 @@ export class ProductsService {
     
     const items = await query.getMany();
 
-    return items.map(sp => {
+    return Promise.all(items.map(async (sp) => {
       const price = Number(sp.price);
       const salePrice = sp.sale_price ? Number(sp.sale_price) : price;
       const savings = Number((price - salePrice).toFixed(2));
@@ -445,6 +445,6 @@ export class ProductsService {
           } : null,
         }
       };
-    });
+    }));
   }
 }
