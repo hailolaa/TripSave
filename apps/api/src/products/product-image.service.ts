@@ -7,15 +7,28 @@ export class ProductImageService {
   private readonly logger = new Logger(ProductImageService.name);
   private readonly cache = new NodeCache({ stdTTL: 86400, useClones: false });
 
+  private isFallbackImage(url?: string): boolean {
+    const imageUrl = url?.trim() ?? '';
+    if (!imageUrl) {
+      return true;
+    }
+
+    return (
+      imageUrl.includes('images.unsplash.com') ||
+      imageUrl.includes('placeholder') ||
+      imageUrl.includes('storage.com')
+    );
+  }
+
   async resolveImage(productName: string, existingImageUrl?: string): Promise<string> {
     const existing = existingImageUrl?.trim();
-    if (existing) {
+    if (existing && !this.isFallbackImage(existing)) {
       return existing;
     }
 
     const normalizedName = productName.toLowerCase().trim();
     if (!normalizedName) {
-      return '';
+      return existing || '';
     }
 
     const cached = this.cache.get<string>(normalizedName);
@@ -36,11 +49,11 @@ export class ProductImageService {
 
       const imageUrl = this.extractImageUrl(response.data);
       this.cache.set(normalizedName, imageUrl);
-      return imageUrl;
+      return imageUrl || existing || '';
     } catch (error: any) {
       this.logger.debug(`Open Food Facts lookup failed for "${productName}": ${error.message}`);
       this.cache.set(normalizedName, '');
-      return '';
+      return existing || '';
     }
   }
 

@@ -7,14 +7,15 @@ import { StoreProduct } from './store-product.entity';
 import { Store } from '../stores/store.entity';
 import { StoreChain } from '../stores/store-chain.entity';
 import { ProvidersModule } from '../providers/providers.module';
+import { ProductImageService } from './product-image.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Product, StoreProduct, Store, StoreChain]),
     ProvidersModule,
   ],
-  providers: [ProductsService],
+  providers: [ProductsService, ProductImageService],
   controllers: [ProductsController],
-  exports: [ProductsService],
+  exports: [ProductsService, ProductImageService],
 })
 export class ProductsModule {}

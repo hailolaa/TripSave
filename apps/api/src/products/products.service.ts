@@ -8,6 +8,7 @@ import { StoreChain, StoreChainType } from '../stores/store-chain.entity';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { geocodePlace } from '../utils/geocoding.util';
 import { getQueryVariants } from '../utils/relevance.util';
+import { ProductImageService } from './product-image.service';
 
 @Injectable()
 export class ProductsService {
@@ -20,7 +21,12 @@ export class ProductsService {
     private chainsRepository: Repository<StoreChain>,
     @InjectRepository(StoreProduct)
     private storeProductsRepository: Repository<StoreProduct>,
+    private readonly productImageService: ProductImageService,
   ) {}
+
+  private async resolveProductImage(productName: string, existingImageUrl?: string): Promise<string> {
+    return this.productImageService.resolveImage(productName, existingImageUrl);
+  }
 
   /**
    * Search for products in the local database.
@@ -40,13 +46,13 @@ export class ProductsService {
 
     if (products.length === 0) return null;
 
-    return products.map(sp => ({
+    return Promise.all(products.map(async sp => ({
       store: sp.store.name,
       product: sp.product.name,
       price: Number(sp.price),
-      image: sp.product.image_url || '',
+      image: await this.resolveProductImage(sp.product.name, sp.product.image_url || ''),
       source: sp.source as any,
-    }));
+    })));
   }
 
   /**
@@ -77,13 +83,13 @@ export class ProductsService {
     return {
       isStale,
       newestVerifiedAt,
-      products: products.map(sp => ({
+      products: await Promise.all(products.map(async sp => ({
         store: sp.store.name,
         product: sp.product.name,
         price: Number(sp.price),
-        image: sp.product.image_url || '',
+        image: await this.resolveProductImage(sp.product.name, sp.product.image_url || ''),
         source: sp.source as any,
-      }))
+      })))
     };
   }
 
@@ -237,17 +243,24 @@ export class ProductsService {
 
         if (!product) {
           const category = this.resolveCategory(item.product);
+          const resolvedImage = await this.resolveProductImage(
+            item.product,
+            item.image || this.getFallbackImage(item.product, category),
+          );
           product = await this.productsRepository.save({
             name: item.product,
             normalized_name: item.product.toLowerCase().trim(),
             category: category,
-            image_url: item.image || this.getFallbackImage(item.product, category)
+            image_url: resolvedImage || this.getFallbackImage(item.product, category)
           });
         } else {
-          // UPGRADE LOGIC: If the current product has a fallback image 
-          // and the scraper found a REAL image, upgrade it!
-          if (item.image && this.isProductFallback(product.image_url)) {
-            await this.productsRepository.update(product.id, { image_url: item.image });
+          const resolvedImage = await this.resolveProductImage(
+            item.product,
+            item.image || product.image_url || undefined,
+          );
+
+          if (resolvedImage && resolvedImage !== product.image_url) {
+            await this.productsRepository.update(product.id, { image_url: resolvedImage });
           }
         }
 
@@ -335,16 +348,32 @@ export class ProductsService {
     if (!genericProduct) {
       // Create it if it doesn't exist so it can be added to the cart
       const category = this.resolveCategory(cleanQuery);
+      const resolvedImage = await this.resolveProductImage(
+        query.trim(),
+        this.getFallbackImage(cleanQuery, category),
+      );
       genericProduct = await this.productsRepository.save({
         name: query.trim(), // Keep original casing for display
         normalized_name: cleanQuery,
         category: category,
-        image_url: this.getFallbackImage(cleanQuery, category)
+        image_url: resolvedImage || this.getFallbackImage(cleanQuery, category)
       });
     } else if (!genericProduct.image_url) {
       // Backfill missing image for generic product
-      genericProduct.image_url = this.getFallbackImage(genericProduct.name);
+      genericProduct.image_url = await this.resolveProductImage(
+        genericProduct.name,
+        this.getFallbackImage(genericProduct.name),
+      );
       await this.productsRepository.save(genericProduct);
+    } else if (this.isProductFallback(genericProduct.image_url)) {
+      const resolvedImage = await this.resolveProductImage(
+        genericProduct.name,
+        genericProduct.image_url,
+      );
+      if (resolvedImage && resolvedImage !== genericProduct.image_url) {
+        genericProduct.image_url = resolvedImage;
+        await this.productsRepository.save(genericProduct);
+      }
     }
 
     // 2. Return only the generic product — no stale DB results from past scrapes
@@ -352,10 +381,24 @@ export class ProductsService {
   }
 
   async findByCategory(category: string): Promise<Product[]> {
-    return this.productsRepository.find({
+    const products = await this.productsRepository.find({
       where: { category: category as any },
       take: 50,
     });
+
+    return Promise.all(products.map(async (product) => {
+      if (product.image_url && !this.isProductFallback(product.image_url)) {
+        return product;
+      }
+
+      const resolvedImage = await this.resolveProductImage(product.name, product.image_url || undefined);
+      if (resolvedImage && resolvedImage !== product.image_url) {
+        product.image_url = resolvedImage;
+        await this.productsRepository.save(product);
+      }
+
+      return product;
+    }));
   }
 
   async getDeals(zip?: string): Promise<any[]> {
@@ -380,13 +423,15 @@ export class ProductsService {
       const savings = Number((price - salePrice).toFixed(2));
       const savingsPercentage = price > 0 ? Math.round((savings / price) * 100) : 0;
 
+      const resolvedImage = await this.resolveProductImage(sp.product.name, sp.product.image_url || '');
+
       return {
         id: sp.id,
         productId: sp.product_id,
         name: sp.product.name,
         brand: sp.product.brand,
         category: sp.product.category,
-        image_url: sp.product.image_url,
+        image_url: resolvedImage,
         price: price,
         sale_price: salePrice,
         savings: savings,

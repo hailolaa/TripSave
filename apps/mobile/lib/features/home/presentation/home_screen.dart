@@ -1064,6 +1064,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProductImage(Map<String, dynamic> product) {
+    final imageUrl = (product['image'] ?? product['image_url'])?.toString().trim() ?? '';
+
+    if (imageUrl.isNotEmpty) {
+      return Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F9FA),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              color: const Color(0xFFF8F9FA),
+              child: const Icon(Icons.shopping_basket_rounded, color: Colors.grey),
+            ),
+            errorWidget: (context, url, error) => Container(
+              color: const Color(0xFFF8F9FA),
+              child: const Icon(Icons.shopping_basket_rounded, color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
     final name = product['name']?.toString().toLowerCase() ?? '';
     final category = product['category']?.toString().toLowerCase() ?? '';
     

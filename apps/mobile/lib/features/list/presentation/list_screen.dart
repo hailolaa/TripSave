@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_theme.dart';
 import '../bloc/list_cubit.dart';
 import '../../home/bloc/home_cubit.dart';
@@ -346,18 +347,30 @@ class _ListScreenState extends State<ListScreen> {
     final product = item['product'] ?? {};
     final itemId = item['id'];
     final quantity = item['quantity'] ?? 1;
+    final imageUrl = (product['image_url'] ?? product['image'])?.toString().trim() ?? '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
           Container(
-            width: 24,
-            height: 24,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.grey.shade400),
+              color: const Color(0xFFF8F9FA),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Icon(Icons.shopping_basket_outlined, color: Colors.grey, size: 18),
+                      errorWidget: (context, url, error) => const Icon(Icons.shopping_basket_outlined, color: Colors.grey, size: 18),
+                    )
+                  : const Icon(Icons.shopping_basket_outlined, color: Colors.grey, size: 18),
             ),
           ),
           const SizedBox(width: 12),
