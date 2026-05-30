@@ -291,7 +291,9 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       };
 
       Response response;
-      if (storeType == 'gas' || itemName.toLowerCase() == 'gas') {
+      final isGasSearch = storeType == 'gas' || ['gas', 'fuel', 'diesel'].contains(itemName.toLowerCase());
+
+      if (isGasSearch) {
         queryParams['gallons'] = 15;
         queryParams['fuelType'] = 'regular';
         queryParams['sortBy'] = _sortBy;

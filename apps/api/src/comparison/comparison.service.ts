@@ -11,6 +11,7 @@ import { Product } from '../products/product.entity';
 import { Store } from '../stores/store.entity';
 import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
+import { ProductImageService } from '../products/product-image.service';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { calculateDriveCost, calculateTrueCost, metersToMiles, haversineDistanceMiles } from '../utils/geo.util';
 import { geocodePlaceNear, getNeighboringZips } from '../utils/geocoding.util';
@@ -35,6 +36,7 @@ export class ComparisonService {
     private readonly aggregatorService: AggregatorService,
     private readonly productsService: ProductsService,
     private readonly gasSyncService: GasSyncService,
+    private readonly productImageService: ProductImageService,
     @InjectRepository(StoreProduct)
     private storeProductsRepository: Repository<StoreProduct>,
     @InjectRepository(GasPrice)
@@ -211,15 +213,9 @@ export class ComparisonService {
       const filteredDbProducts = this.applyRelevanceFilter(mergedDbProducts, itemName);
       
       this.logger.log(`DB cache hit: ${filteredDbProducts.length} relevant results for "${itemName}" across ${zipsToSearch.length} ZIPs (Stale: ${isStale}).`);
-      let items = await this.formatScrapedForUI(filteredDbProducts, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius);
+      let items = await this.formatScrapedForUI(filteredDbProducts, resolvedZip, 'database', userLat, userLng, userMpg, gasPrice, isRoundTrip, preferredRadius, itemName);
 
-      // Apply store type filter if provided
-      if (storeType && storeType !== 'all' as any) {
-        items = items.filter(item => 
-          item.store.chain?.type === storeType || 
-          (item.category && item.category.toLowerCase() === (storeType as string).toLowerCase())
-        );
-      }
+      items = this.filterComparisonItems(items, itemName, storeType);
 
       if (isStale) {
         this.logger.log(`Data for "${itemName}" is stale but serving from cache. Cron will refresh.`);
@@ -275,7 +271,11 @@ export class ComparisonService {
     gasPrice: number,
     isRoundTrip: boolean = true,
     preferredRadius: number = 20,
+    query: string = '',
   ) {
+    const normalizedQuery = query.toLowerCase().trim();
+    const isGasSearch = ['gas', 'fuel', 'diesel'].includes(normalizedQuery);
+
     // Get nearby stores once to avoid multiple DB calls
     const nearbyStores = await this.storesService.findNearbyStores(userLat, userLng, preferredRadius);
     
@@ -335,7 +335,7 @@ export class ComparisonService {
       }),
     );
 
-    return products.map((item: any) => {
+    const comparisons = await Promise.all(products.map(async (item: any) => {
       const storeName = typeof item.store === 'string' ? item.store : (item.store?.name || '');
       const productName = typeof item.product === 'string' ? item.product : (item.product?.name || '');
       const itemCategory = (item as any).category || this.aggregatorService.determineCategory('', productName, storeName);
@@ -441,6 +441,10 @@ export class ComparisonService {
           ? 0.1
           : distance;
 
+      const resolvedImage = isGasSearch
+        ? (item as any).image || ''
+        : await this.productImageService.resolveImage(productName, (item as any).image);
+
       return {
         store: storeData,
         item_total: Number(item.price.toFixed(2)),
@@ -449,16 +453,38 @@ export class ComparisonService {
         true_cost: Number(trueCost.toFixed(2)),
         items_found: 1,
         missing_items: 0,
-        products: [{ name: productName, price: item.price, image: (item as any).image, category: itemCategory }],
+        products: [{ name: productName, price: item.price, image: resolvedImage, category: itemCategory }],
         source: source === 'database' ? 'database' : (item as any).source,
         category: itemCategory,
         relevance_score: item.relevanceScore || 0,
       };
-    }).filter((item: any) => {
+    }));
+
+    return this.filterComparisonItems(comparisons, query).filter((item: any) => {
       // Filter out stores that are beyond the preferred radius
       // distance is distance from user to store (one-way)
       const dist = (item.driving_distance / (isRoundTrip ? 2 : 1));
       return dist <= preferredRadius;
+    });
+  }
+
+  private filterComparisonItems(items: any[], query: string, storeType?: StoreChainType) {
+    const normalizedQuery = query.toLowerCase().trim();
+    const isGasSearch = ['gas', 'fuel', 'diesel'].includes(normalizedQuery);
+
+    return items.filter(item => {
+      if (!isGasSearch && item.store?.chain?.type === StoreChainType.GAS) {
+        return false;
+      }
+
+      if (storeType && storeType !== 'all' as any) {
+        return (
+          item.store.chain?.type === storeType ||
+          (item.category && item.category.toLowerCase() === (storeType as string).toLowerCase())
+        );
+      }
+
+      return true;
     });
   }
 

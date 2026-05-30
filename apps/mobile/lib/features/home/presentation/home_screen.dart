@@ -8,6 +8,7 @@ import '../../../core/widgets/shopsave_logo.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
+import 'package:trip_save/features/compare/bloc/comparison_cubit.dart';
 import '../../../core/widgets/app_error_widget.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/di/injection.dart';
@@ -493,12 +494,19 @@ class _HomeScreenState extends State<HomeScreen> {
         
         // Best Store Hero Card
         if (state.bestStore != null)
-          _buildHeroCard(context, state.bestStore!)
-            .animate(onPlay: (c) => c.repeat(reverse: true))
-            .shimmer(delay: 5.seconds, duration: 2.seconds, color: Colors.white10)
-            .animate()
-            .fadeIn(delay: 300.ms)
-            .scale(begin: const Offset(0.95, 0.95))
+          BlocSelector<ComparisonCubit, ComparisonState, String>(
+            selector: (comparisonState) => comparisonState is ComparisonLoaded
+                ? comparisonState.sortBy
+                : context.read<ComparisonCubit>().currentSortBy,
+            builder: (context, _) {
+              return _buildHeroCard(context, state.bestStore!)
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .shimmer(delay: 5.seconds, duration: 2.seconds, color: Colors.white10)
+                  .animate()
+                  .fadeIn(delay: 300.ms)
+                  .scale(begin: const Offset(0.95, 0.95));
+            },
+          )
         else if (state.cartItemCount > 0)
           _buildNoResultsHero().animate().fadeIn(delay: 300.ms)
         else
@@ -517,17 +525,30 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 16),
         
         // Store List
-        if (state.bestStore != null)
-          _buildStoreListItem(state.bestStore!, isBest: true).animate(delay: 400.ms).fadeIn().slideX(),
-        
-        ...state.otherStores.asMap().entries.map((entry) {
-          final index = entry.key;
-          final store = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: _buildStoreListItem(store),
-          ).animate(delay: (500 + index * 100).ms).fadeIn().slideX();
-        }),
+        BlocSelector<ComparisonCubit, ComparisonState, String>(
+          selector: (comparisonState) => comparisonState is ComparisonLoaded
+              ? comparisonState.sortBy
+              : context.read<ComparisonCubit>().currentSortBy,
+          builder: (context, sortBy) {
+            return Column(
+              children: [
+                if (state.bestStore != null)
+                  _buildStoreListItem(context, state.bestStore!, sortBy: sortBy, isBest: true)
+                      .animate(delay: 400.ms)
+                      .fadeIn()
+                      .slideX(),
+                ...state.otherStores.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final store = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: _buildStoreListItem(context, store, sortBy: sortBy),
+                  ).animate(delay: (500 + index * 100).ms).fadeIn().slideX();
+                }),
+              ],
+            );
+          },
+        ),
         
         if (state.cartItemCount == 0)
           Padding(
@@ -668,9 +689,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _heroSubtitleForSort(String sortBy) {
+    switch (sortBy) {
+      case 'item_total':
+        return 'Lowest item prices nearby';
+      case 'driving_cost':
+      case 'distance':
+      case 'driving_distance':
+        return 'Lowest drive cost nearby';
+      case 'savings':
+        return 'Biggest savings for your basket';
+      case 'true_cost':
+      default:
+        return 'Best value for your full basket';
+    }
+  }
+
+  String _storePriceForSort(Map<String, dynamic> data, String sortBy) {
+    final isGas = data['store']?['chain']?['type']?.toString() == 'gas';
+    if (sortBy == 'item_total') {
+      return '\$${data['item_total']}';
+    }
+    if (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') {
+      return '\$${data['driving_cost']}';
+    }
+    if (sortBy == 'savings') {
+      return 'Save \$${data['savings']}';
+    }
+    return isGas
+        ? '\$${data['price_per_gallon'] ?? (data['products'] != null && data['products'].isNotEmpty ? data['products'][0]['price'] : data['item_total'])}'
+        : '\$${data['true_cost']}';
+  }
+
+  String _storeLabelForSort(Map<String, dynamic> data, String sortBy) {
+    final isGas = data['store']?['chain']?['type']?.toString() == 'gas';
+    if (sortBy == 'item_total') return 'items';
+    if (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') return 'drive';
+    if (sortBy == 'savings') return 'vs max';
+    return isGas ? 'per gal' : 'total';
+  }
+
   Widget _buildHeroCard(BuildContext context, Map<String, dynamic> data) {
     final store = data['store'];
     final products = data['products'] as List? ?? [];
+    final sortBy = context.read<ComparisonCubit>().currentSortBy;
     
     return GestureDetector(
       onTap: () => _showStoreDetails(context, data, isBest: true),
@@ -738,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text('Best value for your full basket', style: TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.w500)),
+          Text(_heroSubtitleForSort(sortBy), style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.w500)),
           const SizedBox(height: 24),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -799,8 +861,9 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 
-  Widget _buildStoreListItem(Map<String, dynamic> data, {bool isBest = false}) {
+  Widget _buildStoreListItem(BuildContext context, Map<String, dynamic> data, {bool isBest = false, String? sortBy}) {
     final store = data['store'];
+    final activeSortBy = sortBy ?? context.read<ComparisonCubit>().currentSortBy;
     return GestureDetector(
       onTap: () => _showStoreDetails(context, data, isBest: isBest),
       child: Container(
@@ -846,7 +909,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('\$${data['true_cost']}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: isBest ? AppTheme.savingsGreen : AppTheme.textDark)),
+                  Text(_storePriceForSort(data, activeSortBy), style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: isBest ? AppTheme.savingsGreen : AppTheme.textDark)),
+                  Text(_storeLabelForSort(data, activeSortBy), style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
                   if (data['savings'] != null && data['savings'] > 0)
                     Text('Save \$${data['savings']}', style: const TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.bold, fontSize: 12)),
                 ],

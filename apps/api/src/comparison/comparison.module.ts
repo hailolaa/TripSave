@@ -14,6 +14,7 @@ import { Product } from '../products/product.entity';
 import { Store } from '../stores/store.entity';
 import { SearchActivity } from '../models/search-activity.entity';
 import { AdminModule } from '../admin/admin.module';
+import { ProductImageService } from '../products/product-image.service';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { AdminModule } from '../admin/admin.module';
     AdminModule,
     TypeOrmModule.forFeature([StoreProduct, GasPrice, Product, Store, SearchActivity])
   ],
-  providers: [ComparisonService],
+  providers: [ComparisonService, ProductImageService],
   controllers: [ComparisonController, CacheController],
 })
 export class ComparisonModule {}

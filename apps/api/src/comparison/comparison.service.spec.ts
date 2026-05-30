@@ -8,6 +8,7 @@ import { OsrmService } from '../integrations/osrm/osrm.service';
 import { StoresService } from '../stores/stores.service';
 import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
+import { ProductImageService } from '../products/product-image.service';
 import { StoreChainType } from '../stores/store-chain.entity';
 
 describe('ComparisonService', () => {
@@ -21,6 +22,7 @@ describe('ComparisonService', () => {
         { provide: StoresService, useValue: {} },
         { provide: AggregatorService, useValue: {} },
         { provide: ProductsService, useValue: {} },
+        { provide: ProductImageService, useValue: { resolveImage: jest.fn().mockResolvedValue('') } },
         { provide: getRepositoryToken(StoreProduct), useValue: {} },
         { provide: getRepositoryToken(GasPrice), useValue: {} },
         { provide: getRepositoryToken(Product), useValue: {} },
