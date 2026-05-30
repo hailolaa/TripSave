@@ -197,7 +197,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     }
   }
 
-  Future<void> searchItem(String itemName, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip, bool isPolling = false, bool isSilent = false, bool isRetry = false}) async {
+  Future<void> searchItem(String itemName, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip, bool isPolling = false, bool isSilent = false, bool isRetry = false, bool keepCurrentResultsOnWarm = false}) async {
     if (itemName.isEmpty) return;
     if (_isLoading && !isPolling && !isRetry) return;
 
@@ -214,7 +214,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       // Local cache check first
       final cachedResults = await _loadFromLocalCache(cacheKey);
       if (cachedResults != null && cachedResults.isNotEmpty) {
-        emit(ComparisonLoaded(cachedResults, sortBy: _sortBy, isRoundTrip: _isRoundTrip, isLocalCache: true));
+        emit(ComparisonLoaded(cachedResults, sortBy: _sortBy, isRoundTrip: _isRoundTrip, isLocalCache: true, query: itemName));
       } else {
         emit(ComparisonLoading());
       }
@@ -315,8 +315,10 @@ class ComparisonCubit extends Cubit<ComparisonState> {
 
       final responseData = response.data;
       if (responseData is Map && responseData['status'] == 'warming') {
-         if (!isSilent) emit(ComparisonWarming(query: itemName, storeType: storeType));
-         _pollWarming(itemName, storeType, _sortBy, _isRoundTrip, forceRefresh);
+        if (!keepCurrentResultsOnWarm) {
+          if (!isSilent) emit(ComparisonWarming(query: itemName, storeType: storeType));
+        }
+        _pollWarming(itemName, storeType, _sortBy, _isRoundTrip, forceRefresh, preserveCurrentResults: keepCurrentResultsOnWarm);
          return;
       }
       
@@ -374,16 +376,31 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     }
   }
 
-  void _pollWarming(String itemName, String? storeType, String sortBy, bool isRoundTrip, bool forceRefresh) async {
+  void _pollWarming(String itemName, String? storeType, String sortBy, bool isRoundTrip, bool forceRefresh, {bool preserveCurrentResults = false}) async {
     int attempts = 0;
     while (attempts < 10) {
       await Future.delayed(const Duration(seconds: 4));
-      if (state is! ComparisonWarming) return;
-      final warmingState = state as ComparisonWarming;
-      if (warmingState.query != itemName) return;
+      if (preserveCurrentResults) {
+        if (state is! ComparisonLoaded) return;
+        final currentState = state as ComparisonLoaded;
+        if (currentState.query != itemName) return;
+      } else {
+        if (state is! ComparisonWarming) return;
+        final warmingState = state as ComparisonWarming;
+        if (warmingState.query != itemName) return;
+      }
 
       attempts++;
-      await searchItem(itemName, storeType: storeType, forceRefresh: false, sortBy: sortBy, isRoundTrip: isRoundTrip, isPolling: true);
+      await searchItem(
+        itemName,
+        storeType: storeType,
+        forceRefresh: false,
+        sortBy: sortBy,
+        isRoundTrip: isRoundTrip,
+        isPolling: true,
+        isSilent: preserveCurrentResults,
+        keepCurrentResultsOnWarm: preserveCurrentResults,
+      );
       
       if (state is ComparisonLoaded || state is ComparisonError) return;
     }

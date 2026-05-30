@@ -503,8 +503,8 @@ class _CompareScreenState extends State<CompareScreen> {
             ),
           ),
         ],
-      ),
     ),
+  ),
   ),
 );
   }
@@ -765,7 +765,7 @@ class _CompareScreenState extends State<CompareScreen> {
 
     final primaryColor = isGas ? const Color(0xFF2563EB) : (isPharmacy ? const Color(0xFF6A3CE2) : AppTheme.savingsGreen);
     final bgColor = isGas ? const Color(0xFFEFF6FF) : (isPharmacy ? const Color(0xFFF5F3FF) : const Color(0xFFF0FDF4));
-    
+
     return GestureDetector(
       onTap: () => _showStoreDetails(context, comparison, isBest),
       child: Container(
@@ -791,10 +791,11 @@ class _CompareScreenState extends State<CompareScreen> {
                 color: primaryColor,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text('Best Option', 
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-            ).animate(onPlay: (c) => c.repeat(reverse: true))
-             .shimmer(delay: 4.seconds, duration: 2.seconds, color: Colors.white24),
+              child: const Text(
+                'Best Option',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true)).shimmer(delay: 4.seconds, duration: 2.seconds, color: Colors.white24),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -817,44 +818,44 @@ class _CompareScreenState extends State<CompareScreen> {
               ],
             ),
             const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildBestOptionMetric(
-                    'Basket', 
-                    '\$${comparison['item_total']}', 
-                    isPrimary: sortBy == 'item_total',
-                    isLoading: comparison['is_loading'] == true,
-                  ),
-                  Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
-                  _buildBestOptionMetric(
-                    'Drive', 
-                    '\$${comparison['driving_cost']}', 
-                    isPrimary: sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance',
-                    isLoading: comparison['is_loading'] == true,
-                  ),
-                  Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
-                  _buildBestOptionMetric(
-                    isGas ? 'Price' : 'Total', 
-                    isGas 
-                        ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}/gal'
-                        : '\$${comparison['true_cost']}', 
-                    isPrimary: sortBy == 'true_cost' || sortBy == 'savings' || sortBy == null,
-                    isLoading: comparison['is_loading'] == true,
-                  ),
-                ],
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildBestOptionMetric(
+                  'Basket',
+                  '\$${comparison['item_total']}',
+                  isPrimary: sortBy == 'item_total',
+                  isLoading: comparison['is_loading'] == true,
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
+                _buildBestOptionMetric(
+                  'Drive',
+                  '\$${comparison['driving_cost']}',
+                  isPrimary: sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance',
+                  isLoading: comparison['is_loading'] == true,
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.1)),
+                _buildBestOptionMetric(
+                  isGas ? 'Price' : 'Total',
+                  isGas
+                      ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}/gal'
+                      : '\$${comparison['true_cost']}',
+                  isPrimary: sortBy == 'true_cost' || sortBy == 'savings' || sortBy == null,
+                  isLoading: comparison['is_loading'] == true,
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
             if (comparison['is_loading'] == true)
-               Shimmer.fromColors(
-                 baseColor: primaryColor.withValues(alpha: 0.05),
-                 highlightColor: primaryColor.withValues(alpha: 0.1),
-                 child: Container(
-                   width: double.infinity,
-                   height: 48,
-                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                 ),
-               )
+              Shimmer.fromColors(
+                baseColor: primaryColor.withValues(alpha: 0.05),
+                highlightColor: primaryColor.withValues(alpha: 0.1),
+                child: Container(
+                  width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                ),
+              )
             else if (comparison['savings'] != null && comparison['savings'] > 0)
               Container(
                 width: double.infinity,
@@ -878,8 +879,7 @@ class _CompareScreenState extends State<CompareScreen> {
           ],
         ),
       ),
-    ).animate(onPlay: (c) => c.repeat(reverse: true))
-     .moveY(begin: 0, end: -6, duration: 3.seconds, curve: Curves.easeInOut);
+    ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 0, end: -6, duration: 3.seconds, curve: Curves.easeInOut);
   }
 
   Widget _buildBestOptionMetric(String label, String value, {bool isPrimary = false, bool isLoading = false}) {
@@ -946,39 +946,53 @@ class _CompareScreenState extends State<CompareScreen> {
                     ],
                   ),
                 ),
-                  Column(
+                ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       comparison['is_loading'] == true
-                        ? Shimmer.fromColors(
-                            baseColor: Colors.grey.shade300,
-                            highlightColor: Colors.grey.shade100,
-                            child: Container(width: 40, height: 16, color: Colors.white),
-                          )
-                        : Text(
-                            sortBy == 'item_total' ? '\$${comparison['item_total']}' :
-                            (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? '\$${comparison['driving_cost']}' :
-                            sortBy == 'savings' ? 'Save \$${comparison['savings']}' :
-                            (isGas ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}' : '\$${comparison['true_cost']}'), 
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppTheme.textDark)
-                          ),
+                          ? Shimmer.fromColors(
+                              baseColor: Colors.grey.shade300,
+                              highlightColor: Colors.grey.shade100,
+                              child: Container(width: 40, height: 16, color: Colors.white),
+                            )
+                          : Text(
+                              sortBy == 'item_total'
+                                  ? '\$${comparison['item_total']}'
+                                  : (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance')
+                                      ? '\$${comparison['driving_cost']}'
+                                      : sortBy == 'savings'
+                                          ? 'Save \$${comparison['savings']}'
+                                          : (isGas
+                                              ? '\$${comparison['price_per_gallon'] ?? (comparison['products'] != null && comparison['products'].isNotEmpty ? comparison['products'][0]['price'] : comparison['item_total'])}'
+                                              : '\$${comparison['true_cost']}'),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppTheme.textDark),
+                            ),
                       Text(
-                        sortBy == 'item_total' ? 'items' :
-                        (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance') ? 'drive' :
-                        sortBy == 'savings' ? 'vs max' :
-                        (isGas ? 'per gal' : 'total'), 
-                        style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)
+                        sortBy == 'item_total'
+                            ? 'items'
+                            : (sortBy == 'driving_cost' || sortBy == 'distance' || sortBy == 'driving_distance')
+                                ? 'drive'
+                                : sortBy == 'savings'
+                                    ? 'vs max'
+                                    : (isGas ? 'per gal' : 'total'),
+                        style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500),
                       ),
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () => _toggleFavoriteStore(storeName),
-                      child: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: isFavorite ? AppTheme.savingsGreen : Colors.grey.shade500,
-                        size: 20,
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: () => _toggleFavoriteStore(storeName),
+                        child: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite ? AppTheme.savingsGreen : Colors.grey.shade500,
+                          size: 20,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
