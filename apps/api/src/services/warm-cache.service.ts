@@ -213,6 +213,12 @@ export class WarmCacheService {
             // This populates the in-memory cache (SearchCacheService, 1h TTL)
             const result = await this.aggregatorService.search(product, zip);
 
+            const hadUnauthorizedScraper = Object.values(result.scraperStatus || {}).includes('unauthorized');
+            if (hadUnauthorizedScraper) {
+              this.logger.warn(`[${zip}] "${product}" had a 401 from a scraper — keeping existing DB data and skipping writes.`);
+              continue;
+            }
+
             // Also persist to DB so the 24h DB cache is fresh
             if (result.data.length > 0) {
               await this.productsService.upsertScrapedProducts(result.data, zip);

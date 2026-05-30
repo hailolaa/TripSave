@@ -28,8 +28,16 @@ export class KrogerScraperService extends OxylabsBaseService {
       });
 
       return this.parse(html);
-    } catch (err: any) {
-      this.logger.error(`Kroger scrape failed: ${err.message}`);
+    } catch (err: unknown) {
+      const status = (err as any)?.response?.status;
+      if (status === 401) {
+        this.logger.warn(
+          `Kroger scraper returned 401 for "${query}" — keeping existing DB data.`,
+        );
+        throw err;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Kroger scrape failed: ${message}`);
       return [];
     }
   }

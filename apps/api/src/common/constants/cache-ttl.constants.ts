@@ -28,8 +28,8 @@ export const CRON_SCHEDULES = {
   /** Gas prices: every 4 hours */
   GAS_REFRESH: '0 */4 * * *',
 
-  /** Grocery + pharmacy: daily at 2 AM (off-peak) */
-  GROCERY_REFRESH: '0 2 * * *',
+  /** Grocery + pharmacy: every 3 days at 2 AM (off-peak) */
+  GROCERY_REFRESH: '0 2 */3 * *',
 
   /** Store info: once daily at 3 AM */
   STORE_REFRESH: '0 3 * * *',

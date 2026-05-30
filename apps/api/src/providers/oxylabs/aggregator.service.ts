@@ -23,7 +23,7 @@ export interface SearchResponse {
   responseTimeMs: number;
   data: ScrapedProduct[];
   /** Which scrapers succeeded vs failed */
-  scraperStatus?: Record<string, 'ok' | 'failed' | 'timeout'>;
+  scraperStatus?: Record<string, 'ok' | 'failed' | 'timeout' | 'unauthorized'>;
 }
 
 /**
@@ -193,7 +193,7 @@ export class AggregatorService {
 
     // 3. Collect and tag results
     let allProducts: ScrapedProduct[] = [];
-    const scraperStatus: Record<string, 'ok' | 'failed' | 'timeout'> = {};
+    const scraperStatus: Record<string, 'ok' | 'failed' | 'timeout' | 'unauthorized'> = {};
 
     for (let i = 0; i < scraperResults.length; i++) {
       const result = scraperResults[i];
@@ -246,10 +246,18 @@ export class AggregatorService {
           }
         }
       } else {
-        const reason = String(result.reason);
-        const isTimeout = reason.includes('timed out');
+        const reason = result.reason as any;
+        const statusCode = reason?.response?.status;
+        const message = String(reason);
+        if (statusCode === 401) {
+          scraperStatus[scraperName] = 'unauthorized';
+          this.logger.warn(`${scraperName}: UNAUTHORIZED — ${message}`);
+          continue;
+        }
+        const reasonText = String(reason);
+        const isTimeout = reasonText.includes('timed out');
         scraperStatus[scraperName] = isTimeout ? 'timeout' : 'failed';
-        this.logger.warn(`${scraperName}: ${isTimeout ? 'TIMEOUT' : 'FAILED'} — ${reason}`);
+        this.logger.warn(`${scraperName}: ${isTimeout ? 'TIMEOUT' : 'FAILED'} — ${reasonText}`);
       }
     }
 

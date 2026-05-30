@@ -41,8 +41,9 @@ export class InstacartScraperService extends OxylabsBaseService {
               this.logger.debug(`Resolved ZIP ${zip} to "${geoLocation}" for Instacart`);
             }
           }
-        } catch (e) {
-          this.logger.warn(`Failed to resolve ZIP ${zip} to city: ${e.message}`);
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : String(e);
+          this.logger.warn(`Failed to resolve ZIP ${zip} to city: ${message}`);
         }
       }
 
@@ -55,8 +56,19 @@ export class InstacartScraperService extends OxylabsBaseService {
       });
 
       return this.parse(html);
-    } catch (err: any) {
-      this.logger.error(`Instacart scrape failed: ${err.message} - ${err.response?.data ? JSON.stringify(err.response.data) : ''}`);
+    } catch (err: unknown) {
+      const status = (err as any)?.response?.status;
+      if (status === 401) {
+        this.logger.warn(
+          `Instacart scraper returned 401 for "${query}" — keeping existing DB data.`,
+        );
+        throw err;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      const responseData = (err as any)?.response?.data;
+      this.logger.error(
+        `Instacart scrape failed: ${message} - ${responseData ? JSON.stringify(responseData) : ''}`,
+      );
       return [];
     }
   }
@@ -86,8 +98,9 @@ export class InstacartScraperService extends OxylabsBaseService {
           this.logger.log(`Instacart: parsed ${products.length} products from structured data`);
           return products;
         }
-      } catch (e) {
-        this.logger.warn(`Failed to parse Instacart structured data: ${e.message}`);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`Failed to parse Instacart structured data: ${message}`);
       }
       return [];
     }
