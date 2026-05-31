@@ -54,10 +54,20 @@ class _CompareScreenState extends State<CompareScreen> {
     final lastStoreType = cubit.lastStoreType;
     if (lastStoreType != null) {
       final index = _filters.indexWhere((f) => f.toLowerCase() == lastStoreType.toLowerCase());
-      if (index != -1) {
+      if (index != -1 && lastStoreType.toLowerCase() != 'gas') {
         _selectedFilterIndex = index;
       }
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final filter = _filters[_selectedFilterIndex].toLowerCase();
+      if (filter == 'gas') {
+        cubit.loadGasStations();
+      } else {
+        cubit.loadBrowseStores(storeType: filter);
+      }
+    });
   }
 
   void _loadFavorites() {
@@ -74,6 +84,24 @@ class _CompareScreenState extends State<CompareScreen> {
 
   bool _isFavoriteStore(String storeName) {
     return _favoriteStores.contains(storeName.toLowerCase());
+  }
+
+  void _runPrimaryAction() {
+    final cubit = context.read<ComparisonCubit>();
+    final filter = _filters[_selectedFilterIndex].toLowerCase();
+    final query = _searchController.text.trim();
+
+    if (filter == 'gas') {
+      cubit.loadGasStations();
+      return;
+    }
+
+    if (query.isEmpty) {
+      cubit.loadBrowseStores(storeType: filter);
+      return;
+    }
+
+    cubit.searchItem(query, storeType: filter == 'all' ? null : filter, forceRefresh: false);
   }
 
   @override
@@ -162,10 +190,18 @@ class _CompareScreenState extends State<CompareScreen> {
                         child: TextField(
                           controller: _searchController,
                           onSubmitted: (text) {
-                            if (text.isNotEmpty && mounted) {
+                            if (!mounted) return;
+                            final filter = _filters[_selectedFilterIndex].toLowerCase();
+                            final query = text.trim();
+
+                            if (filter == 'gas') {
+                              context.read<ComparisonCubit>().loadGasStations();
+                            } else if (query.isEmpty) {
+                              context.read<ComparisonCubit>().loadBrowseStores(storeType: filter);
+                            } else {
                               context.read<ComparisonCubit>().searchItem(
-                                text, 
-                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                query,
+                                storeType: filter == 'all' ? null : filter,
                                 forceRefresh: false,
                               );
                             }
@@ -202,15 +238,7 @@ class _CompareScreenState extends State<CompareScreen> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(20),
-                          onTap: () {
-                            final cubit = context.read<ComparisonCubit>();
-                            final query = _searchController.text.isNotEmpty ? _searchController.text : (cubit.lastQuery ?? 'milk');
-                            context.read<ComparisonCubit>().searchItem(
-                              query, 
-                              storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                              forceRefresh: false,
-                            );
-                          },
+                          onTap: _runPrimaryAction,
                           child: const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 16),
                             child: Icon(Icons.compare_arrows, color: Colors.white),
@@ -232,8 +260,15 @@ class _CompareScreenState extends State<CompareScreen> {
                           setState(() => _selectedFilterIndex = index);
                           final filter = _filters[index].toLowerCase();
                           final cubit = context.read<ComparisonCubit>();
-                          final query = _searchController.text.isNotEmpty ? _searchController.text : (cubit.lastQuery ?? 'milk');
-                          context.read<ComparisonCubit>().searchItem(query, storeType: filter, forceRefresh: false);
+                          final query = _searchController.text.trim();
+
+                          if (filter == 'gas') {
+                            cubit.loadGasStations();
+                          } else if (query.isEmpty) {
+                            cubit.loadBrowseStores(storeType: filter);
+                          } else {
+                            cubit.searchItem(query, storeType: filter == 'all' ? null : filter, forceRefresh: false);
+                          }
                         },
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
@@ -385,6 +420,32 @@ class _CompareScreenState extends State<CompareScreen> {
                 Expanded(
                   child: BlocBuilder<ComparisonCubit, ComparisonState>(
                     builder: (context, state) {
+                        if (state is ComparisonLoaded && state.isStoreShells) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.storefront_outlined, size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Browse nearby stores',
+                                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 32),
+                                  child: Text(
+                                    'Enter a product name to compare prices. Gas is shown separately in the Gas tab.',
+                                    style: TextStyle(color: Colors.grey),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
                       if (state is ComparisonLoading || state is ComparisonInitial) {
                         return Center(
                           child: Column(
@@ -393,7 +454,7 @@ class _CompareScreenState extends State<CompareScreen> {
                               Icon(Icons.search_outlined, size: 64, color: Colors.grey.shade400),
                               const SizedBox(height: 16),
                               Text(
-                                state is ComparisonInitial ? 'Search a product to compare' : 'Loading compare data...',
+                                state is ComparisonInitial ? 'Browse stores or search a product' : 'Loading compare data...',
                                 style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
                                 textAlign: TextAlign.center,
                               ),
@@ -401,7 +462,7 @@ class _CompareScreenState extends State<CompareScreen> {
                               const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 32),
                                 child: Text(
-                                  'Enter a product name to check current prices near you.',
+                                  'Enter a product name to compare prices. Use Gas to browse gas stations.',
                                   style: TextStyle(color: Colors.grey),
                                   textAlign: TextAlign.center,
                                 ),
@@ -427,18 +488,19 @@ class _CompareScreenState extends State<CompareScreen> {
                           message: state.message,
                           onRetry: () {
                             final cubit = context.read<ComparisonCubit>();
-                            if (_searchController.text.isNotEmpty) {
+                            final filter = _filters[_selectedFilterIndex].toLowerCase();
+                            final query = _searchController.text.trim();
+
+                            if (filter == 'gas') {
+                              cubit.loadGasStations(forceRefresh: true);
+                            } else if (query.isNotEmpty) {
                               cubit.searchItem(
-                                _searchController.text,
-                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
+                                query,
+                                storeType: filter == 'all' ? null : filter,
                                 forceRefresh: false,
                               );
                             } else {
-                              cubit.searchItem(
-                                cubit.lastQuery ?? 'milk',
-                                storeType: _filters[_selectedFilterIndex].toLowerCase(),
-                                forceRefresh: false,
-                              );
+                              cubit.loadBrowseStores(storeType: filter, forceRefresh: true);
                             }
                           },
                         );

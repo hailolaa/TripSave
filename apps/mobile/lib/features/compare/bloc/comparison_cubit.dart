@@ -150,6 +150,123 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     return;
   }
 
+  Future<void> loadBrowseStores({String storeType = 'all', bool forceRefresh = false}) async {
+    if (_isLoading) return;
+
+    _lastQuery = null;
+    _lastStoreType = storeType;
+
+    if (state is! ComparisonLoaded || forceRefresh) {
+      emit(ComparisonLoading());
+    }
+
+    _isLoading = true;
+    try {
+      final position = await locationService.getCurrentLocation();
+      final double userLat = position.latitude;
+      final double userLng = position.longitude;
+
+      final storesResponse = await apiClient.dio.get(
+        '/stores',
+        queryParameters: {
+          'lat': userLat,
+          'lng': userLng,
+          'radius': 20,
+        },
+      );
+
+      final List<dynamic> stores = storesResponse.data is List
+          ? List<dynamic>.from(storesResponse.data as List<dynamic>)
+          : [];
+
+      final normalizedStoreType = storeType.toLowerCase();
+      final filteredStores = stores.where((s) {
+        final type = s['store']?['chain']?['type']?.toString().toLowerCase();
+        if (normalizedStoreType == 'gas') return type == 'gas';
+        if (type == 'gas') return false;
+        if (normalizedStoreType != 'all') return type == normalizedStoreType;
+        return true;
+      }).toList();
+
+      final shellResults = filteredStores.map((s) => {
+        'store': {
+          'name': s['store']['name'],
+          'chain': s['store']['chain'],
+          'address': s['store']['address'],
+          'id': s['store']['id'],
+        },
+        'driving_distance': s['distance'],
+        'driving_cost': 0.0,
+        'true_cost': 0.0,
+        'item_total': 0.0,
+        'is_loading': true,
+      }).toList();
+
+      emit(ComparisonLoaded(
+        shellResults,
+        sortBy: _sortBy,
+        isRoundTrip: _isRoundTrip,
+        userLat: userLat,
+        userLng: userLng,
+        isStoreShells: true,
+        query: null,
+      ));
+    } catch (e) {
+      emit(ComparisonError(ApiClient.parseError(e)));
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+  Future<void> loadGasStations({bool forceRefresh = false}) async {
+    if (_isLoading) return;
+
+    _lastQuery = 'gas';
+    _lastStoreType = 'gas';
+
+    if (state is! ComparisonLoaded || forceRefresh) {
+      emit(ComparisonLoading());
+    }
+
+    _isLoading = true;
+    try {
+      final position = await locationService.getCurrentLocation();
+      final double userLat = position.latitude;
+      final double userLng = position.longitude;
+
+      final response = await apiClient.dio.get(
+        '/comparison/gas',
+        queryParameters: {
+          'lat': userLat,
+          'lng': userLng,
+          'gallons': 15,
+          'fuelType': 'regular',
+          'sortBy': _sortBy,
+          'isRoundTrip': _isRoundTrip.toString(),
+          'forceRefresh': forceRefresh.toString(),
+          'locationName': await locationService.getLocationName(),
+        },
+      );
+
+      final List<dynamic> results = response.data is List
+          ? List<dynamic>.from(response.data as List<dynamic>)
+          : [];
+
+      emit(ComparisonLoaded(
+        results,
+        sortBy: _sortBy,
+        isRoundTrip: _isRoundTrip,
+        userLat: userLat,
+        userLng: userLng,
+        query: 'gas',
+      ));
+    } catch (e) {
+      emit(ComparisonError(ApiClient.parseError(e)));
+    } finally {
+      _isLoading = false;
+    }
+  }
+
   Future<void> fetchComparisons(List<dynamic> items, {String? storeType, bool forceRefresh = false, String? sortBy, bool? isRoundTrip}) async {
     final key = 'cart:${items.map((i) => i['product_id']).join(',')}';
     if (sortBy != null) _sortBy = sortBy;

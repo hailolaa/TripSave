@@ -90,9 +90,9 @@ class HomeCubit extends Cubit<HomeState> {
     // Listen to location changes (detect startup location or manual overrides)
     _locationSubscription = locationCubit.stream.listen((locationState) {
       if (locationState is LocationLoaded) {
-        // Proactively fetch gas stations as soon as location is detected
-        comparisonCubit.searchItem('gas', storeType: 'gas');
-        
+        // Keep gas stations warm in the background so the Gas tab feels instant.
+        comparisonCubit.loadGasStations();
+
         // Refresh dashboard (only if not already loading)
         if (state is! HomeLoading) {
           loadDashboard();

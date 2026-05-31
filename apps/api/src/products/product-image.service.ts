@@ -51,6 +51,7 @@ export class ProductImageService {
     }
 
     const fallback = fallbackImageUrl?.trim() || existing || seededFallback;
+    const queryCandidates = this.buildQueryCandidates(productName);
 
     const normalizedName = productName.toLowerCase().trim();
     if (!normalizedName) {
@@ -63,11 +64,8 @@ export class ProductImageService {
         return cached || fallback;
       }
 
-      // Lookup order: Open Food Facts -> Google CSE -> SerpAPI
-      const imageUrl =
-        (await this.lookupOpenFoodFactsImage(productName)) ||
-        (await this.lookupGoogleCseImage(productName)) ||
-        (await this.lookupSerpApiImage(productName));
+      // Lookup order: Open Food Facts -> Openverse -> Google CSE -> SerpAPI.
+      const imageUrl = await this.lookupBestImage(queryCandidates);
 
       if (imageUrl) {
         this.cache.set(normalizedName, imageUrl);
@@ -82,6 +80,32 @@ export class ProductImageService {
       this.logger.debug(`Open Food Facts lookup failed for "${productName}": ${error.message}`);
       return fallback;
     }
+  }
+
+  private async lookupBestImage(queryCandidates: string[]): Promise<string> {
+    for (const query of queryCandidates) {
+      const openFoodFactsImage = await this.lookupOpenFoodFactsImage(query);
+      if (openFoodFactsImage) {
+        return openFoodFactsImage;
+      }
+
+      const openverseImage = await this.lookupOpenverseImage(query);
+      if (openverseImage) {
+        return openverseImage;
+      }
+
+      const googleCseImage = await this.lookupGoogleCseImage(query);
+      if (googleCseImage) {
+        return googleCseImage;
+      }
+
+      const serpApiImage = await this.lookupSerpApiImage(query);
+      if (serpApiImage) {
+        return serpApiImage;
+      }
+    }
+
+    return '';
   }
 
   private async lookupOpenFoodFactsImage(productName: string): Promise<string> {
@@ -127,6 +151,25 @@ export class ProductImageService {
       return this.sanitizeImageUrl(first?.link);
     } catch (error: any) {
       this.logger.debug(`Google CSE image lookup failed for "${productName}": ${error.message}`);
+      return '';
+    }
+  }
+
+  private async lookupOpenverseImage(productName: string): Promise<string> {
+    try {
+      const response = await axios.get('https://api.openverse.engineering/v1/images/', {
+        params: {
+          q: productName,
+          page_size: 1,
+          mature: false,
+        },
+        timeout: 8000,
+      });
+
+      const first = Array.isArray(response.data?.results) ? response.data.results[0] : null;
+      return this.sanitizeImageUrl(first?.url || first?.thumbnail);
+    } catch (error: any) {
+      this.logger.debug(`Openverse image lookup failed for "${productName}": ${error.message}`);
       return '';
     }
   }
@@ -219,5 +262,33 @@ export class ProductImageService {
 
   private matches(name: string, keywords: string[]): boolean {
     return keywords.some((keyword) => name.includes(keyword));
+  }
+
+  private buildQueryCandidates(productName: string): string[] {
+    const normalized = productName
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/[®™]/g, ' ')
+      .replace(/\b(\d+\s?(ct|count|pack|pk|oz|lb|lbs|g|kg|ml|l|liter|litre|fl oz|floz|x\s?\d+|\d+x))\b/gi, ' ')
+      .replace(/[-|/@·]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const original = productName.trim();
+    const words = normalized.split(' ').filter((word) => word.length > 2);
+    const shortened = words.slice(0, 5).join(' ').trim();
+    const categoryHint = this.resolveSeededFallbackImage(productName);
+
+    const candidates = [
+      original,
+      normalized,
+      shortened,
+    ];
+
+    if (categoryHint) {
+      candidates.push(`${shortened} product`);
+    }
+
+    return Array.from(new Set(candidates.filter((candidate) => candidate && candidate.trim().length > 0)));
   }
 }
