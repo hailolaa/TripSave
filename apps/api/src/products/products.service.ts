@@ -7,7 +7,7 @@ import { Store } from '../stores/store.entity';
 import { StoreChain, StoreChainType } from '../stores/store-chain.entity';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
 import { geocodePlace } from '../utils/geocoding.util';
-import { getQueryVariants } from '../utils/relevance.util';
+import { getQueryVariants, isLikelyUnrelatedProduct, scoreProductRelevance } from '../utils/relevance.util';
 import { ProductImageService } from './product-image.service';
 
 @Injectable()
@@ -335,14 +335,33 @@ export class ProductsService {
     
     const cleanQuery = query.trim().toLowerCase();
     const variants = getQueryVariants(cleanQuery);
-    
-    // 1. Try to find an existing generic product for any variant
+
+    // 1. Try to find the best existing product match, not just the first substring hit.
+    const candidates = await this.productsRepository.find({
+      where: variants.flatMap((variant) => ([
+        { name: ILike(`%${variant}%`) },
+        { normalized_name: ILike(`%${variant}%`) },
+      ])),
+      take: 25,
+    });
+
     let genericProduct: Product | null = null;
-    for (const variant of variants) {
-      genericProduct = await this.productsRepository.findOne({
-        where: { name: ILike(variant) }
-      });
-      if (genericProduct) break;
+    let bestScore = 0;
+    for (const candidate of candidates) {
+      const candidateName = candidate.name || candidate.normalized_name || '';
+      if (isLikelyUnrelatedProduct(candidateName, cleanQuery)) {
+        continue;
+      }
+
+      const candidateScore = scoreProductRelevance(candidateName, cleanQuery);
+      if (candidateScore > bestScore) {
+        bestScore = candidateScore;
+        genericProduct = candidate;
+      }
+    }
+
+    if (bestScore < 40) {
+      genericProduct = null;
     }
 
     if (!genericProduct) {

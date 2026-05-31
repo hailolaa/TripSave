@@ -64,5 +64,11 @@ describe('Relevance Utilities', () => {
       expect(scoreProductRelevance('Eggs 12ct', 'egg')).toBe(100); // Plural variant match
       expect(scoreProductRelevance('Egg Large Grade A', 'eggs')).toBe(100); // Singular variant match
     });
+
+    it('should reject unrelated category matches like avocado shampoo', () => {
+      expect(scoreProductRelevance('Avocado Shampoo', 'avocado')).toBe(0);
+      expect(scoreProductRelevance('Avocado Conditioner', 'avocado')).toBe(0);
+      expect(scoreProductRelevance('Avocado Shampoo', 'shampoo')).toBe(100);
+    });
   });
 });

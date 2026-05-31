@@ -12,6 +12,7 @@ import { StoresService } from '../../stores/stores.service';
 import { resolveZipFromRequest } from '../../utils/location.util';
 import { combinedSimilarity } from '../../utils/string-similarity.util';
 import { geocodePlace, geocodePlaceNear } from '../../utils/geocoding.util';
+import { isLikelyUnrelatedProduct } from '../../utils/relevance.util';
 
 /** Search response shape */
 export interface SearchResponse {
@@ -455,6 +456,9 @@ export class AggregatorService {
       !p.product.toLowerCase().includes('when purchased online') &&
       !p.product.toLowerCase().includes('see terms')
     );
+
+    // 2b. Drop obviously unrelated products that happen to contain the query term.
+    cleaned = cleaned.filter(p => !isLikelyUnrelatedProduct(p.product, query));
 
     // 3. Deduplicate by store + product name
     const seen = new Set<string>();

@@ -26,6 +26,45 @@ export const CATEGORY_BLOCKLIST: Record<string, string[]> = {
   ],
 };
 
+const UNRELATED_PRODUCT_TERMS = [
+  'shampoo',
+  'conditioner',
+  'lotion',
+  'body wash',
+  'face wash',
+  'face cleanser',
+  'cleanser',
+  'soap',
+  'deodorant',
+  'toothpaste',
+  'mouthwash',
+  'makeup',
+  'mascara',
+  'foundation',
+  'nail polish',
+  'detergent',
+  'bleach',
+  'cleaner',
+  'disinfectant',
+  'paper towel',
+  'toilet paper',
+  'tissue',
+  'napkin',
+  'diaper',
+  'wipes',
+  'formula',
+  'litter',
+  'pet food',
+  'vitamin',
+  'pill',
+  'tablet',
+  'capsule',
+  'medicine',
+  'med',
+  'syrup',
+  'ointment',
+];
+
 /**
  * Generate plural/singular variants of a query so that
  * "egg" matches "eggs", "berry" matches "berries", etc.
@@ -94,6 +133,11 @@ export function isBlocklisted(productName: string, query: string): boolean {
 export function scoreProductRelevance(productName: string, query: string): number {
   const name = productName.toLowerCase().trim();
   const q = query.toLowerCase().trim();
+
+  if (isLikelyUnrelatedProduct(name, q)) {
+    return 0;
+  }
+
   const variants = getQueryVariants(q);
 
   let bestScore = 0;
@@ -123,5 +167,16 @@ export function scoreProductRelevance(productName: string, query: string): numbe
   }
 
   return bestScore;
+}
+
+export function isLikelyUnrelatedProduct(productName: string, query: string): boolean {
+  const name = productName.toLowerCase().trim();
+  const q = query.toLowerCase().trim();
+
+  if (!name || !q) {
+    return false;
+  }
+
+  return UNRELATED_PRODUCT_TERMS.some((term) => name.includes(term) && !q.includes(term));
 }
 
