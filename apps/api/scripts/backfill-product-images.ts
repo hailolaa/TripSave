@@ -1,10 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
+import { ProductsService } from '../src/products/products.service';
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['log', 'error', 'warn', 'debug'] });
   try {
-    const productsService = app.get('ProductsService') as any;
+    const productsService = app.get(ProductsService);
     if (!productsService || typeof productsService.backfillMissingImages !== 'function') {
       console.error('ProductsService.backfillMissingImages not available');
       process.exit(1);
