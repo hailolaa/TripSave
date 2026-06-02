@@ -4,6 +4,7 @@ import { AdminRoleGuard } from './admin-role.guard';
 import { AdminService } from '../services/admin.service';
 import { DataSyncService } from '../services/data-sync.service';
 import { WarmCacheService } from '../services/warm-cache.service';
+import { ProductsService } from '../products/products.service';
 
 /**
  * Admin endpoints for manual data management.
@@ -16,6 +17,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly dataSyncService: DataSyncService,
     private readonly warmCacheService: WarmCacheService,
+    private readonly productsService: ProductsService,
   ) {}
 
   /** Update a product's price manually */
@@ -94,5 +96,15 @@ export class AdminController {
   @HttpCode(200)
   async fixGasCoords() {
     return this.adminService.fixGasCoordinates();
+  }
+
+  /**
+   * Backfill product images for cached DB products. Admin-only.
+   */
+  @Post('backfill-images')
+  @HttpCode(200)
+  async backfillImages(@Query('batch') batch?: string) {
+    const b = batch ? parseInt(batch, 10) : 200;
+    return this.productsService.backfillMissingImages(b);
   }
 }

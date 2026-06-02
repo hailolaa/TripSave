@@ -466,4 +466,45 @@ export class ProductsService {
       };
     }));
   }
+
+  /**
+   * Backfill product images for products missing images or using seeded fallback.
+   * Processes in batches to avoid long transactions.
+   */
+  async backfillMissingImages(batchSize: number = 200) {
+    let offset = 0;
+    let updated = 0;
+    while (true) {
+      const qb = this.productsRepository.createQueryBuilder('p')
+        .where('p.image_url IS NULL')
+        .orWhere('p.image_url LIKE :u1', { u1: '%images.unsplash.com%' })
+        .orWhere('p.image_url LIKE :u2', { u2: '%placeholder%' })
+        .orderBy('p.id', 'ASC')
+        .take(batchSize)
+        .skip(offset);
+
+      const products = await qb.getMany();
+      if (!products || products.length === 0) break;
+
+      for (const product of products) {
+        try {
+          const resolved = await this.resolveProductImage(product.name, product.image_url || undefined);
+          if (resolved && resolved !== product.image_url) {
+            await this.productsRepository.update(product.id, { image_url: resolved });
+            updated++;
+            console.log(`Updated image for product id=${product.id} name="${product.name}"`);
+          }
+        } catch (err) {
+          console.warn(`Failed to backfill image for product id=${product.id}: ${err}`);
+        }
+      }
+
+      offset += products.length;
+      // safety: small sleep to avoid hammering external APIs
+      await new Promise((r) => setTimeout(r, 250));
+    }
+
+    console.log(`Backfill complete. Updated ${updated} products.`);
+    return updated;
+  }
 }
