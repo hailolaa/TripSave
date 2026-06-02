@@ -60,7 +60,8 @@ export class ProductImageService {
   ): Promise<string> {
     const seededFallback = this.resolveSeededFallbackImage(productName);
     const existing = this.sanitizeImageUrl(existingImageUrl);
-    if (existing && this.isValidImageUrl(existing) && !this.isFallbackImage(existing)) {
+    // If scraped item provided an image, prefer it as long as it's a valid URL (allow data/protocol-relative)
+    if (existing && this.isValidImageUrl(existing)) {
       return existing;
     }
 
@@ -80,8 +81,11 @@ export class ProductImageService {
         return this.isValidImageUrl(cached) ? cached : fallback;
       }
 
-      // Lookup order: Open Food Facts only, then seeded fallback.
-      const imageUrl = await this.lookupBestImage(queryCandidates);
+      // Lookup order: Open Food Facts -> Google Images -> seeded fallback.
+      let imageUrl = await this.lookupBestImage(queryCandidates);
+      if (!this.isValidImageUrl(imageUrl)) {
+        imageUrl = await this.lookupGoogleImage(queryCandidates[0] || productName);
+      }
 
       if (this.isValidImageUrl(imageUrl)) {
         this.cache.set(normalizedName, imageUrl);
@@ -107,6 +111,44 @@ export class ProductImageService {
     }
 
     return '';
+  }
+
+  private async lookupGoogleImage(query: string): Promise<string> {
+    try {
+      const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+      const resp = await axios.get(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',
+        },
+        timeout: 8000,
+      });
+
+      const body = String(resp.data || '');
+      // Try to extract common image URL patterns (jpg/png/webp)
+      const re = /(https?:\/\/[^"'<>\s]+?\.(?:png|jpg|jpeg|webp))(?:\?|\"|\'|\s|>)/gi;
+      const matches = [] as string[];
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(body)) !== null) {
+        if (m[1]) matches.push(m[1]);
+      }
+
+      if (matches.length > 0) {
+        // prefer https links
+        const httpsMatch = matches.find((s) => s.startsWith('https://'));
+        return httpsMatch || matches[0];
+      }
+
+      // Fallback: try a more permissive extraction of image urls
+      const re2 = /(https?:\/\/[^"'<>\s]+?(?:png|jpg|jpeg|webp))/gi;
+      const m2 = re2.exec(body);
+      if (m2 && m2[1]) return m2[1];
+
+      return '';
+    } catch (err: any) {
+      this.logger.debug(`Google Image lookup failed for "${query}": ${err.message}`);
+      return '';
+    }
   }
 
   private async lookupOpenFoodFactsImage(productName: string): Promise<string> {
