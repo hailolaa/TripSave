@@ -506,7 +506,7 @@ export class ProductsService {
           }
 
           // Preserve real scraped images unless explicitly told to replace them.
-          if (!replaceRealImages && currentImage && this.isValidImageUrl(currentImage) && !this.isProductFallback(currentImage)) {
+          if (!replaceRealImages && currentImage && !this.isProductFallback(currentImage)) {
             continue;
           }
 
