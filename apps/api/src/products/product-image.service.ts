@@ -81,19 +81,27 @@ export class ProductImageService {
         return this.isValidImageUrl(cached) ? cached : fallback;
       }
 
-      // Lookup order: Open Food Facts -> Google Images -> seeded fallback.
-      let imageUrl = await this.lookupBestImage(queryCandidates);
+      // Lookup order: Pexels -> Google Images -> Bing -> Open Food Facts -> seeded fallback.
+        let imageUrl = await this.lookupPexelsImage(queryCandidates[0] || productName);
       if (!this.isValidImageUrl(imageUrl)) {
-        imageUrl = await this.lookupGoogleImage(queryCandidates[0] || productName);
+          imageUrl = await this.lookupGoogleImage(queryCandidates[0] || productName);
       }
 
+      // If Google failed and Open Food found nothing, try Bing as a secondary web fallback
+      if (!this.isValidImageUrl(imageUrl)) {
+          imageUrl = await this.lookupBingImage(queryCandidates[0] || productName);
+        }
+
+        // If web fallbacks failed, try Open Food Facts as a last web data source
+        if (!this.isValidImageUrl(imageUrl)) {
+          imageUrl = await this.lookupBestImage(queryCandidates);
+        }
+
       if (this.isValidImageUrl(imageUrl)) {
+        // Cache only positive results to avoid caching failures and allow future retries
         this.cache.set(normalizedName, imageUrl);
         return imageUrl;
       }
-
-      // Cache misses too so we avoid repeatedly calling external API for the same product.
-      this.cache.set(normalizedName, '');
 
       return fallback;
     } catch (error: any) {
@@ -147,6 +155,86 @@ export class ProductImageService {
       return '';
     } catch (err: any) {
       this.logger.debug(`Google Image lookup failed for "${query}": ${err.message}`);
+      return '';
+    }
+  }
+
+  private async lookupBingImage(query: string): Promise<string> {
+    try {
+      const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}`;
+      const resp = await axios.get(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',
+        },
+        timeout: 8000,
+      });
+
+      const body = String(resp.data || '');
+      // Extract img srcs
+      const re = /<img[^>]+?src=(?:"|')([^"']+?\.(?:png|jpg|jpeg|webp))(?:"|')/gi;
+      const matches: string[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(body)) !== null) {
+        if (m[1]) matches.push(m[1]);
+      }
+
+      if (matches.length > 0) {
+        const httpsMatch = matches.find((s) => s.startsWith('https://'));
+        return httpsMatch || matches[0];
+      }
+
+      return '';
+    } catch (err: any) {
+      this.logger.debug(`Bing Image lookup failed for "${query}": ${err.message}`);
+      return '';
+    }
+  }
+
+  private async lookupPexelsImage(query: string): Promise<string> {
+    const apiKey = process.env.PEXELS_API_KEY;
+    if (!apiKey) {
+      this.logger.debug('Pexels API key not provided; skipping Pexels lookup');
+      return '';
+    }
+
+    try {
+      // Add 'product' to focus results on product photography
+      const q = `${query} product`.trim();
+      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5`;
+      const resp = await axios.get(url, {
+        headers: {
+          Authorization: apiKey,
+        },
+        timeout: 8000,
+      });
+
+      const photos = resp?.data?.photos;
+      if (!Array.isArray(photos) || photos.length === 0) return '';
+
+      // Prefer photos where the 'alt' text contains product tokens from the query
+      const tokens = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length > 2);
+
+      const scored: { url: string; score: number }[] = [];
+      for (const p of photos) {
+        const alt = (p?.alt || '').toLowerCase();
+        let score = 0;
+        for (const t of tokens) if (alt.includes(t)) score += 2;
+        if (alt.includes('product') || alt.includes('pack') || alt.includes('box')) score += 1;
+        const candidate = p?.src?.medium || p?.src?.small || p?.src?.original || '';
+        if (candidate) scored.push({ url: candidate, score });
+      }
+
+      scored.sort((a, b) => b.score - a.score);
+      const best = scored.find((s) => s.score > 0) || scored[0];
+      if (best && best.url) return this.sanitizeImageUrl(best.url);
+
+      return '';
+    } catch (err: any) {
+      this.logger.debug(`Pexels lookup failed for "${query}": ${err.message}`);
       return '';
     }
   }
