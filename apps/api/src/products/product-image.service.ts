@@ -39,18 +39,34 @@ export class ProductImageService {
     );
   }
 
+  private isValidImageUrl(url?: string): boolean {
+    const imageUrl = this.sanitizeImageUrl(url);
+    if (!imageUrl) {
+      return false;
+    }
+
+    try {
+      const parsed = new URL(imageUrl);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
   async resolveImage(
     productName: string,
     existingImageUrl?: string,
     fallbackImageUrl?: string,
   ): Promise<string> {
     const seededFallback = this.resolveSeededFallbackImage(productName);
-    const existing = existingImageUrl?.trim();
-    if (existing && !this.isFallbackImage(existing)) {
+    const existing = this.sanitizeImageUrl(existingImageUrl);
+    if (existing && this.isValidImageUrl(existing) && !this.isFallbackImage(existing)) {
       return existing;
     }
 
-    const fallback = fallbackImageUrl?.trim() || existing || seededFallback;
+    const fallback = this.isValidImageUrl(fallbackImageUrl)
+      ? fallbackImageUrl!.trim()
+      : seededFallback;
     const queryCandidates = this.buildQueryCandidates(productName);
 
     const normalizedName = productName.toLowerCase().trim();
@@ -61,13 +77,13 @@ export class ProductImageService {
     try {
       const cached = this.cache.get<string>(normalizedName);
       if (cached !== undefined) {
-        return cached || fallback;
+        return this.isValidImageUrl(cached) ? cached : fallback;
       }
 
       // Lookup order: Open Food Facts only, then seeded fallback.
       const imageUrl = await this.lookupBestImage(queryCandidates);
 
-      if (imageUrl) {
+      if (this.isValidImageUrl(imageUrl)) {
         this.cache.set(normalizedName, imageUrl);
         return imageUrl;
       }
@@ -116,8 +132,8 @@ export class ProductImageService {
     const products = Array.isArray(data?.products) ? data.products : [];
 
     for (const product of products) {
-      const imageUrl = typeof product?.image_url === 'string' ? product.image_url.trim() : '';
-      if (imageUrl) {
+      const imageUrl = this.sanitizeImageUrl(product?.image_url);
+      if (this.isValidImageUrl(imageUrl)) {
         return imageUrl;
       }
     }

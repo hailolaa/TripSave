@@ -604,7 +604,7 @@ export class ComparisonService {
         const displayDistance = distance > 0 && distance < 0.1 ? 0.1 : distance;
 
         const resolvedImage = isGasSearch
-          ? (item as any).image || ''
+          ? this.isValidImageUrl((item as any).image) ? (item as any).image.trim() : ''
           : await this.productImageService.resolveImage(
               productName,
               (item as any).image,
@@ -1108,5 +1108,19 @@ export class ComparisonService {
     };
 
     return fallbackImages[normalizedCategory] || fallbackImages.other;
+  }
+
+  private isValidImageUrl(url?: string | null): boolean {
+    const imageUrl = typeof url === 'string' ? url.trim() : '';
+    if (!imageUrl) {
+      return false;
+    }
+
+    try {
+      const parsed = new URL(imageUrl);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 }
