@@ -11,7 +11,11 @@ async function main() {
       process.exit(1);
     }
 
-    const updated = await productsService.backfillMissingImages(200);
+    const forceAll = process.argv.includes('--all') || process.argv.includes('--force');
+    const replaceRealImages = process.argv.includes('--replace-real');
+    const batchArgIndex = process.argv.findIndex((arg) => arg === '--batch');
+    const batchSize = batchArgIndex >= 0 ? parseInt(process.argv[batchArgIndex + 1] || '200', 10) : 200;
+    const updated = await productsService.backfillMissingImages(batchSize, forceAll, replaceRealImages);
     console.log(`Backfill finished. Updated ${updated} products.`);
   } catch (err) {
     console.error('Backfill failed:', err);

@@ -471,24 +471,46 @@ export class ProductsService {
    * Backfill product images for products missing images or using seeded fallback.
    * Processes in batches to avoid long transactions.
    */
-  async backfillMissingImages(batchSize: number = 200) {
+  async backfillMissingImages(
+    batchSize: number = 200,
+    forceAll: boolean = false,
+    replaceRealImages: boolean = false,
+  ) {
     let offset = 0;
     let updated = 0;
     while (true) {
       const qb = this.productsRepository.createQueryBuilder('p')
-        .where('p.image_url IS NULL')
-        .orWhere('p.image_url LIKE :u1', { u1: '%images.unsplash.com%' })
-        .orWhere('p.image_url LIKE :u2', { u2: '%placeholder%' })
         .orderBy('p.id', 'ASC')
         .take(batchSize)
         .skip(offset);
+
+      if (!forceAll) {
+        qb.where('p.image_url IS NULL')
+          .orWhere('p.image_url LIKE :u1', { u1: '%images.unsplash.com%' })
+          .orWhere('p.image_url LIKE :u2', { u2: '%placeholder%' });
+      }
 
       const products = await qb.getMany();
       if (!products || products.length === 0) break;
 
       for (const product of products) {
         try {
-          const resolved = await this.resolveProductImage(product.name, product.image_url || undefined);
+          const currentImage = product.image_url || undefined;
+          const shouldRefresh =
+            !currentImage ||
+            this.isProductFallback(currentImage) ||
+            replaceRealImages ||
+            forceAll;
+          if (!shouldRefresh) {
+            continue;
+          }
+
+          // Preserve real scraped images unless explicitly told to replace them.
+          if (!replaceRealImages && currentImage && this.isValidImageUrl(currentImage) && !this.isProductFallback(currentImage)) {
+            continue;
+          }
+
+          const resolved = await this.resolveProductImage(product.name, currentImage);
           if (resolved && resolved !== product.image_url) {
             await this.productsRepository.update(product.id, { image_url: resolved });
             updated++;
@@ -502,6 +524,10 @@ export class ProductsService {
       offset += products.length;
       // safety: small sleep to avoid hammering external APIs
       await new Promise((r) => setTimeout(r, 250));
+
+      if (!forceAll && products.length < batchSize) {
+        break;
+      }
     }
 
     console.log(`Backfill complete. Updated ${updated} products.`);
