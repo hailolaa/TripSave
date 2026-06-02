@@ -41,9 +41,9 @@ export class ProductImageService {
 
   private isValidImageUrl(url?: string): boolean {
     const imageUrl = this.sanitizeImageUrl(url);
-    if (!imageUrl) {
-      return false;
-    }
+    if (!imageUrl) return false;
+
+    if (imageUrl.startsWith('data:')) return true;
 
     try {
       const parsed = new URL(imageUrl);
@@ -146,7 +146,14 @@ export class ProductImageService {
       return '';
     }
 
-    const url = value.trim();
+    let url = value.trim();
+
+    // Accept data URIs directly
+    if (url.startsWith('data:')) return url;
+
+    // Convert protocol-relative URLs to https
+    if (url.startsWith('//')) url = 'https:' + url;
+
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return '';
     }

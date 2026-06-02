@@ -1111,10 +1111,11 @@ export class ComparisonService {
   }
 
   private isValidImageUrl(url?: string | null): boolean {
-    const imageUrl = typeof url === 'string' ? url.trim() : '';
-    if (!imageUrl) {
-      return false;
-    }
+    let imageUrl = typeof url === 'string' ? url.trim() : '';
+    if (!imageUrl) return false;
+
+    if (imageUrl.startsWith('data:')) return true;
+    if (imageUrl.startsWith('//')) imageUrl = 'https:' + imageUrl;
 
     try {
       const parsed = new URL(imageUrl);
