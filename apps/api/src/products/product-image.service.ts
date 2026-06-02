@@ -64,7 +64,7 @@ export class ProductImageService {
         return cached || fallback;
       }
 
-      // Lookup order: Open Food Facts -> Openverse -> Google CSE -> SerpAPI.
+      // Lookup order: Open Food Facts only, then seeded fallback.
       const imageUrl = await this.lookupBestImage(queryCandidates);
 
       if (imageUrl) {
@@ -88,21 +88,6 @@ export class ProductImageService {
       if (openFoodFactsImage) {
         return openFoodFactsImage;
       }
-
-      const openverseImage = await this.lookupOpenverseImage(query);
-      if (openverseImage) {
-        return openverseImage;
-      }
-
-      const googleCseImage = await this.lookupGoogleCseImage(query);
-      if (googleCseImage) {
-        return googleCseImage;
-      }
-
-      const serpApiImage = await this.lookupSerpApiImage(query);
-      if (serpApiImage) {
-        return serpApiImage;
-      }
     }
 
     return '';
@@ -123,94 +108,6 @@ export class ProductImageService {
       return this.extractImageUrl(response.data);
     } catch (error: any) {
       this.logger.debug(`Open Food Facts lookup failed for "${productName}": ${error.message}`);
-      return '';
-    }
-  }
-
-  private async lookupGoogleCseImage(productName: string): Promise<string> {
-    const apiKey = process.env.GOOGLE_CSE_API_KEY?.trim();
-    const cx = process.env.GOOGLE_CSE_CX?.trim();
-    if (!apiKey || !cx) {
-      return '';
-    }
-
-    try {
-      const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
-        params: {
-          key: apiKey,
-          cx,
-          q: `${productName} product`,
-          searchType: 'image',
-          num: 1,
-          safe: 'active',
-        },
-        timeout: 8000,
-      });
-
-      const first = Array.isArray(response.data?.items) ? response.data.items[0] : null;
-      return this.sanitizeImageUrl(first?.link);
-    } catch (error: any) {
-      this.logger.debug(`Google CSE image lookup failed for "${productName}": ${error.message}`);
-      return '';
-    }
-  }
-
-  private async lookupOpenverseImage(productName: string): Promise<string> {
-    try {
-      const response = await axios.get('https://api.openverse.engineering/v1/images/', {
-        params: {
-          q: productName,
-          page_size: 1,
-          mature: false,
-        },
-        timeout: 8000,
-      });
-
-      const first = Array.isArray(response.data?.results) ? response.data.results[0] : null;
-      return this.sanitizeImageUrl(first?.url || first?.thumbnail);
-    } catch (error: any) {
-      this.logger.debug(`Openverse image lookup failed for "${productName}": ${error.message}`);
-      return '';
-    }
-  }
-
-  private async lookupSerpApiImage(productName: string): Promise<string> {
-    const apiKey = process.env.SERPAPI_KEY?.trim();
-    if (!apiKey) {
-      return '';
-    }
-
-    try {
-      const response = await axios.get('https://serpapi.com/search.json', {
-        params: {
-          engine: 'google_images',
-          q: `${productName} product`,
-          api_key: apiKey,
-          safe: 'active',
-          num: 1,
-        },
-        timeout: 8000,
-      });
-
-      const images = Array.isArray(response.data?.images_results)
-        ? response.data.images_results
-        : [];
-
-      for (const image of images) {
-        const directUrl = this.sanitizeImageUrl(image?.original);
-        if (directUrl) {
-          return directUrl;
-        }
-
-        const thumbnail = this.sanitizeImageUrl(image?.thumbnail);
-        if (thumbnail) {
-          return thumbnail;
-        }
-      }
-
-      return '';
-    } catch (error: any) {
-      this.logger.debug(`SerpAPI image lookup failed for "${productName}": ${error.message}`);
       return '';
     }
   }
