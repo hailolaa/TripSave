@@ -604,7 +604,7 @@ export class ComparisonService {
         const displayDistance = distance > 0 && distance < 0.1 ? 0.1 : distance;
 
         const resolvedImage = isGasSearch
-          ? this.isValidImageUrl((item as any).image) ? (item as any).image.trim() : ''
+          ? this.sanitizeImageUrl((item as any).image)
           : await this.productImageService.resolveImage(
               productName,
               (item as any).image,
@@ -1123,5 +1123,15 @@ export class ComparisonService {
     } catch {
       return false;
     }
+  }
+
+  private sanitizeImageUrl(url?: string | null): string {
+    let imageUrl = typeof url === 'string' ? url.trim() : '';
+    if (!imageUrl) return '';
+
+    if (imageUrl.startsWith('data:')) return imageUrl;
+    if (imageUrl.startsWith('//')) imageUrl = `https:${imageUrl}`;
+
+    return this.isValidImageUrl(imageUrl) ? imageUrl : '';
   }
 }
