@@ -82,20 +82,20 @@ export class ProductImageService {
       }
 
       // Lookup order: Pexels -> Google Images -> Bing -> Open Food Facts -> seeded fallback.
-        let imageUrl = await this.lookupPexelsImage(queryCandidates[0] || productName);
+      let imageUrl = await this.lookupBestPexelsImage(queryCandidates);
       if (!this.isValidImageUrl(imageUrl)) {
-          imageUrl = await this.lookupGoogleImage(queryCandidates[0] || productName);
+        imageUrl = await this.lookupGoogleImage(queryCandidates[0] || productName);
       }
 
       // If Google failed and Open Food found nothing, try Bing as a secondary web fallback
       if (!this.isValidImageUrl(imageUrl)) {
-          imageUrl = await this.lookupBingImage(queryCandidates[0] || productName);
-        }
+        imageUrl = await this.lookupBingImage(queryCandidates[0] || productName);
+      }
 
-        // If web fallbacks failed, try Open Food Facts as a last web data source
-        if (!this.isValidImageUrl(imageUrl)) {
-          imageUrl = await this.lookupBestImage(queryCandidates);
-        }
+      // If web fallbacks failed, try Open Food Facts as a last web data source
+      if (!this.isValidImageUrl(imageUrl)) {
+        imageUrl = await this.lookupBestImage(queryCandidates);
+      }
 
       if (this.isValidImageUrl(imageUrl)) {
         // Cache only positive results to avoid caching failures and allow future retries
@@ -191,6 +191,16 @@ export class ProductImageService {
     }
   }
 
+  private async lookupBestPexelsImage(queryCandidates: string[]): Promise<string> {
+    for (const query of queryCandidates) {
+      const pexelsImage = await this.lookupPexelsImage(query);
+      if (this.isValidImageUrl(pexelsImage)) {
+        return pexelsImage;
+      }
+    }
+    return '';
+  }
+
   private async lookupPexelsImage(query: string): Promise<string> {
     const apiKey = process.env.PEXELS_API_KEY;
     if (!apiKey) {
@@ -199,38 +209,40 @@ export class ProductImageService {
     }
 
     try {
-      // Add 'product' to focus results on product photography
-      const q = `${query} product`.trim();
-      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5`;
-      const resp = await axios.get(url, {
-        headers: {
-          Authorization: apiKey,
-        },
-        timeout: 8000,
-      });
+      // Try plain query first, then fallback to focused "product" search
+      const searchQueries = [query, `${query} product`];
+      for (const q of searchQueries) {
+        const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5`;
+        const resp = await axios.get(url, {
+          headers: {
+            Authorization: apiKey,
+          },
+          timeout: 8000,
+        });
 
-      const photos = resp?.data?.photos;
-      if (!Array.isArray(photos) || photos.length === 0) return '';
+        const photos = resp?.data?.photos;
+        if (!Array.isArray(photos) || photos.length === 0) continue;
 
-      // Prefer photos where the 'alt' text contains product tokens from the query
-      const tokens = query
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((t) => t.length > 2);
+        // Prefer photos where the 'alt' text contains product tokens from the query
+        const tokens = query
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((t) => t.length > 2);
 
-      const scored: { url: string; score: number }[] = [];
-      for (const p of photos) {
-        const alt = (p?.alt || '').toLowerCase();
-        let score = 0;
-        for (const t of tokens) if (alt.includes(t)) score += 2;
-        if (alt.includes('product') || alt.includes('pack') || alt.includes('box')) score += 1;
-        const candidate = p?.src?.medium || p?.src?.small || p?.src?.original || '';
-        if (candidate) scored.push({ url: candidate, score });
+        const scored: { url: string; score: number }[] = [];
+        for (const p of photos) {
+          const alt = (p?.alt || '').toLowerCase();
+          let score = 0;
+          for (const t of tokens) if (alt.includes(t)) score += 2;
+          if (alt.includes('product') || alt.includes('pack') || alt.includes('box')) score += 1;
+          const candidate = p?.src?.medium || p?.src?.small || p?.src?.original || '';
+          if (candidate) scored.push({ url: candidate, score });
+        }
+
+        scored.sort((a, b) => b.score - a.score);
+        const best = scored.find((s) => s.score > 0) || scored[0];
+        if (best && best.url) return this.sanitizeImageUrl(best.url);
       }
-
-      scored.sort((a, b) => b.score - a.score);
-      const best = scored.find((s) => s.score > 0) || scored[0];
-      if (best && best.url) return this.sanitizeImageUrl(best.url);
 
       return '';
     } catch (err: any) {

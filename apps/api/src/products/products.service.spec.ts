@@ -11,6 +11,7 @@ describe('ProductsService', () => {
   let service: ProductsService;
   const productsRepository = {
     find: jest.fn(),
+    findOne: jest.fn(),
     save: jest.fn(),
   };
 
@@ -28,6 +29,7 @@ describe('ProductsService', () => {
 
     service = module.get<ProductsService>(ProductsService);
     productsRepository.find.mockReset();
+    productsRepository.findOne.mockReset();
     productsRepository.save.mockReset();
   });
 
@@ -36,9 +38,7 @@ describe('ProductsService', () => {
   });
 
   it('should create a generic avocado product instead of reusing avocado shampoo', async () => {
-    productsRepository.find.mockResolvedValue([
-      { name: 'Avocado Shampoo', normalized_name: 'avocado shampoo', image_url: '' },
-    ]);
+    productsRepository.findOne.mockResolvedValue(null);
     productsRepository.save.mockImplementation(async (product: any) => ({ id: '1', ...product }));
 
     const results = await service.searchProducts('avocado');

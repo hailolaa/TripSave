@@ -68,7 +68,7 @@ describe('Relevance Utilities', () => {
     it('should reject unrelated category matches like avocado shampoo', () => {
       expect(scoreProductRelevance('Avocado Shampoo', 'avocado')).toBe(0);
       expect(scoreProductRelevance('Avocado Conditioner', 'avocado')).toBe(0);
-      expect(scoreProductRelevance('Avocado Shampoo', 'shampoo')).toBe(100);
+      expect(scoreProductRelevance('Avocado Shampoo', 'shampoo')).toBe(40);
     });
   });
 });

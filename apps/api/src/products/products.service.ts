@@ -336,32 +336,16 @@ export class ProductsService {
     const cleanQuery = query.trim().toLowerCase();
     const variants = getQueryVariants(cleanQuery);
 
-    // 1. Try to find the best existing product match, not just the first substring hit.
-    const candidates = await this.productsRepository.find({
-      where: variants.flatMap((variant) => ([
-        { name: ILike(`%${variant}%`) },
-        { normalized_name: ILike(`%${variant}%`) },
-      ])),
-      take: 25,
-    });
-
+    // Try to find an existing generic product that matches any variant exactly
     let genericProduct: Product | null = null;
-    let bestScore = 0;
-    for (const candidate of candidates) {
-      const candidateName = candidate.name || candidate.normalized_name || '';
-      if (isLikelyUnrelatedProduct(candidateName, cleanQuery)) {
-        continue;
-      }
-
-      const candidateScore = scoreProductRelevance(candidateName, cleanQuery);
-      if (candidateScore > bestScore) {
-        bestScore = candidateScore;
-        genericProduct = candidate;
-      }
-    }
-
-    if (bestScore < 40) {
-      genericProduct = null;
+    for (const variant of variants) {
+      genericProduct = await this.productsRepository.findOne({
+        where: [
+          { name: ILike(variant) },
+          { normalized_name: ILike(variant) }
+        ]
+      });
+      if (genericProduct) break;
     }
 
     if (!genericProduct) {
@@ -377,17 +361,11 @@ export class ProductsService {
         category: category,
         image_url: resolvedImage || this.getFallbackImage(cleanQuery, category)
       });
-    } else if (!genericProduct.image_url) {
-      // Backfill missing image for generic product
-      genericProduct.image_url = await this.resolveProductImage(
-        genericProduct.name,
-        this.getFallbackImage(genericProduct.name),
-      );
-      await this.productsRepository.save(genericProduct);
-    } else if (this.isProductFallback(genericProduct.image_url)) {
+    } else if (!genericProduct.image_url || this.isProductFallback(genericProduct.image_url)) {
+      // Resolve/backfill missing or fallback image
       const resolvedImage = await this.resolveProductImage(
         genericProduct.name,
-        genericProduct.image_url,
+        genericProduct.image_url || undefined,
       );
       if (resolvedImage && resolvedImage !== genericProduct.image_url) {
         genericProduct.image_url = resolvedImage;
@@ -395,7 +373,6 @@ export class ProductsService {
       }
     }
 
-    // 2. Return only the generic product — no stale DB results from past scrapes
     return [genericProduct];
   }
 
