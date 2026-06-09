@@ -45,7 +45,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     // In a real app, load from local storage or API
     // For now, we'll start with empty and add a welcome notification
     addNotification(
-      title: 'Welcome to TripSave!',
+      title: 'Welcome to PricePilot!',
       message: 'Start saving money on every trip with our smart comparison tool.',
       type: NotificationType.general,
     );

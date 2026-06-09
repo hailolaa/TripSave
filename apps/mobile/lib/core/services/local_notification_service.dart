@@ -63,8 +63,8 @@ class LocalNotificationService {
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
       'tripsave_main_channel',
-      'TripSave Notifications',
-      channelDescription: 'Main notification channel for TripSave',
+      'PricePilot Notifications',
+      channelDescription: 'Main notification channel for PricePilot',
       importance: Importance.max,
       priority: Priority.high,
       ticker: 'ticker',

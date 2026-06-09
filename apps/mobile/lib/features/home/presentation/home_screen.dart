@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/widgets/store_logo.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/shopsave_logo.dart';
+import '../../../core/widgets/pricepilot_logo.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
@@ -413,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Flexible(
-              child: const ShopSaveLogo(textSize: 18, iconSize: 24, compact: true)
+              child: const PricePilotLogo(textSize: 18, iconSize: 24, compact: true)
                   .animate(onPlay: (c) => c.repeat(reverse: true))
                   .shimmer(delay: 5.seconds, duration: 2.seconds, color: Colors.white24)
                   .animate()

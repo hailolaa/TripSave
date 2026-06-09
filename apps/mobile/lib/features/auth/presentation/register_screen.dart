@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/widgets/shopsave_logo.dart';
+import '../../../core/widgets/pricepilot_logo.dart';
 import '../bloc/auth_cubit.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -154,7 +154,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Spacer(flex: isSmall ? 1 : 3),
-                            ShopSaveLogo(textSize: isSmall ? 24 : 28, iconSize: isSmall ? 40 : 48)
+                            PricePilotLogo(textSize: isSmall ? 24 : 28, iconSize: isSmall ? 40 : 48)
                                 .animate()
                                 .fadeIn(duration: 800.ms)
                                 .slideY(begin: -0.1, end: 0),

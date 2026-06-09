@@ -94,7 +94,7 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Start Navigation?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        content: Text('TripSave will take you to ${store['name']}. Confirm to start route in your maps app.', 
+        content: Text('PricePilot will take you to ${store['name']}. Confirm to start route in your maps app.', 
           style: GoogleFonts.outfit()),
         actions: [
           TextButton(

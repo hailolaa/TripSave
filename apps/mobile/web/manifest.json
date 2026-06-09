@@ -1,6 +1,6 @@
 {
-    "name": "trip_save",
-    "short_name": "trip_save",
+    "name": "PricePilot",
+    "short_name": "PricePilot",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

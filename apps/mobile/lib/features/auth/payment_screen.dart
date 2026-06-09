@@ -200,7 +200,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             SizedBox(height: isShort ? 8 : 12),
                             Text(
                               widget.isUpdating 
-                                ? 'Update your preferred payment method\nfor your TripSave subscription.'
+                                ? 'Update your preferred payment method\nfor your PricePilot subscription.'
                                 : 'Experience premium savings risk-free.\nThen just \$1.99/month.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
@@ -389,7 +389,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           Text(
             widget.isUpdating 
               ? 'Your payment method has been updated.'
-              : 'Welcome to TripSave Premium.\nYour 7-day free trial has started.',
+              : 'Welcome to PricePilot Premium.\nYour 7-day free trial has started.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
@@ -433,4 +433,3 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 }
-

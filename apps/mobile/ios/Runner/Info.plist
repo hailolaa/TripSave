@@ -3,15 +3,15 @@
 <plist version="1.0">
 	<dict>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>TripSave needs your location to find the cheapest stores near you and calculate driving costs.</string>
+		<string>PricePilot needs your location to find the cheapest stores near you and calculate driving costs.</string>
 		<key>NSLocationAlwaysUsageDescription</key>
-		<string>TripSave needs your location to find the cheapest stores near you and calculate driving costs.</string>
+		<string>PricePilot needs your location to find the cheapest stores near you and calculate driving costs.</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Shop Save</string>
+		<string>PricePilot</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>Shop Save</string>
+		<string>PricePilot</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>

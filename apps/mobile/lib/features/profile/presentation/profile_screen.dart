@@ -220,7 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildSettingRow(
                 Icons.attach_money, const Color(0xFFE0E7FF), 'Drive Cost Rate', '\$0.72/mile',
                 subtitle: 'Fixed rate for accurate calculations',
-                onTap: () => _showInfoDialog('Drive Cost', 'TripSave uses a fixed rate of \$0.72 per mile to calculate your driving costs. This includes fuel, maintenance, and vehicle wear.'),
+                onTap: () => _showInfoDialog('Drive Cost', 'PricePilot uses a fixed rate of \$0.72 per mile to calculate your driving costs. This includes fuel, maintenance, and vehicle wear.'),
               ),
             ]).animate(delay: 400.ms).fadeIn().slideX(begin: 0.1),
             const SizedBox(height: 24),
@@ -298,7 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildSettingsCard([
               _buildSettingRow(Icons.lock_outline, Colors.grey.shade200, 'Privacy Policy', '', onTap: () => _showInfoDialog('Privacy Policy', 'We value your privacy. Your data is encrypted and never sold.')),
               const Divider(height: 1),
-              _buildSettingRow(Icons.description_outlined, Colors.grey.shade200, 'Terms of Service', '', onTap: () => _showInfoDialog('Terms of Service', 'By using TripSave, you agree to save money on every trip!')),
+              _buildSettingRow(Icons.description_outlined, Colors.grey.shade200, 'Terms of Service', '', onTap: () => _showInfoDialog('Terms of Service', 'By using PricePilot, you agree to save money on every trip!')),
               const Divider(height: 1),
               _buildSettingRow(Icons.info_outline, Colors.grey.shade200, 'Version', '1.0.0', onTap: () => HapticFeedback.vibrate()),
             ]).animate(delay: 800.ms).fadeIn().slideX(begin: 0.1),

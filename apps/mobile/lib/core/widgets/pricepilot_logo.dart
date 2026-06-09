@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 
-class ShopSaveLogo extends StatelessWidget {
-  const ShopSaveLogo({
+class PricePilotLogo extends StatelessWidget {
+  const PricePilotLogo({
     super.key,
     this.textSize = 18,
     this.iconSize = 28,
@@ -18,7 +18,7 @@ class ShopSaveLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Image.asset(
-      'images/logo.jpg',
+      'images/pricepilot_logo.jpg',
       height: iconSize * 3.4,
       width: iconSize * 10,
       fit: BoxFit.contain,
@@ -28,7 +28,14 @@ class ShopSaveLogo extends StatelessWidget {
           Icon(Icons.shopping_cart, color: AppTheme.primaryBlue, size: iconSize),
           if (!compact) ...[
             const SizedBox(width: 8),
-            Text('ShopSave', style: GoogleFonts.outfit(fontSize: textSize, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+            Text(
+              'PricePilot',
+              style: GoogleFonts.outfit(
+                fontSize: textSize,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
+              ),
+            ),
           ],
         ],
       ),
