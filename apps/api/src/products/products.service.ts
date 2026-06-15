@@ -172,6 +172,14 @@ export class ProductsService {
     return knownBrands.find((brand) => normalized.includes(brand.toLowerCase())) || null;
   }
 
+  private shouldPersistScrapedProduct(item: ScrapedProduct): boolean {
+    if (item.source !== 'direct') return true;
+
+    const name = item.product.toLowerCase();
+    const hasRealImage = Boolean(item.image?.trim());
+    return hasRealImage && !name.includes('(sample)');
+  }
+
   /**
    * Upsert scraped data into the database.
    */
@@ -179,6 +187,8 @@ export class ProductsService {
     // Deduplicate noisy scraper rows in-memory first (same store + product).
     const deduped = new Map<string, ScrapedProduct>();
     for (const item of scrapedData) {
+      if (!this.shouldPersistScrapedProduct(item)) continue;
+
       const key = `${item.store.toLowerCase().trim()}|${item.product.toLowerCase().trim()}`;
       deduped.set(key, item);
     }
@@ -452,6 +462,8 @@ export class ProductsService {
       .leftJoinAndSelect('sp.store', 's')
       .leftJoinAndSelect('s.chain', 'c')
       .where('sp.in_stock = :inStock', { inStock: true })
+      .andWhere('sp.source != :directSource', { directSource: 'direct' })
+      .andWhere('p.name NOT LIKE :sampleFallback', { sampleFallback: '%(Sample)%' })
       .addSelect('(CASE WHEN sp.sale_price IS NOT NULL AND sp.sale_price < sp.price THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END)', 'savings_score')
       .orderBy('savings_score', 'DESC')
       .addOrderBy('sp.last_verified_at', 'DESC')
