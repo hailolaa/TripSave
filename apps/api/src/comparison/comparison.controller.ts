@@ -262,7 +262,7 @@ export class ComparisonController {
       Number(userMpg),
       Number(userGasPrice),
       gallons ? Number(gallons) : 15,
-      fuelType || 'regular',
+      'regular',
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
       Number(preferredRadius),

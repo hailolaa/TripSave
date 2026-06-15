@@ -95,14 +95,6 @@ export class GasSyncService {
 
       const stations = Array.from(mergedStations.values());
 
-      // Apply smart fallback calculation for missing diesel prices
-      for (const station of stations) {
-        if (station.prices.regular && !station.prices.diesel) {
-          // We pass regionCode as the state (often it's a ZIP, but the calculation handles it safely)
-          station.prices.diesel = await this.calculateFallbackDieselPrice(station.prices.regular, regionCode);
-        }
-      }
-
       if (stations.length === 0) {
         this.logger.warn('Google Maps scrapers returned 0 stations. Marking existing data as stale.');
         await this.markAllStale();
@@ -135,7 +127,6 @@ export class GasSyncService {
   async getNearbyGasPrices(lat: number, lng: number, radiusMiles: number = 20) {
     let results = await this.queryNearbyGas(lat, lng, radiusMiles);
     let region = 'TX';
-    let geoResolved = false;
 
     // If no gas stations found, trigger a sync for the region and try again
     if (results.length === 0) {
@@ -145,7 +136,6 @@ export class GasSyncService {
         const geo = await reverseGeocode(lat, lng);
         if (geo) {
           region = geo.displayName;
-          geoResolved = true;
           this.logger.log(`[GEO DETECT] Resolved coordinates ${lat}, ${lng} to region: ${region}`);
         }
       } catch (e) {
@@ -154,39 +144,6 @@ export class GasSyncService {
 
       await this.syncGasPrices(region, lat, lng);
       results = await this.queryNearbyGas(lat, lng, radiusMiles);
-    }
-
-    // Apply fallback for missing diesel prices dynamically before returning
-    const needsFallback = results.some(r => r.regular_price && !r.diesel_price);
-    if (needsFallback) {
-      if (!geoResolved) {
-        try {
-          const geo = await reverseGeocode(lat, lng);
-          if (geo) {
-            region = geo.displayName;
-            geoResolved = true;
-          }
-        } catch (e) { }
-      }
-      
-      // Fetch EIA price once for the region
-      const eiaPrice = await this.eiaDieselService.getRegionalDieselPrice(region);
-      const stateUpper = region.toUpperCase().trim();
-      const highTaxStates = ['CA', 'OR', 'WA', 'PA', 'IL', 'NY'];
-      let spread = 0.58;
-      if (highTaxStates.some(state => stateUpper.includes(state))) {
-        spread = 0.75;
-      }
-      
-      for (const r of results) {
-        if (r.regular_price && !r.diesel_price) {
-          if (eiaPrice) {
-            r.diesel_price = eiaPrice;
-          } else {
-            r.diesel_price = Number((r.regular_price + spread).toFixed(2));
-          }
-        }
-      }
     }
 
     return results;
@@ -233,9 +190,6 @@ export class GasSyncService {
       lng: Number(raw.store_lng),
       distance: Number(parseFloat(raw.distance).toFixed(2)),
       regular_price: raw.gp_regular_price ? Number(raw.gp_regular_price) : null,
-      midgrade_price: raw.gp_midgrade_price ? Number(raw.gp_midgrade_price) : null,
-      premium_price: raw.gp_premium_price ? Number(raw.gp_premium_price) : null,
-      diesel_price: raw.gp_diesel_price ? Number(raw.gp_diesel_price) : null,
       is_stale: raw.gp_is_stale === 1,
       last_updated: raw.gp_last_updated,
       logo_url: raw.chain_logo_url,

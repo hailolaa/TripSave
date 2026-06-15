@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../../../core/di/injection.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_theme.dart';
 
 class MapPickerScreen extends StatefulWidget {
@@ -13,6 +16,84 @@ class MapPickerScreen extends StatefulWidget {
 class _MapPickerScreenState extends State<MapPickerScreen> {
   final MapController _mapController = MapController();
   LatLng _selectedPosition = const LatLng(32.7767, -96.7970); // Dallas Default
+  List<dynamic> _nearbyStores = [];
+  bool _isLoadingStores = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _useCurrentLocation();
+    });
+  }
+
+  Future<void> _useCurrentLocation() async {
+    try {
+      final position = await getIt<LocationService>().getCurrentLocation();
+      final currentPosition = LatLng(position.latitude, position.longitude);
+      if (!mounted) return;
+      setState(() {
+        _selectedPosition = currentPosition;
+      });
+      await _fetchNearbyStores(currentPosition);
+    } catch (_) {
+      await _fetchNearbyStores(_selectedPosition);
+    }
+  }
+
+  Future<void> _fetchNearbyStores(LatLng center) async {
+    setState(() => _isLoadingStores = true);
+    try {
+      final response = await getIt<ApiClient>().dio.get(
+        '/stores',
+        queryParameters: {
+          'lat': center.latitude,
+          'lng': center.longitude,
+          'radius': 20,
+        },
+      );
+      if (!mounted) return;
+      final stores = response.data is List ? List<dynamic>.from(response.data as List) : <dynamic>[];
+      setState(() {
+        _nearbyStores = stores.where((item) => _storeLocation(item) != null).toList();
+        _isLoadingStores = false;
+      });
+      _fitMapToStores();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingStores = false);
+    }
+  }
+
+  LatLng? _storeLocation(dynamic item) {
+    final store = item is Map ? item['store'] : null;
+    if (store is! Map) return null;
+    final lat = double.tryParse(store['lat']?.toString() ?? '');
+    final lng = double.tryParse(store['lng']?.toString() ?? '');
+    if (lat == null || lng == null) return null;
+    if (lat == 0 && lng == 0) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return LatLng(lat, lng);
+  }
+
+  void _fitMapToStores() {
+    final points = [
+      _selectedPosition,
+      ..._nearbyStores.map(_storeLocation).whereType<LatLng>(),
+    ];
+
+    if (points.length <= 1) {
+      _mapController.move(_selectedPosition, 13);
+      return;
+    }
+
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(points),
+        padding: const EdgeInsets.all(60),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +116,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 setState(() {
                   _selectedPosition = point;
                 });
+                _fetchNearbyStores(point);
               },
             ),
             children: [
@@ -50,14 +132,38 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     height: 40,
                     child: const Icon(Icons.location_on, color: AppTheme.primaryBlue, size: 40),
                   ),
-                  _buildStorePin(const LatLng(32.8021, -96.7725), 'Kroger'),
-                  _buildStorePin(const LatLng(32.7766, -96.7969), 'Walmart'),
-                  _buildStorePin(const LatLng(33.0198, -96.6988), 'ALDI'),
-                  _buildStorePin(const LatLng(32.7900, -96.8000), 'Target'),
+                  ..._nearbyStores.map((item) {
+                    final location = _storeLocation(item);
+                    final store = item is Map ? item['store'] : null;
+                    final name = store is Map ? (store['name']?.toString() ?? '') : '';
+                    if (location == null || name.isEmpty) return null;
+                    return _buildStorePin(location, name);
+                  }).whereType<Marker>(),
                 ],
               ),
             ],
           ),
+          if (_isLoadingStores)
+            Positioned(
+              top: 20,
+              left: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8)],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 8),
+                    Text('Loading nearby stores', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
           Positioned(
             top: 20,
             right: 20,
@@ -65,10 +171,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               heroTag: 'my_location',
               backgroundColor: Colors.white,
               mini: true,
+              onPressed: _useCurrentLocation,
               child: const Icon(Icons.my_location, color: AppTheme.primaryBlue),
-              onPressed: () {
-                // Return to current location logic
-              },
             ),
           ),
           Positioned(
@@ -97,7 +201,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () {},
+                          onPressed: _useCurrentLocation,
                           icon: const Icon(Icons.my_location, size: 16, color: AppTheme.primaryBlue),
                           label: const Text('Use current', style: TextStyle(color: AppTheme.primaryBlue)),
                           style: OutlinedButton.styleFrom(

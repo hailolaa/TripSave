@@ -33,21 +33,63 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
   @override
   void initState() {
     super.initState();
-    // Auto-select the best store (index 0) and show its route
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.results.isNotEmpty) {
-        _selectStore(0);
-      }
+      _fitAllMarkers();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant CompareMapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.results != widget.results ||
+        oldWidget.userLocation != widget.userLocation) {
+      _routePoints = [];
+      _currentRoute = null;
+      _selectedStoreIndex = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fitAllMarkers();
+      });
+    }
+  }
+
+  LatLng? _storeLocation(Map<String, dynamic>? store) {
+    if (store == null) return null;
+    final lat = double.tryParse(store['lat']?.toString() ?? '');
+    final lng = double.tryParse(store['lng']?.toString() ?? '');
+    if (lat == null || lng == null) return null;
+    if (lat == 0 && lng == 0) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return LatLng(lat, lng);
+  }
+
+  List<LatLng> _validStorePoints() {
+    return widget.results
+        .map((result) => _storeLocation((result as Map<String, dynamic>)['store'] as Map<String, dynamic>?))
+        .whereType<LatLng>()
+        .toList();
+  }
+
+  void _fitAllMarkers() {
+    final points = [widget.userLocation, ..._validStorePoints()];
+    if (points.length <= 1) {
+      _mapController.move(widget.userLocation, 13);
+      return;
+    }
+
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(points),
+        padding: const EdgeInsets.all(70),
+      ),
+    );
   }
 
   Future<void> _selectStore(int index) async {
     final result = widget.results[index];
     final store = result['store'];
-    final lat = double.tryParse(store['lat'].toString()) ?? 0;
-    final lng = double.tryParse(store['lng'].toString()) ?? 0;
+    final location = _storeLocation(store is Map<String, dynamic> ? store : null);
 
-    if (lat == 0 && lng == 0) return;
+    if (location == null) return;
 
     setState(() {
       _selectedStoreIndex = index;
@@ -56,7 +98,7 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
 
     final route = await RoutingService.getRoute(
       widget.userLocation,
-      LatLng(lat, lng),
+      location,
     );
 
     if (mounted) {
@@ -70,7 +112,7 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
       if (_routePoints.isNotEmpty) {
         final bounds = LatLngBounds.fromPoints([
           widget.userLocation,
-          LatLng(lat, lng),
+          location,
           ..._routePoints,
         ]);
         _mapController.fitCamera(
@@ -85,10 +127,9 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
 
   Future<void> _launchNavigation(Map<String, dynamic> result) async {
     final store = result['store'];
-    final lat = double.tryParse(store['lat'].toString()) ?? 0;
-    final lng = double.tryParse(store['lng'].toString()) ?? 0;
+    final location = _storeLocation(store is Map<String, dynamic> ? store : null);
 
-    if (lat == 0 && lng == 0) return;
+    if (location == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -115,6 +156,8 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
     );
 
     if (confirmed == true) {
+      final lat = location.latitude;
+      final lng = location.longitude;
       final googleMapsUrl = Uri.parse('google.navigation:q=$lat,$lng');
       final appleMapsUrl = Uri.parse('http://maps.apple.com/?daddr=$lat,$lng');
 
@@ -191,13 +234,12 @@ class _CompareMapViewState extends State<CompareMapView> with TickerProviderStat
                   final isSelected = index == _selectedStoreIndex;
                   final isCheapest = index == 0;
 
-                  final lat = double.tryParse(store['lat'].toString()) ?? 0;
-                  final lng = double.tryParse(store['lng'].toString()) ?? 0;
+                  final location = _storeLocation(store is Map<String, dynamic> ? store : null);
 
-                  if (lat == 0 && lng == 0) return null;
+                  if (location == null) return null;
 
                   return Marker(
-                    point: LatLng(lat, lng),
+                    point: location,
                     width: isSelected ? 160 : 140,
                     height: isSelected ? 100 : 90,
                     child: GestureDetector(

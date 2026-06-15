@@ -378,7 +378,7 @@ export class ComparisonService {
     query: string = '',
   ) {
     const normalizedQuery = query.toLowerCase().trim();
-    const isGasSearch = ['gas', 'fuel', 'diesel'].includes(normalizedQuery);
+    const isGasSearch = ['gas', 'fuel'].includes(normalizedQuery);
 
     // Get nearby stores once to avoid multiple DB calls
     const nearbyStores = await this.storesService.findNearbyStores(
@@ -593,9 +593,6 @@ export class ComparisonService {
           if (stationGas) {
             (storeData as any).gasPrices = {
               regular: stationGas.regular_price,
-              midgrade: stationGas.midgrade_price,
-              premium: stationGas.premium_price,
-              diesel: stationGas.diesel_price,
             };
           }
         }
@@ -653,7 +650,7 @@ export class ComparisonService {
     storeType?: StoreChainType,
   ) {
     const normalizedQuery = query.toLowerCase().trim();
-    const isGasSearch = ['gas', 'fuel', 'diesel'].includes(normalizedQuery);
+    const isGasSearch = ['gas', 'fuel'].includes(normalizedQuery);
 
     return items.filter((item) => {
       if (!isGasSearch && item.store?.chain?.type === StoreChainType.GAS) {
@@ -820,7 +817,7 @@ export class ComparisonService {
     userMpg: number,
     userGasPrice: number,
     gallons: number = 15,
-    fuelType: 'regular' | 'midgrade' | 'premium' | 'diesel' = 'regular',
+    fuelType: 'regular' = 'regular',
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
     preferredRadius: number = 20,
@@ -870,25 +867,7 @@ export class ComparisonService {
         const gp = gasPrices.find((g) => g.store_id === ns.store.id);
         if (!gp) return null;
 
-        // Calculate dynamic fallback for missing diesel if needed
-        let dieselPrice = gp.diesel_price ? Number(gp.diesel_price) : null;
-        if (gp.regular_price && !dieselPrice) {
-          dieselPrice = await this.gasSyncService.calculateFallbackDieselPrice(
-            Number(gp.regular_price),
-            locationName,
-          );
-        }
-
-        // Pick the right fuel type price
-        const pricePerGallon = Number(
-          fuelType === 'diesel'
-            ? dieselPrice
-            : fuelType === 'premium'
-              ? gp.premium_price
-              : fuelType === 'midgrade'
-                ? gp.midgrade_price
-                : gp.regular_price,
-        );
+        const pricePerGallon = Number(gp.regular_price);
 
         if (!pricePerGallon || pricePerGallon <= 0) return null;
 
@@ -947,9 +926,6 @@ export class ComparisonService {
             },
             gasPrices: {
               regular: gp.regular_price ? Number(gp.regular_price) : null,
-              midgrade: gp.midgrade_price ? Number(gp.midgrade_price) : null,
-              premium: gp.premium_price ? Number(gp.premium_price) : null,
-              diesel: dieselPrice,
             },
           },
           price_per_gallon: pricePerGallon,
@@ -966,7 +942,7 @@ export class ComparisonService {
           missing_items: 0,
           products: [
             {
-              name: `${fuelType.charAt(0).toUpperCase() + fuelType.slice(1)} Gas`,
+              name: 'Regular Gas',
               price: pricePerGallon,
             },
           ],

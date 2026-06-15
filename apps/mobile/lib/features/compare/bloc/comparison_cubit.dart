@@ -383,7 +383,9 @@ class ComparisonCubit extends Cubit<ComparisonState> {
                 'name': s['store']['name'],
                 'chain': s['store']['chain'],
                 'address': s['store']['address'],
-                'id': s['store']['id']
+                'id': s['store']['id'],
+                'lat': s['store']['lat'],
+                'lng': s['store']['lng'],
               },
               'driving_distance': s['distance'],
               'driving_cost': 0.0,
@@ -406,7 +408,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       };
 
       Response response;
-      final isGasSearch = storeType == 'gas' || ['gas', 'fuel', 'diesel'].contains(itemName.toLowerCase());
+      final isGasSearch = storeType == 'gas' || ['gas', 'fuel'].contains(itemName.toLowerCase());
 
       if (isGasSearch) {
         queryParams['gallons'] = 15;

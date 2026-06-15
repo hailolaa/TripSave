@@ -1201,16 +1201,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (chain['type'] == 'gas' && store['gasPrices'] != null) ...[
                 const SizedBox(height: 24),
-                const Text('FUEL TYPES', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey, letterSpacing: 0.5)),
+                const Text('REGULAR GAS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey, letterSpacing: 0.5)),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildGasTypeColumn('Regular', store['gasPrices']['regular']),
-                    _buildGasTypeColumn('Mid-grade', store['gasPrices']['midgrade']),
-                    _buildGasTypeColumn('Premium', store['gasPrices']['premium']),
-                    _buildGasTypeColumn('Diesel', store['gasPrices']['diesel']),
-                  ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _buildGasTypeColumn('Regular', store['gasPrices']['regular']),
                 ),
               ],
               const SizedBox(height: 24),

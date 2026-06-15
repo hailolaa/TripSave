@@ -4,12 +4,15 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { StoreProduct } from '../products/store-product.entity';
 import { GasPrice } from '../gas/gas-price.entity';
 import { Product } from '../products/product.entity';
+import { Store } from '../stores/store.entity';
+import { SearchActivity } from '../models/search-activity.entity';
 import { OsrmService } from '../integrations/osrm/osrm.service';
 import { StoresService } from '../stores/stores.service';
 import { AggregatorService } from '../providers/oxylabs/aggregator.service';
 import { ProductsService } from '../products/products.service';
 import { ProductImageService } from '../products/product-image.service';
 import { StoreChainType } from '../stores/store-chain.entity';
+import { GasSyncService } from '../services/gas-sync.service';
 
 describe('ComparisonService', () => {
   let service: ComparisonService;
@@ -22,10 +25,13 @@ describe('ComparisonService', () => {
         { provide: StoresService, useValue: {} },
         { provide: AggregatorService, useValue: {} },
         { provide: ProductsService, useValue: {} },
+        { provide: GasSyncService, useValue: {} },
         { provide: ProductImageService, useValue: { resolveImage: jest.fn().mockResolvedValue('') } },
         { provide: getRepositoryToken(StoreProduct), useValue: {} },
         { provide: getRepositoryToken(GasPrice), useValue: {} },
         { provide: getRepositoryToken(Product), useValue: {} },
+        { provide: getRepositoryToken(Store), useValue: {} },
+        { provide: getRepositoryToken(SearchActivity), useValue: {} },
       ],
     }).compile();
 
