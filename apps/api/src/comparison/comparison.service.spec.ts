@@ -25,7 +25,7 @@ describe('ComparisonService', () => {
         { provide: StoresService, useValue: {} },
         { provide: AggregatorService, useValue: {} },
         { provide: ProductsService, useValue: {} },
-        { provide: GasSyncService, useValue: {} },
+        { provide: GasSyncService, useValue: { syncGasPrices: jest.fn().mockResolvedValue({ success: true, count: 0, stale: false }) } },
         { provide: ProductImageService, useValue: { resolveImage: jest.fn().mockResolvedValue('') } },
         { provide: getRepositoryToken(StoreProduct), useValue: {} },
         { provide: getRepositoryToken(GasPrice), useValue: {} },

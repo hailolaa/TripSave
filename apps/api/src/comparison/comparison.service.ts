@@ -855,12 +855,39 @@ export class ComparisonService {
       }
     }
 
-    const storeIds = nearbyStores.map((ns) => ns.store.id);
+    let storeIds = nearbyStores.map((ns) => ns.store.id);
 
     // 2. Get gas prices for these stations
-    const gasPrices = await this.gasPriceRepository.find({
+    let gasPrices = await this.gasPriceRepository.find({
       where: { store_id: In(storeIds) },
     });
+
+    const nearestGasDistance = nearbyStores.length > 0
+      ? Math.min(...nearbyStores.map((ns) => Number(ns.distance) || Number.POSITIVE_INFINITY))
+      : Number.POSITIVE_INFINITY;
+    const pricedNearbyCount = nearbyStores.filter((ns) =>
+      gasPrices.some((gp) => gp.store_id === ns.store.id && Number(gp.regular_price) > 0),
+    ).length;
+
+    if (pricedNearbyCount < 5 || nearestGasDistance > 3) {
+      this.logger.warn(
+        `[SYNC TRIGGER] Thin nearby gas coverage (${pricedNearbyCount} priced, nearest ${nearestGasDistance.toFixed(1)} mi). Refreshing around ${userLat}, ${userLng}...`,
+      );
+      await this.gasSyncService.syncGasPrices(locationName, userLat, userLng);
+
+      nearbyStores = await this.storesService.findNearbyStores(
+        userLat,
+        userLng,
+        preferredRadius,
+      );
+      nearbyStores = nearbyStores.filter(
+        (ns) => ns.store.chain?.type === StoreChainType.GAS,
+      );
+      storeIds = nearbyStores.map((ns) => ns.store.id);
+      gasPrices = await this.gasPriceRepository.find({
+        where: { store_id: In(storeIds) },
+      });
+    }
 
     const comparisons = await Promise.all(
       nearbyStores.map(async (ns) => {

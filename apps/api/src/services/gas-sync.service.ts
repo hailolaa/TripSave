@@ -71,26 +71,41 @@ export class GasSyncService {
   private async _executeSyncGasPrices(regionCode: string = 'TX', lat?: number, lng?: number): Promise<{ success: boolean; count: number; stale: boolean }> {
     const now = Date.now();
     const cleanRegion = regionCode.trim().toLowerCase();
-    const lastSyncTime = this.recentSyncs.get(cleanRegion);
+    const coordKey = (lat !== undefined && lng !== undefined) ? `coords:${lat.toFixed(2)},${lng.toFixed(2)}` : null;
+    const syncKey = coordKey || cleanRegion;
+    const lastSyncTime = this.recentSyncs.get(syncKey);
 
     if (lastSyncTime && (now - lastSyncTime) < 30 * 60 * 1000) {
-      this.logger.log(`[SYNC SKIP] Region "${regionCode}" was synced recently (${Math.round((now - lastSyncTime) / 1000)}s ago). Skipping to prevent duplicate scrapes.`);
+      this.logger.log(`[SYNC SKIP] "${syncKey}" was synced recently (${Math.round((now - lastSyncTime) / 1000)}s ago). Skipping to prevent duplicate scrapes.`);
       return { success: true, count: 0, stale: false };
     }
 
-    this.recentSyncs.set(cleanRegion, now);
+    this.recentSyncs.set(syncKey, now);
     this.logger.log(`[SYNC INIT] Starting Google Maps sync for region: ${regionCode} (Coordinates: ${lat || 'N/A'}, ${lng || 'N/A'})`);
 
     try {
       const mergedStations = new Map<string, NormalizedGasStation>();
       this.logger.log(`Fetching gas prices via Google Maps...`);
       try {
-        const regularStations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
+        const regularStations = (lat !== undefined && lng !== undefined)
+          ? await this.googleMapsScraper.searchNearbyStoresByCoords(lat, lng, 'gas station', 16000)
+          : await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
         for (const s of regularStations) {
           mergedStations.set(s.stationId, s);
         }
       } catch (err: any) {
         this.logger.error(`[Gas Sync Fail] Scraper threw error: ${err.message}`);
+      }
+
+      if (mergedStations.size === 0 && lat !== undefined && lng !== undefined) {
+        try {
+          const regularStations = await this.googleMapsScraper.searchNearbyStores(regionCode, 'gas stations');
+          for (const s of regularStations) {
+            mergedStations.set(s.stationId, s);
+          }
+        } catch (err: any) {
+          this.logger.error(`[Gas Sync Fallback Fail] Region scraper threw error: ${err.message}`);
+        }
       }
 
       const stations = Array.from(mergedStations.values());
