@@ -226,7 +226,8 @@ class _DealsScreenState extends State<DealsScreen> {
     bool matchesTop = true;
     if (_selectedTopPill == 1) { // Clearance
       final savingsPct = num.tryParse(deal['savings_percentage']?.toString() ?? '0') ?? 0;
-      matchesTop = savingsPct > 0;
+      final isClearance = deal['is_clearance'] == true || savingsPct > 0;
+      matchesTop = isClearance;
     } else if (_selectedTopPill == 2) { // My Saving
       final listState = context.read<ListCubit>().state;
       if (listState is ListLoaded) {
@@ -269,126 +270,169 @@ class _DealsScreenState extends State<DealsScreen> {
   }
 
   Widget _buildProductDeal(BuildContext context, Map<String, dynamic> deal) {
+    final savingsPct = num.tryParse(deal['savings_percentage']?.toString() ?? '0') ?? 0;
+    final originalPrice = num.tryParse((deal['original_price'] ?? deal['price'] ?? 0).toString()) ?? 0;
+    final clearancePrice = num.tryParse((deal['clearance_price'] ?? deal['sale_price'] ?? deal['price'] ?? 0).toString()) ?? 0;
+    final hasSavings = savingsPct > 0 && originalPrice > clearancePrice;
+    final brand = (deal['brand'] ?? '').toString().trim();
+    final storeName = (deal['store']?['name'] ?? '').toString();
+    final imageUrl = (deal['image_url'] ?? '').toString().trim();
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: hasSavings ? const Color(0xFFF97316).withValues(alpha: 0.22) : Colors.grey.shade100),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 8))
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {},
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 70,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade100),
-                      ),
-                      child: (deal['image_url'] != null && deal['image_url'].toString().isNotEmpty)
+          borderRadius: BorderRadius.circular(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                    ),
+                    child: imageUrl.isNotEmpty
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                             child: CachedNetworkImage(
-                              imageUrl: deal['image_url'], 
-                              fit: BoxFit.cover, 
-                              placeholder: (context, url) => Center(child: Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 20)),
-                              errorWidget: (context, url, error) => Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 32),
+                              imageUrl: imageUrl,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              placeholder: (context, url) => Center(child: Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 34)),
+                              errorWidget: (context, url, error) => Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 42),
                             ),
                           )
-                        : Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 32),
-                    ),
-                    if (num.tryParse(deal['savings_percentage']?.toString() ?? '0')! > 0)
-                      Positioned(
-                        top: -6,
-                        left: -6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF97316),
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(color: const Color(0xFFF97316).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))
-                            ],
-                          ),
-                          child: Text('${deal['savings_percentage']}% OFF', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                        : Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 42),
+                  ),
+                  if (hasSavings)
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF97316),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(color: const Color(0xFFF97316).withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4)),
+                          ],
                         ),
+                        child: Text('${savingsPct.round()}% OFF', style: GoogleFonts.outfit(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
                       ),
+                    ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: GestureDetector(
+                      onTap: () => _addDealToList(context, deal),
+                      child: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 3))],
+                        ),
+                        child: const Icon(Icons.add_shopping_cart_rounded, color: AppTheme.primaryBlue, size: 18),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            storeName.toUpperCase(),
+                            style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.1),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (hasSavings)
+                          Text('CLEARANCE', style: GoogleFonts.outfit(color: const Color(0xFFF97316), fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.7)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      deal['name']?.toString() ?? '',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textDark, height: 1.15),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (brand.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(brand, style: GoogleFonts.outfit(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _formatMoney(clearancePrice),
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 22, color: hasSavings ? AppTheme.savingsGreen : AppTheme.textDark),
+                        ),
+                        if (hasSavings) ...[
+                          const SizedBox(width: 10),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Text(
+                              _formatMoney(originalPrice),
+                              style: GoogleFonts.outfit(color: Colors.grey.shade400, decoration: TextDecoration.lineThrough, fontSize: 14, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(deal['store']['name'].toString().toUpperCase(), 
-                          style: GoogleFonts.outfit(color: AppTheme.primaryBlue, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1.2)),
-                      const SizedBox(height: 4),
-                      Text(deal['name'], 
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.textDark), 
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          if (deal['savings_percentage'] > 0) ...[
-                            Text('\$${deal['price']}', style: GoogleFonts.outfit(color: Colors.grey.shade400, decoration: TextDecoration.lineThrough, fontSize: 13)),
-                            const SizedBox(width: 8),
-                          ],
-                          Text('\$${deal['sale_price']}', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: deal['savings_percentage'] > 0 ? AppTheme.savingsGreen : AppTheme.textDark)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: () async {
-                    HapticFeedback.mediumImpact();
-                    final listCubit = context.read<ListCubit>();
-                    final homeCubit = context.read<HomeCubit>();
-                    await listCubit.addToCart(deal['productId']);
-                    homeCubit.loadDashboard();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: AppTheme.textDark,
-                          duration: const Duration(seconds: 2),
-                          content: Text('${deal['name']} added to your list!', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          action: SnackBarAction(label: 'VIEW LIST', textColor: AppTheme.savingsGreen, onPressed: () => context.go('/list')),
-                        ),
-                      );
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F5FF),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.add_shopping_cart_rounded, color: AppTheme.primaryBlue, size: 20),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatMoney(num value) {
+    return '\$${value.toStringAsFixed(2)}';
+  }
+
+  Future<void> _addDealToList(BuildContext context, Map<String, dynamic> deal) async {
+    HapticFeedback.mediumImpact();
+    final listCubit = context.read<ListCubit>();
+    final homeCubit = context.read<HomeCubit>();
+    await listCubit.addToCart(deal['productId']);
+    homeCubit.loadDashboard();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppTheme.textDark,
+          duration: const Duration(seconds: 2),
+          content: Text('${deal['name']} added to your list!', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          action: SnackBarAction(label: 'VIEW LIST', textColor: AppTheme.savingsGreen, onPressed: () => context.go('/list')),
+        ),
+      );
+    }
   }
 
   IconData _getCategoryIcon(Map<String, dynamic> deal) {
@@ -403,4 +447,3 @@ class _DealsScreenState extends State<DealsScreen> {
     return Icons.shopping_basket_rounded;
   }
 }
-

@@ -39,6 +39,13 @@ export class TargetScraperService extends OxylabsBaseService {
     }
   }
 
+  private parseOptionalPrice(value: string | undefined | null): number | null {
+    if (!value) return null;
+    const match = value.match(/\d+(?:\.\d{1,2})?/);
+    const parsed = match ? parseFloat(match[0]) : 0;
+    return parsed > 0 ? parsed : null;
+  }
+
   private parse(html: string): ScrapedProduct[] {
     const products: ScrapedProduct[] = [];
 
@@ -48,13 +55,20 @@ export class TargetScraperService extends OxylabsBaseService {
       if (jsonBlocks) {
         for (const block of jsonBlocks) {
           const priceM = block.match(/"current_retail":(\d+\.?\d*)/);
+          const regularM = block.match(/"(?:reg_retail|regular_retail|comparison_retail)":(\d+\.?\d*)/);
           const titleM = block.match(/"title":"([^"]+)"/);
-          if (priceM && titleM) {
+          const imageM = block.match(/"(?:primary_image_url|image_url|base_url)":"([^"]+)"/);
+          const currentPrice = this.parseOptionalPrice(priceM?.[1]);
+          const regularPrice = this.parseOptionalPrice(regularM?.[1]);
+          const hasDiscount = Boolean(currentPrice && regularPrice && regularPrice > currentPrice);
+          if (currentPrice && titleM) {
             products.push({
               store: 'Target',
               product: titleM[1].trim(),
-              price: parseFloat(priceM[1]),
-              image: '',
+              price: currentPrice,
+              salePrice: hasDiscount ? currentPrice : undefined,
+              originalPrice: hasDiscount ? regularPrice! : undefined,
+              image: imageM?.[1]?.replace(/\\u002F/g, '/') || '',
               source: 'oxylabs',
             });
           }

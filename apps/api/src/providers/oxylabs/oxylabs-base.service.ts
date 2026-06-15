@@ -11,6 +11,9 @@ export interface ScrapedProduct {
   price: number;
   image: string;
   source: 'oxylabs' | 'instacart' | 'direct' | 'google_maps';
+  originalPrice?: number;
+  salePrice?: number;
+  brand?: string;
   category?: string;
   address?: string;
   lat?: number;

@@ -62,13 +62,16 @@ export class KrogerScraperService extends OxylabsBaseService {
         if (cell.includes('NonProductCard')) continue;
 
         // Extract Price: <data value="2.49" typeof="Price"
-        const priceMatch = cell.match(/<data value="(\d+\.\d{2})"/);
-        let price = 0;
-        if (priceMatch) {
-          price = parseFloat(priceMatch[1]);
-        }
+        const priceMatches = [...cell.matchAll(/<data value="(\d+\.\d{2})"/g)]
+          .map((match) => parseFloat(match[1]))
+          .filter((price) => price > 0);
+        const isPromoCard = /sale|save|was|now|promo|reduced/i.test(cell);
+        const price = priceMatches.length > 0 ? (isPromoCard ? Math.min(...priceMatches) : priceMatches[0]) : 0;
+        const originalPrice = isPromoCard && priceMatches.length > 1 ? Math.max(...priceMatches) : null;
+        const hasDiscount = Boolean(originalPrice && originalPrice > price);
 
         // Extract Name: <img ... alt="Product Name" ...> or aria-label on the link
+        const imageMatch = cell.match(/<img[^>]*src="([^"]+)"/);
         let nameMatch = cell.match(/<img[^>]*alt="([^"]+)"/);
         let name = '';
         if (nameMatch && nameMatch[1] && !nameMatch[1].includes('Image of')) {
@@ -85,7 +88,9 @@ export class KrogerScraperService extends OxylabsBaseService {
             store: 'Kroger',
             product: name.trim(),
             price,
-            image: '',
+            salePrice: hasDiscount ? price : undefined,
+            originalPrice: hasDiscount ? originalPrice! : undefined,
+            image: imageMatch?.[1] || '',
             source: 'oxylabs'
           });
         }

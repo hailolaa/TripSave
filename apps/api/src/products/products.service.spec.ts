@@ -13,6 +13,7 @@ describe('ProductsService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -31,6 +32,7 @@ describe('ProductsService', () => {
     productsRepository.find.mockReset();
     productsRepository.findOne.mockReset();
     productsRepository.save.mockReset();
+    productsRepository.update.mockReset();
   });
 
   it('should be defined', () => {

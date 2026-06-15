@@ -38,6 +38,15 @@ export class WalmartScraperService extends OxylabsBaseService {
     }
   }
 
+  private parseOptionalPrice(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return value > 0 ? value : null;
+
+    const match = String(value).match(/\d+(?:\.\d{1,2})?/);
+    const parsed = match ? parseFloat(match[0]) : 0;
+    return parsed > 0 ? parsed : null;
+  }
+
   private parse(html: string): ScrapedProduct[] {
     const products: ScrapedProduct[] = [];
 
@@ -58,22 +67,31 @@ export class WalmartScraperService extends OxylabsBaseService {
         for (const stack of itemStacks) {
           const items = stack.items || [];
           for (const item of items) {
-            const price =
+            const currentPrice = this.parseOptionalPrice(
               item.priceInfo?.currentPrice?.price ||
               item.price ||
               item.itemPrice ||
-              0;
+              item.priceInfo?.linePrice ||
+              0,
+            );
+            const originalPrice = this.parseOptionalPrice(
+              item.priceInfo?.wasPrice?.price ||
+              item.priceInfo?.listPrice?.price ||
+              item.priceInfo?.comparisonPrice?.price ||
+              item.priceInfo?.linePrice,
+            );
             const name = item.name || item.title || item.text || '';
+            const hasDiscount = Boolean(originalPrice && currentPrice && originalPrice > currentPrice);
 
-            if (price > 0 && name) {
+            if (currentPrice && name) {
               products.push({
                 store: 'Walmart',
                 product: name,
-                price:
-                  typeof price === 'string'
-                    ? parseFloat(price.replace(/[^0-9.]/g, ''))
-                    : price,
-                image: item.image || item.thumbnailUrl || '',
+                price: currentPrice,
+                salePrice: hasDiscount ? currentPrice : undefined,
+                originalPrice: hasDiscount ? originalPrice! : undefined,
+                brand: item.brand || item.brandName,
+                image: item.image || item.thumbnailUrl || item.imageInfo?.thumbnailUrl || '',
                 source: 'oxylabs',
               });
             }

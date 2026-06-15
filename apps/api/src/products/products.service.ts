@@ -49,7 +49,10 @@ export class ProductsService {
     return Promise.all(products.map(async sp => ({
       store: sp.store.name,
       product: sp.product.name,
-      price: Number(sp.price),
+      price: sp.sale_price ? Number(sp.sale_price) : Number(sp.price),
+      originalPrice: sp.sale_price ? Number(sp.price) : undefined,
+      salePrice: sp.sale_price ? Number(sp.sale_price) : undefined,
+      brand: this.inferBrandName(sp.product.name, sp.product.brand) ?? undefined,
       image: await this.resolveProductImage(sp.product.name, sp.product.image_url || ''),
       source: sp.source as any,
     })));
@@ -86,7 +89,10 @@ export class ProductsService {
       products: await Promise.all(products.map(async sp => ({
         store: sp.store.name,
         product: sp.product.name,
-        price: Number(sp.price),
+        price: sp.sale_price ? Number(sp.sale_price) : Number(sp.price),
+        originalPrice: sp.sale_price ? Number(sp.price) : undefined,
+        salePrice: sp.sale_price ? Number(sp.sale_price) : undefined,
+        brand: this.inferBrandName(sp.product.name, sp.product.brand) ?? undefined,
         image: await this.resolveProductImage(sp.product.name, sp.product.image_url || ''),
         source: sp.source as any,
       })))
@@ -138,6 +144,32 @@ export class ProductsService {
     if (!url) return true;
     // Check if it's one of our Unsplash category fallbacks
     return url.includes('images.unsplash.com') || url.includes('placeholder') || url.includes('storage.com');
+  }
+
+  private inferBrandName(productName: string, explicitBrand?: string | null): string | null {
+    if (explicitBrand) return explicitBrand;
+
+    const normalized = productName.toLowerCase();
+    const knownBrands = [
+      'Great Value',
+      'Good & Gather',
+      'Kroger',
+      'Friendly Farms',
+      'Goldhen',
+      'Tylenol',
+      'Equate',
+      'Minute Maid',
+      'SunnyD',
+      'Simply Orange',
+      'Tampico',
+      'Pompeian',
+      'California Olive Ranch',
+      'Brami',
+      'Daawat',
+      'Four Elephants',
+    ];
+
+    return knownBrands.find((brand) => normalized.includes(brand.toLowerCase())) || null;
   }
 
   /**
@@ -243,6 +275,7 @@ export class ProductsService {
 
         if (!product) {
           const category = this.resolveCategory(item.product);
+          const brand = this.inferBrandName(item.product, item.brand);
           const resolvedImage = await this.resolveProductImage(
             item.product,
             item.image || this.getFallbackImage(item.product, category),
@@ -251,6 +284,7 @@ export class ProductsService {
             name: item.product,
             normalized_name: item.product.toLowerCase().trim(),
             category: category,
+            brand,
             image_url: resolvedImage || this.getFallbackImage(item.product, category)
           });
         } else {
@@ -258,18 +292,33 @@ export class ProductsService {
             item.product,
             item.image || product.image_url || undefined,
           );
+          const updates: Partial<Product> = {};
 
           if (resolvedImage && resolvedImage !== product.image_url) {
-            await this.productsRepository.update(product.id, { image_url: resolvedImage });
+            updates.image_url = resolvedImage;
+          }
+          if (!product.brand) {
+            const brand = this.inferBrandName(item.product, item.brand);
+            if (brand) updates.brand = brand;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await this.productsRepository.update(product.id, updates);
           }
         }
+
+        const currentPrice = Number(item.salePrice ?? item.price);
+        const originalPrice = Number(item.originalPrice ?? item.price);
+        const hasDiscount = currentPrice > 0 && originalPrice > currentPrice;
 
         // 3. Upsert StoreProduct atomically (avoids duplicate-key races)
         await this.storeProductsRepository.upsert(
           {
             store_id: store.id,
             product_id: product.id,
-            price: item.price,
+            price: hasDiscount ? originalPrice : Number(item.price),
+            sale_price: (hasDiscount ? currentPrice : null) as any,
+            in_stock: true,
             last_verified_at: new Date(),
             source: item.source as any,
           },
@@ -397,21 +446,27 @@ export class ProductsService {
     }));
   }
 
-  async getDeals(zip?: string): Promise<any[]> {
+  private async findDealStoreProducts(zip?: string, limit: number = 50): Promise<StoreProduct[]> {
     const query = this.storeProductsRepository.createQueryBuilder('sp')
       .leftJoinAndSelect('sp.product', 'p')
       .leftJoinAndSelect('sp.store', 's')
       .leftJoinAndSelect('s.chain', 'c')
-      .addSelect('(CASE WHEN sp.sale_price IS NOT NULL THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END)', 'savings_score')
+      .where('sp.in_stock = :inStock', { inStock: true })
+      .addSelect('(CASE WHEN sp.sale_price IS NOT NULL AND sp.sale_price < sp.price THEN (sp.price - sp.sale_price) / sp.price ELSE 0 END)', 'savings_score')
       .orderBy('savings_score', 'DESC')
       .addOrderBy('sp.last_verified_at', 'DESC')
-      .take(50);
+      .take(limit);
 
     if (zip) {
-      query.where('s.zip = :zip', { zip });
+      query.andWhere('s.zip = :zip', { zip });
     }
-    
-    const items = await query.getMany();
+
+    return query.getMany();
+  }
+
+  async getDeals(zip?: string): Promise<any[]> {
+    const resolvedZip = zip || '75201';
+    const items = await this.findDealStoreProducts(resolvedZip, 50);
 
     return Promise.all(items.map(async (sp) => {
       const price = Number(sp.price);
@@ -420,22 +475,27 @@ export class ProductsService {
       const savingsPercentage = price > 0 ? Math.round((savings / price) * 100) : 0;
 
       const resolvedImage = await this.resolveProductImage(sp.product.name, sp.product.image_url || '');
+      const brand = this.inferBrandName(sp.product.name, sp.product.brand);
 
       return {
         id: sp.id,
         productId: sp.product_id,
         name: sp.product.name,
-        brand: sp.product.brand,
+        brand,
         category: sp.product.category,
         image_url: resolvedImage,
-        price: price,
+        price,
+        original_price: price,
         sale_price: salePrice,
+        clearance_price: salePrice,
         savings: savings,
         savings_percentage: savingsPercentage,
+        is_clearance: savings > 0,
         store: {
           id: sp.store.id,
           name: sp.store.name,
           chain: sp.store.chain ? {
+            name: sp.store.chain.name,
             type: sp.store.chain.type,
             logo_url: sp.store.chain.logo_url,
           } : null,
