@@ -600,14 +600,15 @@ export class ComparisonService {
         const trueCost = item.price + driveCost;
         const displayDistance = distance > 0 && distance < 0.1 ? 0.1 : distance;
 
+        const fallbackImage = this.resolveFallbackProductImage(itemCategory);
         const resolvedImage = isGasSearch
           ? this.sanitizeImageUrl((item as any).image)
           : await this.productImageService.resolveImage(
               productName,
               (item as any).image,
+              fallbackImage,
             );
-        const finalImage =
-          resolvedImage || this.resolveFallbackProductImage(itemCategory);
+        const finalImage = resolvedImage || fallbackImage;
 
         return {
           store: storeData,
@@ -971,6 +972,8 @@ export class ComparisonService {
             {
               name: 'Regular Gas',
               price: pricePerGallon,
+              image: this.resolveFallbackProductImage('gas'),
+              category: 'gas',
             },
           ],
         };

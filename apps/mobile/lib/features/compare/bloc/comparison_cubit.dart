@@ -106,6 +106,12 @@ class ComparisonCubit extends Cubit<ComparisonState> {
   bool get currentIsRoundTrip => _isRoundTrip;
   bool get hasData => state is ComparisonLoaded;
 
+  void rejectIncompleteProductSearch(String query) {
+    _lastQuery = query.trim();
+    _lastStoreType = null;
+    emit(ComparisonError('Unknown product search. Please type a complete product name.'));
+  }
+
   void _initConnectivityListener() {
     Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
       if (!results.contains(ConnectivityResult.none) && _lastQuery != null) {

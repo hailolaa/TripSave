@@ -61,6 +61,14 @@ export class ProductsController {
     return this.productsService.searchProducts(query);
   }
 
+  @Get('suggestions')
+  async suggestions(
+    @Query('q') query: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.productsService.suggestProducts(query, limit ? Number(limit) : 8);
+  }
+
   @Get('category/:category')
   async findByCategory(@Param('category') category: string) {
     return this.productsService.findByCategory(category);

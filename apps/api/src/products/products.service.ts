@@ -435,6 +435,53 @@ export class ProductsService {
     return [genericProduct];
   }
 
+  async suggestProducts(query: string, limit: number = 8): Promise<any[]> {
+    const cleanQuery = (query || '').trim();
+    if (cleanQuery.length < 2) {
+      return [];
+    }
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 12);
+    const rows = await this.storeProductsRepository.createQueryBuilder('sp')
+      .leftJoinAndSelect('sp.product', 'p')
+      .where('sp.in_stock = :inStock', { inStock: true })
+      .andWhere('(p.name LIKE :q OR p.normalized_name LIKE :q OR p.brand LIKE :q)', { q: `%${cleanQuery}%` })
+      .andWhere('p.name NOT LIKE :sampleFallback', { sampleFallback: '%(Sample)%' })
+      .orderBy('sp.last_verified_at', 'DESC')
+      .take(safeLimit * 3)
+      .getMany();
+
+    const seen = new Set<string>();
+    const suggestions = [];
+
+    for (const row of rows) {
+      const product = row.product;
+      if (!product?.name) continue;
+
+      const key = (product.normalized_name || product.name).toLowerCase().trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+
+      const category = product.category || this.resolveCategory(product.name);
+      const resolvedImage = await this.resolveProductImage(
+        product.name,
+        product.image_url || this.getFallbackImage(product.name, category),
+      );
+
+      suggestions.push({
+        id: product.id,
+        name: product.name,
+        brand: this.inferBrandName(product.name, product.brand) ?? undefined,
+        category,
+        image_url: resolvedImage || this.getFallbackImage(product.name, category),
+      });
+
+      if (suggestions.length >= safeLimit) break;
+    }
+
+    return suggestions;
+  }
+
   async findByCategory(category: string): Promise<Product[]> {
     const products = await this.productsRepository.find({
       where: { category: category as any },

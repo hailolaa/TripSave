@@ -14,6 +14,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/widgets/app_error_widget.dart';
 import '../../../core/services/favorite_store_service.dart';
+import '../../../core/network/api_client.dart';
 
 class CompareScreen extends StatefulWidget {
   const CompareScreen({super.key});
@@ -28,8 +29,12 @@ class _CompareScreenState extends State<CompareScreen> {
   final List<String> _filters = ['All', 'Grocery', 'Gas', 'Pharmacy'];
   bool _isMapView = false;
   final FavoriteStoreService _favoriteStoreService = getIt<FavoriteStoreService>();
+  final ApiClient _apiClient = getIt<ApiClient>();
   Set<String> _favoriteStores = <String>{};
   Timer? _debounceTimer;
+  List<Map<String, dynamic>> _productSuggestions = [];
+  bool _isLoadingSuggestions = false;
+  int _suggestionRequestId = 0;
 
   @override
   void dispose() {
@@ -76,6 +81,101 @@ class _CompareScreenState extends State<CompareScreen> {
     return _favoriteStores.contains(storeName.toLowerCase());
   }
 
+  bool _isIncompleteProductQuery(String query) {
+    return query.trim().length < 3;
+  }
+
+  void _submitProductSearch(String query, {String? storeType}) {
+    final cleanQuery = query.trim();
+    final cubit = context.read<ComparisonCubit>();
+
+    _clearSuggestions();
+
+    if (cleanQuery.isEmpty) {
+      cubit.clear();
+      return;
+    }
+
+    if (_isIncompleteProductQuery(cleanQuery)) {
+      cubit.rejectIncompleteProductSearch(cleanQuery);
+      return;
+    }
+
+    cubit.searchItem(cleanQuery, storeType: storeType, forceRefresh: false);
+  }
+
+  void _onSearchTextChanged(String value) {
+    final filter = _filters[_selectedFilterIndex].toLowerCase();
+    if (filter == 'gas') {
+      _clearSuggestions();
+      return;
+    }
+
+    _debounceTimer?.cancel();
+    final query = value.trim();
+    if (query.length < 2) {
+      _clearSuggestions();
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 280), () {
+      _fetchProductSuggestions(query);
+    });
+  }
+
+  Future<void> _fetchProductSuggestions(String query) async {
+    final requestId = ++_suggestionRequestId;
+    setState(() => _isLoadingSuggestions = true);
+
+    try {
+      final response = await _apiClient.dio.get(
+        '/products/suggestions',
+        queryParameters: {
+          'q': query,
+          'limit': 8,
+        },
+      );
+
+      if (!mounted || requestId != _suggestionRequestId) return;
+
+      final data = response.data is List ? response.data as List : const [];
+      setState(() {
+        _productSuggestions = data
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+        _isLoadingSuggestions = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _suggestionRequestId) return;
+      setState(() {
+        _productSuggestions = [];
+        _isLoadingSuggestions = false;
+      });
+    }
+  }
+
+  void _clearSuggestions() {
+    _debounceTimer?.cancel();
+    _suggestionRequestId++;
+    if (_productSuggestions.isNotEmpty || _isLoadingSuggestions) {
+      setState(() {
+        _productSuggestions = [];
+        _isLoadingSuggestions = false;
+      });
+    }
+  }
+
+  void _selectSuggestion(Map<String, dynamic> product) {
+    final name = product['name']?.toString().trim() ?? '';
+    if (name.isEmpty) return;
+
+    final filter = _filters[_selectedFilterIndex].toLowerCase();
+    _searchController.text = name;
+    _searchController.selection = TextSelection.collapsed(offset: name.length);
+    _submitProductSearch(name, storeType: filter == 'all' ? null : filter);
+  }
+
   void _runPrimaryAction() {
     final cubit = context.read<ComparisonCubit>();
     final filter = _filters[_selectedFilterIndex].toLowerCase();
@@ -86,12 +186,7 @@ class _CompareScreenState extends State<CompareScreen> {
       return;
     }
 
-    if (query.isEmpty) {
-      cubit.clear();
-      return;
-    }
-
-    cubit.searchItem(query, storeType: filter == 'all' ? null : filter, forceRefresh: false);
+    _submitProductSearch(query, storeType: filter == 'all' ? null : filter);
   }
 
   @override
@@ -179,20 +274,19 @@ class _CompareScreenState extends State<CompareScreen> {
                         ),
                         child: TextField(
                           controller: _searchController,
+                          onChanged: _onSearchTextChanged,
                           onSubmitted: (text) {
                             if (!mounted) return;
                             final filter = _filters[_selectedFilterIndex].toLowerCase();
                             final query = text.trim();
 
                             if (filter == 'gas') {
+                              _clearSuggestions();
                               context.read<ComparisonCubit>().loadGasStations();
-                            } else if (query.isEmpty) {
-                              context.read<ComparisonCubit>().clear();
                             } else {
-                              context.read<ComparisonCubit>().searchItem(
+                              _submitProductSearch(
                                 query,
                                 storeType: filter == 'all' ? null : filter,
-                                forceRefresh: false,
                               );
                             }
                           },
@@ -253,11 +347,10 @@ class _CompareScreenState extends State<CompareScreen> {
                           final query = _searchController.text.trim();
 
                           if (filter == 'gas') {
+                            _clearSuggestions();
                             cubit.loadGasStations();
-                          } else if (query.isEmpty) {
-                            cubit.clear();
                           } else {
-                            cubit.searchItem(query, storeType: filter == 'all' ? null : filter, forceRefresh: false);
+                            _submitProductSearch(query, storeType: filter == 'all' ? null : filter);
                           }
                         },
                         child: Container(
@@ -463,14 +556,8 @@ class _CompareScreenState extends State<CompareScreen> {
 
                             if (filter == 'gas') {
                               cubit.loadGasStations(forceRefresh: true);
-                            } else if (query.isNotEmpty) {
-                              cubit.searchItem(
-                                query,
-                                storeType: filter == 'all' ? null : filter,
-                                forceRefresh: false,
-                              );
                             } else {
-                              cubit.clear();
+                              _submitProductSearch(query, storeType: filter == 'all' ? null : filter);
                             }
                           },
                         );
@@ -555,11 +642,128 @@ class _CompareScreenState extends State<CompareScreen> {
               ],
             ),
           ),
+              if (_productSuggestions.isNotEmpty || _isLoadingSuggestions)
+                Positioned(
+                  top: 76,
+                  left: 20,
+                  right: 80,
+                  child: _buildSuggestionPanel(),
+                ),
         ],
     ),
   ),
   ),
 );
+  }
+
+  Widget _buildSuggestionPanel() {
+    return Material(
+      elevation: 10,
+      shadowColor: Colors.black.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 330),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: _isLoadingSuggestions && _productSuggestions.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                    Text('Finding products...'),
+                  ],
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shrinkWrap: true,
+                itemCount: _productSuggestions.length,
+                separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade100),
+                itemBuilder: (context, index) {
+                  final product = _productSuggestions[index];
+                  final name = product['name']?.toString() ?? '';
+                  final brand = product['brand']?.toString() ?? '';
+                  final category = product['category']?.toString() ?? '';
+                  final imageUrl = product['image_url']?.toString();
+
+                  return InkWell(
+                    onTap: () => _selectSuggestion(product),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          _buildSuggestionImage(name, imageUrl: imageUrl, category: category),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textDark),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  [brand, category].where((part) => part.trim().isNotEmpty).join(' • '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.north_west_rounded, size: 16, color: AppTheme.primaryBlue),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionImage(String name, {String? imageUrl, String? category}) {
+    final fallbackImageUrl = _resolveProductFallbackImage(name, category: category);
+    final resolvedImageUrl = (imageUrl != null && imageUrl.trim().isNotEmpty)
+        ? imageUrl.trim()
+        : fallbackImageUrl;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: CachedNetworkImage(
+        imageUrl: resolvedImageUrl,
+        width: 46,
+        height: 46,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          width: 46,
+          height: 46,
+          color: const Color(0xFFF3F4F6),
+        ),
+        errorWidget: (context, url, error) => Image.network(
+          fallbackImageUrl,
+          width: 46,
+          height: 46,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 46,
+            height: 46,
+            color: const Color(0xFFF3F4F6),
+            alignment: Alignment.center,
+            child: const Icon(Icons.shopping_basket_rounded, color: AppTheme.primaryBlue, size: 20),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showStoreDetails(BuildContext context, Map<String, dynamic> comparison, bool isBest) {
@@ -718,7 +922,13 @@ class _CompareScreenState extends State<CompareScreen> {
 
   Widget _buildProductThumbnail(String name, String price, {String? imageUrl, String? category, int? quantity}) {
     final fallbackImageUrl = _resolveProductFallbackImage(name, category: category);
-    final resolvedImageUrl = (imageUrl != null && imageUrl.trim().isNotEmpty) ? imageUrl.trim() : fallbackImageUrl;
+    final cleanedImageUrl = imageUrl?.trim() ?? '';
+    final resolvedImageUrl = (cleanedImageUrl.startsWith('http://') ||
+            cleanedImageUrl.startsWith('https://') ||
+            cleanedImageUrl.startsWith('data:') ||
+            cleanedImageUrl.startsWith('//'))
+        ? (cleanedImageUrl.startsWith('//') ? 'https:$cleanedImageUrl' : cleanedImageUrl)
+        : fallbackImageUrl;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
