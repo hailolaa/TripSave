@@ -165,12 +165,19 @@ export class StoresService {
     let didRefresh = false;
 
     for (const chainName of requiredChains) {
-      const hasNearbyChain = currentResults.some((result) => {
+      const chainResults = currentResults.filter((result) => {
         const existingChain = result.store.chain?.name || '';
-        return existingChain.toLowerCase() === chainName.toLowerCase() && result.distance <= radiusMiles;
+        return existingChain.toLowerCase() === chainName.toLowerCase();
       });
 
-      if (hasNearbyChain) continue;
+      const nearestChainDistance = chainResults.length > 0
+        ? Math.min(...chainResults.map((result) => result.distance))
+        : Number.POSITIVE_INFINITY;
+      const hasFreshChainResult = chainResults.some((result) => this.wasVerifiedRecently(result.store));
+
+      if (chainResults.length > 0 && (nearestChainDistance <= 3 || hasFreshChainResult)) {
+        continue;
+      }
 
       const radiusMeters = Math.max(1600, Math.round(radiusMiles * 1609.34));
       const places = await this.googleMapsScraper.searchNearbyStoresByCoords(
@@ -184,6 +191,15 @@ export class StoresService {
     }
 
     return didRefresh;
+  }
+
+  private wasVerifiedRecently(store: Store): boolean {
+    if (!store.last_verified_at) return false;
+    const verifiedAt = new Date(store.last_verified_at).getTime();
+    if (Number.isNaN(verifiedAt)) return false;
+
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    return Date.now() - verifiedAt < sevenDaysMs;
   }
 
   private async upsertDiscoveredMapStores(chainName: string, places: NormalizedGasStation[]): Promise<number> {
