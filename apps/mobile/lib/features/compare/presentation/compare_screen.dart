@@ -343,7 +343,7 @@ class _CompareScreenState extends State<CompareScreen> {
                             final cubit = context.read<ComparisonCubit>();
                             final query = _searchController.text.trim();
                             if (filter == 'gas') {
-                              cubit.loadGasStations();
+                              cubit.loadGasStations(isRoundTrip: !isRoundTrip);
                             } else if (query.isEmpty) {
                               cubit.clear();
                             } else {

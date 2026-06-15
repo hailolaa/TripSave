@@ -12,7 +12,7 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  int _selectedRadius = 20;
+  int _selectedRadius = 5;
 
   void _submit() {
     context.read<AuthCubit>().completeOnboarding(_selectedRadius);
@@ -111,7 +111,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      context.read<AuthCubit>().completeOnboarding(20);
+                      context.read<AuthCubit>().completeOnboarding(5);
                     },
                     child: Text('Skip for now', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
                   ),

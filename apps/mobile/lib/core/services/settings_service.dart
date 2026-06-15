@@ -5,7 +5,7 @@ class SettingsService {
 
   SettingsService(this._prefs);
 
-  int get preferredRadius => _prefs.getInt('trip_save_radius') ?? 20;
+  int get preferredRadius => _prefs.getInt('trip_save_radius') ?? 5;
   Future<void> setPreferredRadius(int value) => _prefs.setInt('trip_save_radius', value);
 
   double get gasCostPerMile => 0.72; // Fixed drive cost per mile as requested

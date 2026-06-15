@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/services/settings_service.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -89,6 +90,7 @@ class ComparisonError extends ComparisonState {
 class ComparisonCubit extends Cubit<ComparisonState> {
   final ApiClient apiClient;
   final LocationService locationService;
+  final SettingsService settingsService;
 
   String? _lastQuery;
   String? _lastStoreType;
@@ -96,7 +98,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
   bool _isRoundTrip = true;
   bool _isLoading = false;
 
-  ComparisonCubit(this.apiClient, this.locationService) : super(ComparisonInitial()) {
+  ComparisonCubit(this.apiClient, this.locationService, this.settingsService) : super(ComparisonInitial()) {
     _initConnectivityListener();
   }
 
@@ -165,13 +167,14 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final position = await locationService.getCurrentLocation();
       final double userLat = position.latitude;
       final double userLng = position.longitude;
+      final int preferredRadius = settingsService.preferredRadius;
 
       final storesResponse = await apiClient.dio.get(
         '/stores',
         queryParameters: {
           'lat': userLat,
           'lng': userLng,
-          'radius': 20,
+          'radius': preferredRadius,
         },
       );
 
@@ -218,8 +221,10 @@ class ComparisonCubit extends Cubit<ComparisonState> {
     }
   }
 
-  Future<void> loadGasStations({bool forceRefresh = false}) async {
+  Future<void> loadGasStations({bool forceRefresh = false, bool? isRoundTrip}) async {
     if (_isLoading) return;
+
+    if (isRoundTrip != null) _isRoundTrip = isRoundTrip;
 
     _lastQuery = 'gas';
     _lastStoreType = 'gas';
@@ -233,6 +238,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final position = await locationService.getCurrentLocation();
       final double userLat = position.latitude;
       final double userLng = position.longitude;
+      final int preferredRadius = settingsService.preferredRadius;
 
       final response = await apiClient.dio.get(
         '/comparison/gas',
@@ -245,6 +251,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
           'isRoundTrip': _isRoundTrip.toString(),
           'forceRefresh': forceRefresh.toString(),
           'locationName': await locationService.getLocationName(),
+          'preferredRadius': preferredRadius,
         },
       );
 
@@ -281,10 +288,12 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final position = await locationService.getCurrentLocation();
       final double userLat = position.latitude;
       final double userLng = position.longitude;
+      final int preferredRadius = settingsService.preferredRadius;
 
       final data = {
         'userLat': userLat,
         'userLng': userLng,
+        'preferredRadius': preferredRadius,
         'items': items.map((i) => {
           'productId': i['product_id'],
           'quantity': i['quantity'] ?? 1,
@@ -349,11 +358,12 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final position = await locationService.getCurrentLocation();
       final double userLat = position.latitude;
       final double userLng = position.longitude;
+      final int preferredRadius = settingsService.preferredRadius;
 
       // PROGRESSIVE LOADING: fetch stores instantly first
       if (!isPolling && !isSilent && state is! ComparisonLoaded) {
         try {
-          final storesResponse = await apiClient.dio.get('/stores', queryParameters: {'lat': userLat, 'lng': userLng, 'radius': 20});
+          final storesResponse = await apiClient.dio.get('/stores', queryParameters: {'lat': userLat, 'lng': userLng, 'radius': preferredRadius});
           if (storesResponse.data is List) {
             var stores = storesResponse.data as List<dynamic>;
             
@@ -405,6 +415,7 @@ class ComparisonCubit extends Cubit<ComparisonState> {
       final Map<String, dynamic> queryParams = {
         'lat': userLat,
         'lng': userLng,
+        'preferredRadius': preferredRadius,
       };
 
       Response response;

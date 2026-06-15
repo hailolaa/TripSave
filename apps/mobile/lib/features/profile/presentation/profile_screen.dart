@@ -77,7 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _syncSettingsFromProfile() async {
     if (_profile == null) return;
-    final radius = int.tryParse(_profile?['preferred_radius']?.toString() ?? '20') ?? 20;
+    final radius = int.tryParse(_profile?['preferred_radius']?.toString() ?? '5') ?? 5;
     await _settingsService.setPreferredRadius(radius);
   }
 
@@ -213,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 12),
             _buildSettingsCard([
               _buildSettingRow(
-                Icons.map_outlined, const Color(0xFFD6F3E9), 'Search Radius', '${_profile?['preferred_radius'] ?? 20} miles',
+                Icons.map_outlined, const Color(0xFFD6F3E9), 'Search Radius', '${_profile?['preferred_radius'] ?? 5} miles',
                 onTap: _showRadiusDialog,
               ),
               const Divider(height: 1),
@@ -365,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [5, 10, 20].map((radius) {
-            final isSelected = (_profile?['preferred_radius'] ?? 20) == radius;
+            final isSelected = (_profile?['preferred_radius'] ?? 5) == radius;
             return ListTile(
               title: Text('$radius Miles', style: GoogleFonts.outfit(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
               trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.savingsGreen) : null,

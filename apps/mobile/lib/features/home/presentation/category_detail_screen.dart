@@ -80,6 +80,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           'storeType': storeType,
           'sortBy': 'true_cost',
           'isRoundTrip': 'true',
+          'preferredRadius': settings.preferredRadius,
         });
         responseData = response.data;
       }

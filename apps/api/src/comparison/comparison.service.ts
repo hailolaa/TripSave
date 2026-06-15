@@ -97,7 +97,7 @@ export class ComparisonService {
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
     forceRefresh: boolean = false,
-    preferredRadius: number = 20,
+    preferredRadius: number = 5,
   ) {
     const resolvedZip = zipCode || '75201';
     const dedupeKey = `${itemName.toLowerCase().trim()}:${resolvedZip}:${storeType || 'all'}:${isRoundTrip}:${preferredRadius}`;
@@ -200,7 +200,7 @@ export class ComparisonService {
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
     forceRefresh: boolean = false,
-    preferredRadius: number = 20,
+    preferredRadius: number = 5,
   ) {
     // ── Step 1: Check DB for data (allow stale) ────────────
     this.logger.log(
@@ -374,7 +374,7 @@ export class ComparisonService {
     userMpg: number,
     gasPrice: number,
     isRoundTrip: boolean = true,
-    preferredRadius: number = 20,
+    preferredRadius: number = 5,
     query: string = '',
   ) {
     const normalizedQuery = query.toLowerCase().trim();
@@ -682,7 +682,7 @@ export class ComparisonService {
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
     zipCode?: string,
-    preferredRadius: number = 20,
+    preferredRadius: number = 5,
   ) {
     this.logger.log(
       `DEBUG: Entering getBestTrueCost with lat: ${userLat}, lng: ${userLng}`,
@@ -820,7 +820,7 @@ export class ComparisonService {
     fuelType: 'regular' = 'regular',
     isRoundTrip: boolean = true,
     sortBy: string = 'true_cost',
-    preferredRadius: number = 20,
+    preferredRadius: number = 5,
     locationName: string = 'Dallas, TX',
   ) {
     // 1. Find nearby gas stations within the search radius

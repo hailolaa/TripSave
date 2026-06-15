@@ -77,6 +77,7 @@ class MyApp extends StatelessWidget {
             return ComparisonCubit(
               getIt<ApiClient>(),
               getIt<LocationService>(),
+              getIt<SettingsService>(),
             );
           },
         ),

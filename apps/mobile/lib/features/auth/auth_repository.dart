@@ -29,7 +29,7 @@ class AuthRepository {
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
       await _storage.write(key: 'referral_source', value: user['referral_source']?.toString() ?? '');
       await _storage.write(key: 'subscription_status', value: user['subscription_status']?.toString() ?? 'none');
-      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 20).toString());
+      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 5).toString());
     }
 
     return response.data;
@@ -54,7 +54,7 @@ class AuthRepository {
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
       await _storage.write(key: 'referral_source', value: user['referral_source']?.toString() ?? '');
       await _storage.write(key: 'subscription_status', value: user['subscription_status']?.toString() ?? 'none');
-      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 20).toString());
+      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 5).toString());
     }
 
     return response.data;
@@ -104,7 +104,7 @@ class AuthRepository {
       await _storage.write(key: 'user_email', value: user['email'] ?? '');
       await _storage.write(key: 'user_id', value: user['id'] ?? '');
       await _storage.write(key: 'onboarding_completed', value: (user['onboarding_completed'] ?? false).toString());
-      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 20).toString());
+      await _storage.write(key: 'preferred_radius', value: (user['preferred_radius'] ?? 5).toString());
     }
 
     return response.data;
@@ -121,7 +121,7 @@ class AuthRepository {
       await _storage.write(key: 'onboarding_completed', value: (data['onboarding_completed'] ?? false).toString());
       await _storage.write(key: 'referral_source', value: data['referral_source']?.toString() ?? '');
       await _storage.write(key: 'subscription_status', value: data['subscription_status']?.toString() ?? 'none');
-      await _storage.write(key: 'preferred_radius', value: (data['preferred_radius'] ?? 20).toString());
+      await _storage.write(key: 'preferred_radius', value: (data['preferred_radius'] ?? 5).toString());
       return data;
     } catch (e) {
       return null;

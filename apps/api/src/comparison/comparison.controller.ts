@@ -16,6 +16,15 @@ export class ComparisonController {
     private readonly usersService: UsersService,
   ) {}
 
+  private resolvePreferredRadius(user: any, requestedRadius?: number): number {
+    const parsed = Number(requestedRadius);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+
+    return Number(user?.preferred_radius ?? 5);
+  }
+
   private async resolveUserLocation(user: any, lat?: number, lng?: number): Promise<{ lat: number; lng: number; zipCode: string }> {
     let finalLat = lat ? Number(lat) : 0;
     let finalLng = lng ? Number(lng) : 0;
@@ -86,11 +95,12 @@ export class ComparisonController {
     @Query('isRoundTrip') isRoundTrip?: string,
     @Query('sortBy') sortBy?: string,
     @Query('forceRefresh') forceRefresh?: string,
+    @Query('preferredRadius') preferredRadius?: number,
   ) {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const userMpg = mpg ?? user?.vehicle_mpg ?? 25;
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
-    const preferredRadius = user?.preferred_radius ?? 20;
+    const resolvedPreferredRadius = this.resolvePreferredRadius(user, preferredRadius);
     
     const location = await this.resolveUserLocation(user, lat, lng);
 
@@ -105,7 +115,7 @@ export class ComparisonController {
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
       forceRefresh === 'true',
-      Number(preferredRadius),
+      resolvedPreferredRadius,
     );
 
     // Normalize response shape: always { status, results }
@@ -142,12 +152,13 @@ export class ComparisonController {
       storeType?: StoreChainType;
       isRoundTrip?: boolean;
       sortBy?: string;
+      preferredRadius?: number;
     }
   ) {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const mpg = body.userMpg ?? user?.vehicle_mpg ?? 25;
     const gasPriceValue = body.gasPrice ?? user?.default_gas_price ?? 3.50;
-    const preferredRadius = user?.preferred_radius ?? 20;
+    const preferredRadius = this.resolvePreferredRadius(user, body.preferredRadius);
 
     const location = await this.resolveUserLocation(user, body.userLat, body.userLng);
     const items = body.items || (body.productIds || []).map(id => ({ productId: id, quantity: 1 }));
@@ -181,12 +192,13 @@ export class ComparisonController {
       storeType?: StoreChainType;
       isRoundTrip?: boolean;
       sortBy?: string;
+      preferredRadius?: number;
     }
   ) {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const mpg = body.userMpg ?? user?.vehicle_mpg ?? 25;
     const gasPriceValue = body.gasPrice ?? user?.default_gas_price ?? 3.50;
-    const preferredRadius = user?.preferred_radius ?? 20;
+    const preferredRadius = this.resolvePreferredRadius(user, body.preferredRadius);
 
     let items = body.items || [];
 
@@ -234,11 +246,12 @@ export class ComparisonController {
     @Query('sortBy') sortBy?: string,
     @Query('forceRefresh') forceRefresh?: string,
     @Query('locationName') locationName?: string,
+    @Query('preferredRadius') preferredRadius?: number,
   ) {
     const user = req.user?.email ? await this.usersService.findOneByEmail(req.user.email) : null;
     const userMpg = mpg ?? user?.vehicle_mpg ?? 25;
     const userGasPrice = gasPrice ?? user?.default_gas_price ?? 3.50;
-    const preferredRadius = user?.preferred_radius ?? 20;
+    const resolvedPreferredRadius = this.resolvePreferredRadius(user, preferredRadius);
 
     const location = await this.resolveUserLocation(user, lat, lng);
     let resolvedLocation = locationName || user?.location_name;
@@ -265,7 +278,7 @@ export class ComparisonController {
       'regular',
       isRoundTrip === 'true' || isRoundTrip === undefined,
       sortBy || 'true_cost',
-      Number(preferredRadius),
+      resolvedPreferredRadius,
       resolvedLocation || 'Dallas, TX',
     );
   }

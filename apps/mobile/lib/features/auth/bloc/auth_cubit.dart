@@ -97,7 +97,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   void _resolveAuthState(Map<String, dynamic> profile) {
     // Sync settings locally
-    final radius = int.tryParse(profile['preferred_radius']?.toString() ?? '20') ?? 20;
+    final radius = int.tryParse(profile['preferred_radius']?.toString() ?? '5') ?? 5;
     settingsService.setPreferredRadius(radius);
 
     final referralSource = profile['referral_source'];
