@@ -1,11 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, ILike } from 'typeorm';
 import { Store } from './store.entity';
-import { StoreChain } from './store-chain.entity';
+import { StoreChain, StoreChainType } from './store-chain.entity';
 import { haversineDistanceMiles } from '../utils/geo.util';
 import { DataSource } from '../common/enums/data-source.enum';
 import { ScrapedProduct } from '../providers/oxylabs/oxylabs-base.service';
+import { GoogleMapsGasScraperService } from '../providers/oxylabs/google-maps-gas-scraper.service';
+import { NormalizedGasStation } from '../common/interfaces/normalized-gas-price.interface';
+
+interface NearbyStoreOptions {
+  mapSafe?: boolean;
+  limit?: number;
+  refreshMajorChains?: boolean;
+}
 
 @Injectable()
 export class StoresService {
@@ -14,6 +22,7 @@ export class StoresService {
     private storesRepository: Repository<Store>,
     @InjectRepository(StoreChain)
     private chainRepository: Repository<StoreChain>,
+    private readonly googleMapsScraper: GoogleMapsGasScraperService,
   ) {}
 
   /**
@@ -26,7 +35,7 @@ export class StoresService {
     lat: number,
     lng: number,
     radiusMiles: number = 10,
-    options: { mapSafe?: boolean; limit?: number } = {},
+    options: NearbyStoreOptions = {},
   ): Promise<{store: Store, distance: number}[]> {
     // 1 degree latitude ≈ 69 miles. Add 20% buffer.
     const latDelta = (radiusMiles / 69) * 1.2;
@@ -109,12 +118,24 @@ export class StoresService {
       };
     });
 
-    return this.cleanNearbyStoreResults(nearby, options);
+    const cleaned = this.cleanNearbyStoreResults(nearby, options);
+
+    if (options.mapSafe && options.refreshMajorChains !== false) {
+      const refreshed = await this.refreshMissingMajorRetailers(lat, lng, radiusMiles, cleaned);
+      if (refreshed) {
+        return this.findNearbyStores(lat, lng, radiusMiles, {
+          ...options,
+          refreshMajorChains: false,
+        });
+      }
+    }
+
+    return cleaned;
   }
 
   private cleanNearbyStoreResults(
     results: { store: Store; distance: number }[],
-    options: { mapSafe?: boolean; limit?: number },
+    options: NearbyStoreOptions,
   ): { store: Store; distance: number }[] {
     const filtered = options.mapSafe
       ? results.filter((result) => this.isMapSafeStore(result.store))
@@ -132,6 +153,100 @@ export class StoresService {
 
     const cleaned = Array.from(byPlace.values()).sort((a, b) => a.distance - b.distance);
     return typeof options.limit === 'number' ? cleaned.slice(0, options.limit) : cleaned;
+  }
+
+  private async refreshMissingMajorRetailers(
+    lat: number,
+    lng: number,
+    radiusMiles: number,
+    currentResults: { store: Store; distance: number }[],
+  ): Promise<boolean> {
+    const requiredChains = ['Walmart', 'Target'];
+    let didRefresh = false;
+
+    for (const chainName of requiredChains) {
+      const hasNearbyChain = currentResults.some((result) => {
+        const existingChain = result.store.chain?.name || '';
+        return existingChain.toLowerCase() === chainName.toLowerCase() && result.distance <= radiusMiles;
+      });
+
+      if (hasNearbyChain) continue;
+
+      const radiusMeters = Math.max(1600, Math.round(radiusMiles * 1609.34));
+      const places = await this.googleMapsScraper.searchNearbyStoresByCoords(
+        lat,
+        lng,
+        chainName,
+        radiusMeters,
+      );
+      const saved = await this.upsertDiscoveredMapStores(chainName, places);
+      didRefresh = didRefresh || saved > 0;
+    }
+
+    return didRefresh;
+  }
+
+  private async upsertDiscoveredMapStores(chainName: string, places: NormalizedGasStation[]): Promise<number> {
+    const chain = await this.findOrCreateRetailChain(chainName);
+    let saved = 0;
+
+    for (const place of places) {
+      if (!this.isValidDiscoveredPlace(chainName, place)) continue;
+
+      const existing = place.stationId
+        ? await this.storesRepository.findOne({ where: { external_id: place.stationId } })
+        : await this.storesRepository.findOne({
+            where: {
+              name: ILike(place.name),
+              address: ILike(place.address),
+            },
+          });
+
+      const storeData: Partial<Store> = {
+        chain_id: chain.id,
+        name: place.name,
+        address: place.address,
+        lat: place.latitude,
+        lng: place.longitude,
+        external_id: place.stationId,
+        source: DataSource.GOOGLE_MAPS,
+        is_active: true,
+        coords_confident: true,
+        last_verified_at: new Date(),
+      };
+
+      if (existing) {
+        await this.storesRepository.update(existing.id, storeData);
+      } else {
+        await this.storesRepository.save(storeData);
+      }
+      saved++;
+    }
+
+    return saved;
+  }
+
+  private isValidDiscoveredPlace(chainName: string, place: NormalizedGasStation): boolean {
+    if (!place.name || !place.address) return false;
+    if (!place.latitude || !place.longitude) return false;
+    if (place.latitude < -90 || place.latitude > 90 || place.longitude < -180 || place.longitude > 180) return false;
+
+    const normalizedName = place.name.toLowerCase();
+    return normalizedName.includes(chainName.toLowerCase());
+  }
+
+  private async findOrCreateRetailChain(chainName: string): Promise<StoreChain> {
+    const existing = await this.chainRepository.findOne({ where: { name: ILike(chainName) } });
+    if (existing) return existing;
+
+    const domain = chainName.toLowerCase() === 'walmart' ? 'walmart.com' : 'target.com';
+    const token = process.env.LOGO_DEV_TOKEN || 'pk_UUfT4NowQ-GmCHtVoknvfg';
+    return this.chainRepository.save({
+      name: chainName,
+      slug: chainName.toLowerCase().replace(/\s+/g, '-'),
+      type: StoreChainType.GROCERY,
+      logo_url: `https://img.logo.dev/${domain}?token=${token}`,
+    });
   }
 
   private isMapSafeStore(store: Store): boolean {
