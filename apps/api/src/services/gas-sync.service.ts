@@ -196,19 +196,28 @@ export class GasSyncService {
       ].join('-');
     };
 
-    return results.raw.map((raw: any) => ({
-      stationId: bufferToUuid(raw.store_id || raw.id),
-      name: raw.store_name,
-      chain: raw.chain_name,
-      address: raw.store_address,
-      lat: Number(raw.store_lat),
-      lng: Number(raw.store_lng),
-      distance: Number(parseFloat(raw.distance).toFixed(2)),
-      regular_price: raw.gp_regular_price ? Number(raw.gp_regular_price) : null,
-      is_stale: raw.gp_is_stale === 1,
-      last_updated: raw.gp_last_updated,
-      logo_url: raw.chain_logo_url,
-    }));
+    return results.entities.map((store: Store & { gasPrice?: GasPrice }, index) => {
+      const raw = results.raw[index] || {};
+      const gasPrice = store.gasPrice;
+
+      return {
+        stationId: store.id || bufferToUuid(raw.store_id || raw.id),
+        name: store.name || raw.store_name || '',
+        chain: store.chain?.name || raw.chain_name || '',
+        address: store.address || raw.store_address || '',
+        lat: Number(store.lat ?? raw.store_lat),
+        lng: Number(store.lng ?? raw.store_lng),
+        distance: Number(parseFloat(raw.distance).toFixed(2)),
+        regular_price: gasPrice?.regular_price
+          ? Number(gasPrice.regular_price)
+          : raw.gp_regular_price
+            ? Number(raw.gp_regular_price)
+            : null,
+        is_stale: gasPrice?.is_stale ?? raw.gp_is_stale === 1,
+        last_updated: gasPrice?.last_updated || raw.gp_last_updated,
+        logo_url: store.chain?.logo_url || raw.chain_logo_url,
+      };
+    });
   }
 
   /**
