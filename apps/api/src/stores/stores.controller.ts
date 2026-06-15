@@ -15,6 +15,7 @@ export class StoresController {
       Number(lat),
       Number(lng),
       radius ? Number(radius) : 10,
+      { mapSafe: true, limit: 150 },
     );
   }
 }

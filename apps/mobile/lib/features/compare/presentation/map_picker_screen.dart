@@ -49,7 +49,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
         queryParameters: {
           'lat': center.latitude,
           'lng': center.longitude,
-          'radius': 20,
+          'radius': 10,
         },
       );
       if (!mounted) return;
