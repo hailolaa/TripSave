@@ -1030,6 +1030,18 @@ class _CompareScreenState extends State<CompareScreen> {
     }
 
     final lowerName = name.toLowerCase();
+    if (lowerName.contains('egg')) {
+      return 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&q=80&w=400';
+    }
+    if (lowerName.contains('rice')) {
+      return 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&q=80&w=400';
+    }
+    if (lowerName.contains('pasta') || lowerName.contains('spaghetti') || lowerName.contains('macaroni') || lowerName.contains('noodle')) {
+      return 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?auto=format&fit=crop&q=80&w=400';
+    }
+    if (lowerName.contains('juice')) {
+      return 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&q=80&w=400';
+    }
     if (lowerName.contains('milk') || lowerName.contains('cheese') || lowerName.contains('yogurt') || lowerName.contains('butter')) {
       return fallbackImages['dairy']!;
     }

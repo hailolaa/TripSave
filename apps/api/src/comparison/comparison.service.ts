@@ -600,7 +600,7 @@ export class ComparisonService {
         const trueCost = item.price + driveCost;
         const displayDistance = distance > 0 && distance < 0.1 ? 0.1 : distance;
 
-        const fallbackImage = this.resolveFallbackProductImage(itemCategory);
+        const fallbackImage = this.resolveFallbackProductImage(itemCategory, productName);
         const resolvedImage = isGasSearch
           ? this.sanitizeImageUrl((item as any).image)
           : await this.productImageService.resolveImage(
@@ -972,7 +972,7 @@ export class ComparisonService {
             {
               name: 'Regular Gas',
               price: pricePerGallon,
-              image: this.resolveFallbackProductImage('gas'),
+              image: this.resolveFallbackProductImage('gas', 'Regular Gas'),
               category: 'gas',
             },
           ],
@@ -1082,7 +1082,8 @@ export class ComparisonService {
     return null;
   }
 
-  private resolveFallbackProductImage(category?: string): string {
+  private resolveFallbackProductImage(category?: string, productName?: string): string {
+    const normalizedName = (productName || '').toLowerCase();
     const normalizedCategory = (category || '').toLowerCase();
     const fallbackImages: Record<string, string> = {
       grocery:
@@ -1109,9 +1110,47 @@ export class ComparisonService {
       baby: 'https://images.unsplash.com/photo-1515488764276-beab7607c1e6?auto=format&fit=crop&q=80&w=400',
       household:
         'https://images.unsplash.com/photo-1528740561666-dc2479bd08bc?auto=format&fit=crop&q=80&w=400',
+      eggs:
+        'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&q=80&w=400',
+      rice:
+        'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&q=80&w=400',
+      juice:
+        'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&q=80&w=400',
+      pasta:
+        'https://images.unsplash.com/photo-1551462147-ff29053bfc14?auto=format&fit=crop&q=80&w=400',
       other:
         'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
     };
+
+    if (normalizedName.includes('egg')) return fallbackImages.eggs;
+    if (normalizedName.includes('rice')) return fallbackImages.rice;
+    if (normalizedName.includes('pasta') ||
+        normalizedName.includes('spaghetti') ||
+        normalizedName.includes('macaroni') ||
+        normalizedName.includes('noodle')) {
+      return fallbackImages.pasta;
+    }
+    if (normalizedName.includes('juice')) return fallbackImages.juice;
+    if (normalizedName.includes('milk') ||
+        normalizedName.includes('cheese') ||
+        normalizedName.includes('yogurt') ||
+        normalizedName.includes('butter')) {
+      return fallbackImages.dairy;
+    }
+    if (normalizedName.includes('bread') ||
+        normalizedName.includes('bagel') ||
+        normalizedName.includes('cake')) {
+      return fallbackImages.bakery;
+    }
+    if (normalizedName.includes('water') || normalizedName.includes('soda')) {
+      return fallbackImages.beverages;
+    }
+    if (normalizedName.includes('chip') ||
+        normalizedName.includes('cookie') ||
+        normalizedName.includes('candy') ||
+        normalizedName.includes('chocolate')) {
+      return fallbackImages.snacks;
+    }
 
     return fallbackImages[normalizedCategory] || fallbackImages.other;
   }

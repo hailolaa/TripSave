@@ -23,6 +23,10 @@ export class ProductImageService {
     canned: 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&q=80&w=400',
     condiments: 'https://images.unsplash.com/photo-1607604668248-f0143ad3964f?auto=format&fit=crop&q=80&w=400',
     frozen: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&q=80&w=400',
+    eggs: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&q=80&w=400',
+    rice: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&q=80&w=400',
+    juice: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&q=80&w=400',
+    pasta: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?auto=format&fit=crop&q=80&w=400',
     other: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
   };
 
@@ -60,8 +64,8 @@ export class ProductImageService {
   ): Promise<string> {
     const seededFallback = this.resolveSeededFallbackImage(productName);
     const existing = this.sanitizeImageUrl(existingImageUrl);
-    // If scraped item provided an image, prefer it as long as it's a valid URL (allow data/protocol-relative)
-    if (existing && this.isValidImageUrl(existing)) {
+    // Prefer real scraper/provider images, but do not treat our generic fallback URLs as final.
+    if (existing && this.isValidImageUrl(existing) && !this.isFallbackImage(existing)) {
       return existing;
     }
 
@@ -306,7 +310,11 @@ export class ProductImageService {
   private resolveSeededFallbackImage(productName: string): string {
     const name = productName.toLowerCase();
 
-    if (this.matches(name, ['milk', 'cheese', 'yogurt', 'butter', 'dairy', 'egg'])) return this.seededFallbackImages.dairy;
+    if (this.matches(name, ['egg', 'eggs'])) return this.seededFallbackImages.eggs;
+    if (this.matches(name, ['rice'])) return this.seededFallbackImages.rice;
+    if (this.matches(name, ['pasta', 'spaghetti', 'macaroni', 'noodle'])) return this.seededFallbackImages.pasta;
+    if (this.matches(name, ['juice', 'orange juice', 'apple juice'])) return this.seededFallbackImages.juice;
+    if (this.matches(name, ['milk', 'cheese', 'yogurt', 'butter', 'dairy'])) return this.seededFallbackImages.dairy;
     if (this.matches(name, ['meat', 'beef', 'chicken', 'pork', 'steak', 'turkey'])) return this.seededFallbackImages.meat;
     if (this.matches(name, ['fruit', 'veg', 'apple', 'banana', 'carrot', 'tomato', 'produce'])) return this.seededFallbackImages.produce;
     if (this.matches(name, ['bread', 'bakery', 'cake', 'muffin', 'bagel'])) return this.seededFallbackImages.bakery;
