@@ -60,11 +60,12 @@ class ListCubit extends Cubit<ListState> {
   // Subject to handle search queries with debouncing
   final _searchQuerySubject = PublishSubject<String>();
   StreamSubscription? _searchSubscription;
+  final Map<String, List<Map<String, dynamic>>> _searchCache = {};
 
   ListCubit(this._repository, this._locationService) : super(ListInitial()) {
     // Set up debounced search
     _searchSubscription = _searchQuerySubject
-        .debounceTime(const Duration(milliseconds: 400))
+        .debounceTime(const Duration(milliseconds: 160))
         .distinct()
         .listen((query) {
       _executeSearch(query);
@@ -112,15 +113,22 @@ class ListCubit extends Cubit<ListState> {
   void searchProducts(String query) {
     if (state is! ListLoaded) return;
     final currentState = state as ListLoaded;
+    final cleanQuery = query.trim();
     
-    if (query.isEmpty) {
+    if (cleanQuery.isEmpty) {
       emit(currentState.copyWith(searchResults: [], isSearching: false));
+      return;
+    }
+
+    final cachedResults = _searchCache[cleanQuery.toLowerCase()];
+    if (cachedResults != null) {
+      emit(currentState.copyWith(searchResults: cachedResults, isSearching: false));
       return;
     }
 
     // Keep current search results while starting a new search to prevent blinking
     emit(currentState.copyWith(isSearching: true, searchResults: currentState.searchResults));
-    _searchQuerySubject.add(query);
+    _searchQuerySubject.add(cleanQuery);
   }
 
   Future<void> _executeSearch(String query) async {
@@ -128,6 +136,7 @@ class ListCubit extends Cubit<ListState> {
 
     try {
       final results = await _repository.searchProducts(query);
+      _searchCache[query.toLowerCase()] = results;
       if (state is ListLoaded) {
         emit((state as ListLoaded).copyWith(
           searchResults: results, 
@@ -153,6 +162,22 @@ class ListCubit extends Cubit<ListState> {
       // Immediately clear search to close dropdown and refresh list
       emit(currentState.copyWith(searchResults: [], isSearching: false));
       await fetchCart(isSilent: true); 
+    } catch (e) {
+      emit(ListError(ApiClient.parseError(e)));
+    }
+  }
+
+  Future<void> addSearchSuggestionToCart(Map<String, dynamic> suggestion) async {
+    if (state is! ListLoaded) return;
+    final currentState = state as ListLoaded;
+    final query = (suggestion['search_query'] ?? suggestion['name'])?.toString().trim() ?? '';
+    if (query.isEmpty) return;
+
+    try {
+      final product = await _repository.resolveProductForList(query);
+      await _repository.addToCart(product['id'], 1);
+      emit(currentState.copyWith(searchResults: [], isSearching: false));
+      await fetchCart(isSilent: true);
     } catch (e) {
       emit(ListError(ApiClient.parseError(e)));
     }

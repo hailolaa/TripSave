@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../bloc/list_cubit.dart';
 import '../../home/bloc/home_cubit.dart';
 import '../../../core/widgets/app_error_widget.dart';
+import '../../../core/widgets/product_image_thumb.dart';
 
 class ListScreen extends StatefulWidget {
   const ListScreen({super.key});
@@ -201,17 +202,28 @@ class _ListScreenState extends State<ListScreen> {
                         itemCount: state.searchResults.length,
                         itemBuilder: (context, index) {
                           final product = state.searchResults[index];
+                          final name = product['name']?.toString() ?? '';
+                          final category = product['category']?.toString() ?? '';
                           return ListTile(
-                            leading: product['image_url'] != null
-                              ? Image.network(product['image_url'], width: 40, height: 40, errorBuilder: (c,e,s) => const Icon(Icons.fastfood))
-                              : const Icon(Icons.fastfood, color: Colors.grey),
-                            title: Text(product['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Text('${product['brand'] ?? ''} • ${product['category'] ?? ''}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                            leading: ProductImageThumb(
+                              name: name,
+                              imageUrl: product['image_url']?.toString(),
+                              category: product['category']?.toString(),
+                              size: 42,
+                              borderRadius: 10,
+                            ),
+                            title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            subtitle: Text(
+                              category.replaceAll('_', ' ').toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                            ),
                             trailing: const Icon(Icons.add_circle, color: AppTheme.primaryBlue),
                             onTap: () async {
                               final listCubit = context.read<ListCubit>();
                               final homeCubit = context.read<HomeCubit>();
-                              await listCubit.addToCart(product['id']);
+                              await listCubit.addSearchSuggestionToCart(product);
                               homeCubit.loadDashboard();
                               _searchController.clear();
                               _searchFocus.unfocus();

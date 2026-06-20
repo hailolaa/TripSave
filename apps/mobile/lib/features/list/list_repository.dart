@@ -31,8 +31,23 @@ class ListRepository {
   }
 
   Future<List<Map<String, dynamic>>> searchProducts(String query) async {
-    final response = await apiClient.dio.get('/products/search', queryParameters: {'q': query});
+    final response = await apiClient.dio.get(
+      '/products/suggestions',
+      queryParameters: {
+        'q': query,
+        'limit': 10,
+      },
+    );
     return List<Map<String, dynamic>>.from(response.data);
+  }
+
+  Future<Map<String, dynamic>> resolveProductForList(String query) async {
+    final response = await apiClient.dio.get('/products/search', queryParameters: {'q': query});
+    final products = List<Map<String, dynamic>>.from(response.data);
+    if (products.isEmpty) {
+      throw StateError('No product found for $query');
+    }
+    return products.first;
   }
 
   Future<Map<String, dynamic>?> getCartSummary({

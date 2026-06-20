@@ -149,15 +149,6 @@ export class ProductsService {
       url.includes('storage.com');
   }
 
-  private getFastProductImage(product: Product, category?: ProductCategory): string {
-    const existingImage = product.image_url?.trim();
-    if (existingImage && !this.isProductFallback(existingImage)) {
-      return existingImage;
-    }
-
-    return this.getFallbackImage(product.name, category || product.category);
-  }
-
   private inferBrandName(productName: string, explicitBrand?: string | null): string | null {
     if (explicitBrand) return explicitBrand;
 
@@ -454,76 +445,75 @@ export class ProductsService {
     }
 
     const normalizedQuery = cleanQuery.toLowerCase();
-    const prefixQuery = `${normalizedQuery}%`;
-    const wordPrefixQuery = `% ${normalizedQuery}%`;
     const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 12);
-    const candidateLimit = normalizedQuery.length === 1 ? safeLimit * 80 : safeLimit * 8;
-    const rows = await this.storeProductsRepository.createQueryBuilder('sp')
-      .leftJoinAndSelect('sp.product', 'p')
-      .where('sp.in_stock = :inStock', { inStock: true })
-      .andWhere(
-        `(
-          LOWER(p.name) LIKE :prefixQuery
-          OR LOWER(p.name) LIKE :wordPrefixQuery
-          OR LOWER(COALESCE(p.normalized_name, '')) LIKE :prefixQuery
-          OR LOWER(COALESCE(p.normalized_name, '')) LIKE :wordPrefixQuery
-        )`,
-        { prefixQuery, wordPrefixQuery },
-      )
-      .andWhere('p.name NOT LIKE :sampleFallback', { sampleFallback: '%(Sample)%' })
-      .orderBy('sp.last_verified_at', 'DESC')
-      .take(candidateLimit)
-      .getMany();
+    const generalSuggestions: Array<{ name: string; category: ProductCategory }> = [
+      { name: 'Milk', category: ProductCategory.DAIRY },
+      { name: 'Eggs', category: ProductCategory.OTHER },
+      { name: 'Bread', category: ProductCategory.BAKERY },
+      { name: 'Meat', category: ProductCategory.MEAT },
+      { name: 'Chicken', category: ProductCategory.MEAT },
+      { name: 'Beef', category: ProductCategory.MEAT },
+      { name: 'Apple', category: ProductCategory.PRODUCE },
+      { name: 'Banana', category: ProductCategory.PRODUCE },
+      { name: 'Avocado', category: ProductCategory.PRODUCE },
+      { name: 'Orange', category: ProductCategory.PRODUCE },
+      { name: 'Tomato', category: ProductCategory.PRODUCE },
+      { name: 'Potato', category: ProductCategory.PRODUCE },
+      { name: 'Lettuce', category: ProductCategory.PRODUCE },
+      { name: 'Rice', category: ProductCategory.OTHER },
+      { name: 'Pasta', category: ProductCategory.OTHER },
+      { name: 'Water', category: ProductCategory.BEVERAGES },
+      { name: 'Juice', category: ProductCategory.BEVERAGES },
+      { name: 'Soda', category: ProductCategory.BEVERAGES },
+      { name: 'Coffee', category: ProductCategory.BEVERAGES },
+      { name: 'Tea', category: ProductCategory.BEVERAGES },
+      { name: 'Cheese', category: ProductCategory.DAIRY },
+      { name: 'Yogurt', category: ProductCategory.DAIRY },
+      { name: 'Butter', category: ProductCategory.DAIRY },
+      { name: 'Cereal', category: ProductCategory.OTHER },
+      { name: 'Snacks', category: ProductCategory.SNACKS },
+      { name: 'Chips', category: ProductCategory.SNACKS },
+      { name: 'Cookies', category: ProductCategory.SNACKS },
+      { name: 'Candy', category: ProductCategory.SNACKS },
+      { name: 'Chocolate', category: ProductCategory.SNACKS },
+      { name: 'Ice Cream', category: ProductCategory.FROZEN },
+      { name: 'Pizza', category: ProductCategory.FROZEN },
+      { name: 'Soap', category: ProductCategory.CLEANING },
+      { name: 'Detergent', category: ProductCategory.CLEANING },
+      { name: 'Paper Towels', category: ProductCategory.HOUSEHOLD },
+      { name: 'Toilet Paper', category: ProductCategory.HOUSEHOLD },
+      { name: 'Shampoo', category: ProductCategory.PERSONAL_CARE },
+      { name: 'Toothpaste', category: ProductCategory.PERSONAL_CARE },
+      { name: 'Vitamins', category: ProductCategory.MEDICINE },
+      { name: 'Medicine', category: ProductCategory.MEDICINE },
+      { name: 'Diapers', category: ProductCategory.BABY },
+      { name: 'Dog Food', category: ProductCategory.PET },
+      { name: 'Cat Food', category: ProductCategory.PET },
+    ];
 
-    const seen = new Set<string>();
-    const suggestions: { score: number; item: any }[] = [];
+    return generalSuggestions
+      .map((suggestion, index) => {
+        const lowerName = suggestion.name.toLowerCase();
+        const words = lowerName.split(/\s+/);
+        const startsWithQuery = lowerName.startsWith(normalizedQuery);
+        const wordStartsWithQuery = words.some((word) => word.startsWith(normalizedQuery));
 
-    for (const row of rows) {
-      const product = row.product;
-      if (!product?.name) continue;
-
-      const key = (product.normalized_name || product.name).toLowerCase().trim();
-      if (!key || seen.has(key)) continue;
-
-      const searchableText = `${product.name} ${product.normalized_name || ''}`.toLowerCase();
-      const tokens = searchableText
-        .split(/[^a-z0-9]+/)
-        .filter((token) => token.length > 0);
-      const hasTokenPrefixMatch = tokens.some((token) =>
-        token.startsWith(normalizedQuery) &&
-        (normalizedQuery.length > 1 || token.length > 1),
-      );
-      const startsWithQuery = product.name.toLowerCase().startsWith(normalizedQuery);
-      const relevance = scoreProductRelevance(product.name, cleanQuery);
-
-      if (
-        isLikelyUnrelatedProduct(product.name, cleanQuery) ||
-        !hasTokenPrefixMatch
-      ) {
-        continue;
-      }
-
-      seen.add(key);
-
-      const category = product.category || this.resolveCategory(product.name);
-
-      suggestions.push({
-        score: (startsWithQuery ? 120 : 0) + (hasTokenPrefixMatch ? 80 : 0) + relevance,
-        item: {
-          id: product.id,
-          name: product.name,
-          brand: this.inferBrandName(product.name, product.brand) ?? undefined,
-          category,
-          image_url: this.getFastProductImage(product, category),
-        },
-      });
-
-      if (suggestions.length >= safeLimit) break;
-    }
-
-    return suggestions
+        return {
+          suggestion,
+          score: (startsWithQuery ? 100 : 0) + (wordStartsWithQuery ? 50 : 0) - index,
+          matches: startsWithQuery || wordStartsWithQuery,
+        };
+      })
+      .filter((entry) => entry.matches)
       .sort((a, b) => b.score - a.score)
-      .map((suggestion) => suggestion.item);
+      .slice(0, safeLimit)
+      .map(({ suggestion }) => ({
+        id: null,
+        name: suggestion.name,
+        search_query: suggestion.name,
+        category: suggestion.category,
+        image_url: this.getFallbackImage(suggestion.name, suggestion.category),
+      }));
   }
 
   async findByCategory(category: string): Promise<Product[]> {
