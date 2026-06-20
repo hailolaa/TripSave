@@ -437,22 +437,33 @@ export class ProductsService {
 
   async suggestProducts(query: string, limit: number = 8): Promise<any[]> {
     const cleanQuery = (query || '').trim();
-    if (cleanQuery.length < 2) {
+    if (cleanQuery.length < 1) {
       return [];
     }
 
+    const normalizedQuery = cleanQuery.toLowerCase();
+    const prefixQuery = `${normalizedQuery}%`;
+    const wordPrefixQuery = `% ${normalizedQuery}%`;
     const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 12);
     const rows = await this.storeProductsRepository.createQueryBuilder('sp')
       .leftJoinAndSelect('sp.product', 'p')
       .where('sp.in_stock = :inStock', { inStock: true })
-      .andWhere('(p.name LIKE :q OR p.normalized_name LIKE :q OR p.brand LIKE :q)', { q: `%${cleanQuery}%` })
+      .andWhere(
+        `(
+          LOWER(p.name) LIKE :prefixQuery
+          OR LOWER(p.name) LIKE :wordPrefixQuery
+          OR LOWER(COALESCE(p.normalized_name, '')) LIKE :prefixQuery
+          OR LOWER(COALESCE(p.normalized_name, '')) LIKE :wordPrefixQuery
+        )`,
+        { prefixQuery, wordPrefixQuery },
+      )
       .andWhere('p.name NOT LIKE :sampleFallback', { sampleFallback: '%(Sample)%' })
       .orderBy('sp.last_verified_at', 'DESC')
-      .take(safeLimit * 3)
+      .take(safeLimit * 8)
       .getMany();
 
     const seen = new Set<string>();
-    const suggestions = [];
+    const suggestions: { score: number; item: any }[] = [];
 
     for (const row of rows) {
       const product = row.product;
@@ -460,6 +471,22 @@ export class ProductsService {
 
       const key = (product.normalized_name || product.name).toLowerCase().trim();
       if (!key || seen.has(key)) continue;
+
+      const searchableText = `${product.name} ${product.normalized_name || ''}`.toLowerCase();
+      const tokens = searchableText
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length > 0);
+      const hasTokenPrefixMatch = tokens.some((token) => token.startsWith(normalizedQuery));
+      const startsWithQuery = product.name.toLowerCase().startsWith(normalizedQuery);
+      const relevance = scoreProductRelevance(product.name, cleanQuery);
+
+      if (
+        isLikelyUnrelatedProduct(product.name, cleanQuery) ||
+        !hasTokenPrefixMatch
+      ) {
+        continue;
+      }
+
       seen.add(key);
 
       const category = product.category || this.resolveCategory(product.name);
@@ -469,17 +496,22 @@ export class ProductsService {
       );
 
       suggestions.push({
-        id: product.id,
-        name: product.name,
-        brand: this.inferBrandName(product.name, product.brand) ?? undefined,
-        category,
-        image_url: resolvedImage || this.getFallbackImage(product.name, category),
+        score: (startsWithQuery ? 120 : 0) + (hasTokenPrefixMatch ? 80 : 0) + relevance,
+        item: {
+          id: product.id,
+          name: product.name,
+          brand: this.inferBrandName(product.name, product.brand) ?? undefined,
+          category,
+          image_url: resolvedImage || this.getFallbackImage(product.name, category),
+        },
       });
 
       if (suggestions.length >= safeLimit) break;
     }
 
-    return suggestions;
+    return suggestions
+      .sort((a, b) => b.score - a.score)
+      .map((suggestion) => suggestion.item);
   }
 
   async findByCategory(category: string): Promise<Product[]> {

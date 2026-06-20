@@ -25,6 +25,7 @@ class CompareScreen extends StatefulWidget {
 
 class _CompareScreenState extends State<CompareScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   int _selectedFilterIndex = 0;
   final List<String> _filters = ['All', 'Grocery', 'Gas', 'Pharmacy'];
   bool _isMapView = false;
@@ -39,6 +40,7 @@ class _CompareScreenState extends State<CompareScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -113,7 +115,7 @@ class _CompareScreenState extends State<CompareScreen> {
 
     _debounceTimer?.cancel();
     final query = value.trim();
-    if (query.length < 2) {
+    if (query.isEmpty) {
       _clearSuggestions();
       return;
     }
@@ -124,6 +126,12 @@ class _CompareScreenState extends State<CompareScreen> {
   }
 
   Future<void> _fetchProductSuggestions(String query) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty || _searchController.text.trim() != cleanQuery) {
+      _clearSuggestions();
+      return;
+    }
+
     final requestId = ++_suggestionRequestId;
     setState(() => _isLoadingSuggestions = true);
 
@@ -131,12 +139,13 @@ class _CompareScreenState extends State<CompareScreen> {
       final response = await _apiClient.dio.get(
         '/products/suggestions',
         queryParameters: {
-          'q': query,
+          'q': cleanQuery,
           'limit': 8,
         },
       );
 
       if (!mounted || requestId != _suggestionRequestId) return;
+      if (_searchController.text.trim() != cleanQuery) return;
 
       final data = response.data is List ? response.data as List : const [];
       setState(() {
@@ -182,6 +191,7 @@ class _CompareScreenState extends State<CompareScreen> {
     final query = _searchController.text.trim();
 
     if (filter == 'gas') {
+      _clearSuggestions();
       cubit.loadGasStations();
       return;
     }
@@ -274,7 +284,12 @@ class _CompareScreenState extends State<CompareScreen> {
                         ),
                         child: TextField(
                           controller: _searchController,
+                          focusNode: _searchFocusNode,
                           onChanged: _onSearchTextChanged,
+                          onTapOutside: (_) {
+                            _searchFocusNode.unfocus();
+                            _clearSuggestions();
+                          },
                           onSubmitted: (text) {
                             if (!mounted) return;
                             final filter = _filters[_selectedFilterIndex].toLowerCase();

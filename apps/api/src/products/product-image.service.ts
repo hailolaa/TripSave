@@ -38,6 +38,7 @@ export class ProductImageService {
 
     return (
       imageUrl.includes('images.unsplash.com') ||
+      imageUrl.includes('images.pexels.com') ||
       imageUrl.includes('placeholder') ||
       imageUrl.includes('storage.com')
     );
@@ -82,23 +83,30 @@ export class ProductImageService {
     try {
       const cached = this.cache.get<string>(normalizedName);
       if (cached !== undefined) {
-        return this.isValidImageUrl(cached) ? cached : fallback;
+        if (
+          this.isValidImageUrl(cached) &&
+          !this.isFallbackImage(cached) &&
+          this.isLikelyProductImageUrl(cached)
+        ) {
+          return cached;
+        }
+        this.cache.del(normalizedName);
       }
 
-      // Lookup order: Pexels -> Google Images -> Bing -> Open Food Facts -> seeded fallback.
-      let imageUrl = await this.lookupBestPexelsImage(queryCandidates);
+      // Prefer product/package sources before lifestyle-photo providers.
+      let imageUrl = await this.lookupBestImage(queryCandidates);
       if (!this.isValidImageUrl(imageUrl)) {
-        imageUrl = await this.lookupGoogleImage(queryCandidates[0] || productName);
+        imageUrl = await this.lookupGoogleImage(`${queryCandidates[0] || productName} product packaging`);
       }
 
-      // If Google failed and Open Food found nothing, try Bing as a secondary web fallback
+      // If Google failed, try Bing as a secondary product-image fallback.
       if (!this.isValidImageUrl(imageUrl)) {
-        imageUrl = await this.lookupBingImage(queryCandidates[0] || productName);
+        imageUrl = await this.lookupBingImage(`${queryCandidates[0] || productName} product packaging`);
       }
 
-      // If web fallbacks failed, try Open Food Facts as a last web data source
+      // Use Pexels last, and only when the result looks product-focused.
       if (!this.isValidImageUrl(imageUrl)) {
-        imageUrl = await this.lookupBestImage(queryCandidates);
+        imageUrl = await this.lookupBestPexelsImage(queryCandidates);
       }
 
       if (this.isValidImageUrl(imageUrl)) {
@@ -147,14 +155,15 @@ export class ProductImageService {
 
       if (matches.length > 0) {
         // prefer https links
-        const httpsMatch = matches.find((s) => s.startsWith('https://'));
-        return httpsMatch || matches[0];
+        const httpsMatch = matches.find((s) => s.startsWith('https://') && this.isLikelyProductImageUrl(s));
+        const productMatch = matches.find((s) => this.isLikelyProductImageUrl(s));
+        return httpsMatch || productMatch || '';
       }
 
       // Fallback: try a more permissive extraction of image urls
       const re2 = /(https?:\/\/[^"'<>\s]+?(?:png|jpg|jpeg|webp))/gi;
       const m2 = re2.exec(body);
-      if (m2 && m2[1]) return m2[1];
+      if (m2 && m2[1] && this.isLikelyProductImageUrl(m2[1])) return m2[1];
 
       return '';
     } catch (err: any) {
@@ -184,8 +193,9 @@ export class ProductImageService {
       }
 
       if (matches.length > 0) {
-        const httpsMatch = matches.find((s) => s.startsWith('https://'));
-        return httpsMatch || matches[0];
+        const httpsMatch = matches.find((s) => s.startsWith('https://') && this.isLikelyProductImageUrl(s));
+        const productMatch = matches.find((s) => this.isLikelyProductImageUrl(s));
+        return httpsMatch || productMatch || '';
       }
 
       return '';
@@ -213,8 +223,7 @@ export class ProductImageService {
     }
 
     try {
-      // Try plain query first, then fallback to focused "product" search
-      const searchQueries = [query, `${query} product`];
+      const searchQueries = [`${query} product packaging`, `${query} product`, query];
       for (const q of searchQueries) {
         const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5`;
         const resp = await axios.get(url, {
@@ -236,15 +245,30 @@ export class ProductImageService {
         const scored: { url: string; score: number }[] = [];
         for (const p of photos) {
           const alt = (p?.alt || '').toLowerCase();
+          if (this.isLifestyleImageAlt(alt)) continue;
+
           let score = 0;
           for (const t of tokens) if (alt.includes(t)) score += 2;
-          if (alt.includes('product') || alt.includes('pack') || alt.includes('box')) score += 1;
+          if (
+            alt.includes('product') ||
+            alt.includes('pack') ||
+            alt.includes('package') ||
+            alt.includes('bottle') ||
+            alt.includes('carton') ||
+            alt.includes('jug') ||
+            alt.includes('can') ||
+            alt.includes('box') ||
+            alt.includes('bag')
+          ) {
+            score += 2;
+          }
+
           const candidate = p?.src?.medium || p?.src?.small || p?.src?.original || '';
-          if (candidate) scored.push({ url: candidate, score });
+          if (candidate && this.isLikelyProductImageUrl(candidate)) scored.push({ url: candidate, score });
         }
 
         scored.sort((a, b) => b.score - a.score);
-        const best = scored.find((s) => s.score > 0) || scored[0];
+        const best = scored.find((s) => s.score >= 2);
         if (best && best.url) return this.sanitizeImageUrl(best.url);
       }
 
@@ -305,6 +329,50 @@ export class ProductImageService {
     }
 
     return url;
+  }
+
+  private isLifestyleImageAlt(alt: string): boolean {
+    const lifestyleTerms = [
+      'person',
+      'people',
+      'woman',
+      'man',
+      'girl',
+      'boy',
+      'child',
+      'children',
+      'hand',
+      'holding',
+      'eating',
+      'drinking',
+      'using',
+      'portrait',
+      'smiling',
+      'lifestyle',
+    ];
+
+    return lifestyleTerms.some((term) => alt.includes(term));
+  }
+
+  private isLikelyProductImageUrl(url: string): boolean {
+    const imageUrl = this.sanitizeImageUrl(url).toLowerCase();
+    if (!imageUrl) return false;
+
+    const blockedTerms = [
+      'person',
+      'people',
+      'child',
+      'children',
+      'portrait',
+      'model',
+      'holding',
+      'eating',
+      'drinking',
+      'using',
+      'lifestyle',
+    ];
+
+    return !blockedTerms.some((term) => imageUrl.includes(term));
   }
 
   private resolveSeededFallbackImage(productName: string): string {

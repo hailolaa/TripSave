@@ -37,104 +37,112 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           }
         },
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(28.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: AppTheme.textDark),
-                      onPressed: () => context.read<AuthCubit>().logout(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppTheme.savingsGreen.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.map_outlined, size: 60, color: AppTheme.savingsGreen),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                const Center(
-                  child: Text(
-                    'Search Distance',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.textDark),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    'How far are you willing to drive to save money?',
-                    style: TextStyle(fontSize: 18, color: Colors.grey.shade700, height: 1.4, fontWeight: FontWeight.w500),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                
-                // Selection Cards
-                _buildRadiusCard(5, 'Nearby', 'Quick trips only'),
-                const SizedBox(height: 16),
-                _buildRadiusCard(10, 'Mid-Range', 'Worth a short drive'),
-                const SizedBox(height: 16),
-                _buildRadiusCard(20, 'Maximum', 'Find the absolute best deals'),
-                
-                const Spacer(),
-                BlocBuilder<AuthCubit, AuthState>(
-                  builder: (context, state) {
-                    final isLoading = state is AuthLoading;
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isLoading ? null : _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.savingsGreen,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: 0,
-                        ),
-                        child: isLoading
-                            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text('Complete Setup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: AppTheme.textDark),
+                        onPressed: () => context.read<AuthCubit>().logout(),
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: TextButton(
-                    onPressed: () {
-                      context.read<AuthCubit>().completeOnboarding(5);
-                    },
-                    child: Text('Skip for now', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: AppTheme.savingsGreen.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(Icons.route_outlined, size: 28, color: AppTheme.savingsGreen),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Search Distance',
+                                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppTheme.textDark),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Start nearby. You can change this later.',
+                                  style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 28),
+                      Text(
+                        'How far should PricePilot search?',
+                        style: TextStyle(fontSize: 16, color: Colors.grey.shade700, height: 1.35, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildRadiusCard(5, 'Nearby', 'Best for quick trips', recommended: true),
+                      const SizedBox(height: 12),
+                      _buildRadiusCard(10, 'Mid-range', 'Good for a short drive'),
+                      const SizedBox(height: 12),
+                      _buildRadiusCard(20, 'Maximum', 'Widest search area'),
+                      const SizedBox(height: 28),
+                      BlocBuilder<AuthCubit, AuthState>(
+                        builder: (context, state) {
+                          final isLoading = state is AuthLoading;
+                          return SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isLoading ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.savingsGreen,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 0,
+                              ),
+                              child: isLoading
+                                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            context.read<AuthCubit>().completeOnboarding(5);
+                          },
+                          child: Text('Skip for now', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRadiusCard(int miles, String label, String description) {
+  Widget _buildRadiusCard(int miles, String label, String description, {bool recommended = false}) {
     final isSelected = _selectedRadius == miles;
     return GestureDetector(
       onTap: () => setState(() => _selectedRadius = miles),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.savingsGreen.withValues(alpha: 0.05) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? AppTheme.savingsGreen.withValues(alpha: 0.06) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? AppTheme.savingsGreen : Colors.grey.shade200,
             width: 2,
@@ -143,11 +151,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.savingsGreen : Colors.grey.shade200,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
                 child: Text(
@@ -155,12 +163,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   style: TextStyle(
                     color: isSelected ? Colors.white : Colors.grey.shade700,
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: 17,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,7 +176,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: isSelected ? AppTheme.textDark : Colors.grey.shade800,
                     ),
@@ -184,8 +192,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ],
               ),
             ),
+            if (recommended)
+              Container(
+                margin: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.savingsGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  'Default',
+                  style: TextStyle(color: AppTheme.savingsGreen, fontWeight: FontWeight.w800, fontSize: 11),
+                ),
+              ),
             if (isSelected)
-              const Icon(Icons.check_circle, color: AppTheme.savingsGreen, size: 28),
+              const Icon(Icons.check_circle, color: AppTheme.savingsGreen, size: 24),
           ],
         ),
       ),
