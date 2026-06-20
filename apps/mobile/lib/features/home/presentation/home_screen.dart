@@ -12,6 +12,7 @@ import 'package:trip_save/features/compare/bloc/comparison_cubit.dart';
 import '../../../core/widgets/app_error_widget.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/widgets/product_image_thumb.dart';
 import '../../auth/auth_repository.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../savings/bloc/savings_cubit.dart';
@@ -1065,57 +1066,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildProductImage(Map<String, dynamic> product) {
     final imageUrl = (product['image'] ?? product['image_url'])?.toString().trim() ?? '';
-
-    if (imageUrl.isNotEmpty) {
-      return Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F9FA),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: const Color(0xFFF8F9FA),
-              child: const Icon(Icons.shopping_basket_rounded, color: Colors.grey),
-            ),
-            errorWidget: (context, url, error) => Container(
-              color: const Color(0xFFF8F9FA),
-              child: const Icon(Icons.shopping_basket_rounded, color: Colors.grey),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final name = product['name']?.toString().toLowerCase() ?? '';
-    final category = product['category']?.toString().toLowerCase() ?? '';
-    
-    IconData icon = Icons.shopping_basket_rounded;
-    Color color = Colors.grey.shade400;
-
-    if (category.contains('pharmacy') || name.contains('med') || name.contains('pill') || name.contains('drug')) {
-      icon = Icons.medication_rounded;
-      color = const Color(0xFF6A3CE2).withValues(alpha: 0.5);
-    } else if (category.contains('house') || name.contains('clean') || name.contains('soap') || name.contains('wash')) {
-      icon = Icons.inventory_2_rounded;
-      color = Colors.blueGrey.shade300.withValues(alpha: 0.5);
-    } else {
-      color = AppTheme.savingsGreen.withValues(alpha: 0.5);
-    }
-
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(icon, color: color, size: 28),
+    return ProductImageThumb(
+      name: product['name']?.toString() ?? '',
+      imageUrl: imageUrl,
+      category: product['category']?.toString(),
+      size: 50,
+      borderRadius: 12,
     );
   }
 
@@ -1224,6 +1180,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         p['name'], 
                         '\$${p['price']}', 
                         imageUrl: p['image'], 
+                        category: p['category']?.toString(),
                         quantity: p['quantity']
                       ),
                     );
@@ -1289,32 +1246,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductThumbnail(String name, String price, {String? imageUrl, int? quantity}) {
+  Widget _buildProductThumbnail(String name, String price, {String? imageUrl, String? category, int? quantity}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
-              width: 70, height: 70,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6), 
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              alignment: Alignment.center,
-              child: (imageUrl != null && imageUrl.isNotEmpty)
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const Icon(Icons.shopping_basket, color: Colors.grey),
-                        errorWidget: (context, url, error) => const Icon(Icons.shopping_basket, color: Colors.grey),
-                      ),
-                    )
-                  : Text(name.substring(0, 1).toUpperCase(), style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 24)),
+            ProductImageThumb(
+              name: name,
+              imageUrl: imageUrl,
+              category: category,
+              size: 70,
+              borderRadius: 12,
             ),
             if (quantity != null && quantity > 1)
               Positioned(

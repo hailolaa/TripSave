@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:latlong2/latlong.dart';
 import 'compare_map_view.dart';
@@ -15,6 +14,7 @@ import '../../../core/di/injection.dart';
 import '../../../core/widgets/app_error_widget.dart';
 import '../../../core/services/favorite_store_service.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/widgets/product_image_thumb.dart';
 
 class CompareScreen extends StatefulWidget {
   const CompareScreen({super.key});
@@ -34,6 +34,7 @@ class _CompareScreenState extends State<CompareScreen> {
   Set<String> _favoriteStores = <String>{};
   Timer? _debounceTimer;
   List<Map<String, dynamic>> _productSuggestions = [];
+  final Map<String, List<Map<String, dynamic>>> _suggestionCache = {};
   bool _isLoadingSuggestions = false;
   int _suggestionRequestId = 0;
 
@@ -120,7 +121,16 @@ class _CompareScreenState extends State<CompareScreen> {
       return;
     }
 
-    _debounceTimer = Timer(const Duration(milliseconds: 280), () {
+    final cachedSuggestions = _suggestionCache[query.toLowerCase()];
+    if (cachedSuggestions != null) {
+      setState(() {
+        _productSuggestions = cachedSuggestions;
+        _isLoadingSuggestions = false;
+      });
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 140), () {
       _fetchProductSuggestions(query);
     });
   }
@@ -153,6 +163,7 @@ class _CompareScreenState extends State<CompareScreen> {
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
             .toList();
+        _suggestionCache[cleanQuery.toLowerCase()] = _productSuggestions;
         _isLoadingSuggestions = false;
       });
     } catch (_) {
@@ -747,37 +758,12 @@ class _CompareScreenState extends State<CompareScreen> {
   }
 
   Widget _buildSuggestionImage(String name, {String? imageUrl, String? category}) {
-    final fallbackImageUrl = _resolveProductFallbackImage(name, category: category);
-    final resolvedImageUrl = (imageUrl != null && imageUrl.trim().isNotEmpty)
-        ? imageUrl.trim()
-        : fallbackImageUrl;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: CachedNetworkImage(
-        imageUrl: resolvedImageUrl,
-        width: 46,
-        height: 46,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          width: 46,
-          height: 46,
-          color: const Color(0xFFF3F4F6),
-        ),
-        errorWidget: (context, url, error) => Image.network(
-          fallbackImageUrl,
-          width: 46,
-          height: 46,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            width: 46,
-            height: 46,
-            color: const Color(0xFFF3F4F6),
-            alignment: Alignment.center,
-            child: const Icon(Icons.shopping_basket_rounded, color: AppTheme.primaryBlue, size: 20),
-          ),
-        ),
-      ),
+    return ProductImageThumb(
+      name: name,
+      imageUrl: imageUrl,
+      category: category,
+      size: 46,
+      borderRadius: 10,
     );
   }
 
@@ -936,56 +922,18 @@ class _CompareScreenState extends State<CompareScreen> {
   }
 
   Widget _buildProductThumbnail(String name, String price, {String? imageUrl, String? category, int? quantity}) {
-    final fallbackImageUrl = _resolveProductFallbackImage(name, category: category);
-    final cleanedImageUrl = imageUrl?.trim() ?? '';
-    final resolvedImageUrl = (cleanedImageUrl.startsWith('http://') ||
-            cleanedImageUrl.startsWith('https://') ||
-            cleanedImageUrl.startsWith('data:') ||
-            cleanedImageUrl.startsWith('//'))
-        ? (cleanedImageUrl.startsWith('//') ? 'https:$cleanedImageUrl' : cleanedImageUrl)
-        : fallbackImageUrl;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
-              width: 70, height: 70,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6), 
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              alignment: Alignment.center,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: CachedNetworkImage(
-                  imageUrl: resolvedImageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: const Color(0xFFF3F4F6),
-                    alignment: Alignment.center,
-                    child: Text(
-                      name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
-                      style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 24),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Image.network(
-                    fallbackImageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFF3F4F6),
-                      alignment: Alignment.center,
-                      child: Text(
-                        name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
-                        style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold, fontSize: 24),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            ProductImageThumb(
+              name: name,
+              imageUrl: imageUrl,
+              category: category,
+              size: 70,
+              borderRadius: 12,
             ),
             if (quantity != null && quantity > 1)
               Positioned(
@@ -1016,61 +964,6 @@ class _CompareScreenState extends State<CompareScreen> {
         Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       ],
     );
-  }
-
-  String _resolveProductFallbackImage(String name, {String? category}) {
-    final normalizedCategory = category?.toLowerCase().trim();
-    const fallbackImages = <String, String>{
-      'produce': 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&q=80&w=400',
-      'meat': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400',
-      'dairy': 'https://images.unsplash.com/photo-1550583724-125581f77833?auto=format&fit=crop&q=80&w=400',
-      'bakery': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400',
-      'beverages': 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=400',
-      'snacks': 'https://images.unsplash.com/photo-1599490659213-e2b9527bb087?auto=format&fit=crop&q=80&w=400',
-      'medicine': 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=400',
-      'cleaning': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=400',
-      'pet': 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&q=80&w=400',
-      'baby': 'https://images.unsplash.com/photo-1515488764276-beab7607c1e6?auto=format&fit=crop&q=80&w=400',
-      'personal_care': 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=400',
-      'household': 'https://images.unsplash.com/photo-1528740561666-dc2479bd08bc?auto=format&fit=crop&q=80&w=400',
-      'gas': 'https://images.unsplash.com/photo-1614732414444-096e5f1122d5?auto=format&fit=crop&q=80&w=400',
-      'canned': 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&q=80&w=400',
-      'condiments': 'https://images.unsplash.com/photo-1607604668248-f0143ad3964f?auto=format&fit=crop&q=80&w=400',
-      'frozen': 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&q=80&w=400',
-      'other': 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
-    };
-
-    if (normalizedCategory != null && fallbackImages.containsKey(normalizedCategory)) {
-      return fallbackImages[normalizedCategory]!;
-    }
-
-    final lowerName = name.toLowerCase();
-    if (lowerName.contains('egg')) {
-      return 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&q=80&w=400';
-    }
-    if (lowerName.contains('rice')) {
-      return 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&q=80&w=400';
-    }
-    if (lowerName.contains('pasta') || lowerName.contains('spaghetti') || lowerName.contains('macaroni') || lowerName.contains('noodle')) {
-      return 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?auto=format&fit=crop&q=80&w=400';
-    }
-    if (lowerName.contains('juice')) {
-      return 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&q=80&w=400';
-    }
-    if (lowerName.contains('milk') || lowerName.contains('cheese') || lowerName.contains('yogurt') || lowerName.contains('butter')) {
-      return fallbackImages['dairy']!;
-    }
-    if (lowerName.contains('bread') || lowerName.contains('bagel') || lowerName.contains('cake')) {
-      return fallbackImages['bakery']!;
-    }
-    if (lowerName.contains('water') || lowerName.contains('juice') || lowerName.contains('soda')) {
-      return fallbackImages['beverages']!;
-    }
-    if (lowerName.contains('chip') || lowerName.contains('cookie') || lowerName.contains('candy') || lowerName.contains('chocolate')) {
-      return fallbackImages['snacks']!;
-    }
-
-    return fallbackImages['other']!;
   }
 
   Widget _buildGasTypeColumn(String label, dynamic price) {

@@ -88,6 +88,8 @@ class ComparisonError extends ComparisonState {
 }
 
 class ComparisonCubit extends Cubit<ComparisonState> {
+  static const int _comparisonCacheVersion = 2;
+
   final ApiClient apiClient;
   final LocationService locationService;
   final SettingsService settingsService;
@@ -139,12 +141,12 @@ class ComparisonCubit extends Cubit<ComparisonState> {
 
   Future<void> _saveToLocalCache(String key, List<dynamic> results) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('cache_$key', jsonEncode(results));
+    await prefs.setString('cache_v${_comparisonCacheVersion}_$key', jsonEncode(results));
   }
 
   Future<List<dynamic>?> _loadFromLocalCache(String key) async {
     final prefs = await SharedPreferences.getInstance();
-    final cachedData = prefs.getString('cache_$key');
+    final cachedData = prefs.getString('cache_v${_comparisonCacheVersion}_$key');
     if (cachedData != null) {
       return jsonDecode(cachedData) as List<dynamic>;
     }

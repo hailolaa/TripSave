@@ -143,7 +143,19 @@ export class ProductsService {
   private isProductFallback(url: string | null | undefined): boolean {
     if (!url) return true;
     // Check if it's one of our Unsplash category fallbacks
-    return url.includes('images.unsplash.com') || url.includes('placeholder') || url.includes('storage.com');
+    return url.includes('images.unsplash.com') ||
+      url.includes('images.pexels.com') ||
+      url.includes('placeholder') ||
+      url.includes('storage.com');
+  }
+
+  private getFastProductImage(product: Product, category?: ProductCategory): string {
+    const existingImage = product.image_url?.trim();
+    if (existingImage && !this.isProductFallback(existingImage)) {
+      return existingImage;
+    }
+
+    return this.getFallbackImage(product.name, category || product.category);
   }
 
   private inferBrandName(productName: string, explicitBrand?: string | null): string | null {
@@ -445,6 +457,7 @@ export class ProductsService {
     const prefixQuery = `${normalizedQuery}%`;
     const wordPrefixQuery = `% ${normalizedQuery}%`;
     const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 12);
+    const candidateLimit = normalizedQuery.length === 1 ? safeLimit * 80 : safeLimit * 8;
     const rows = await this.storeProductsRepository.createQueryBuilder('sp')
       .leftJoinAndSelect('sp.product', 'p')
       .where('sp.in_stock = :inStock', { inStock: true })
@@ -459,7 +472,7 @@ export class ProductsService {
       )
       .andWhere('p.name NOT LIKE :sampleFallback', { sampleFallback: '%(Sample)%' })
       .orderBy('sp.last_verified_at', 'DESC')
-      .take(safeLimit * 8)
+      .take(candidateLimit)
       .getMany();
 
     const seen = new Set<string>();
@@ -476,7 +489,10 @@ export class ProductsService {
       const tokens = searchableText
         .split(/[^a-z0-9]+/)
         .filter((token) => token.length > 0);
-      const hasTokenPrefixMatch = tokens.some((token) => token.startsWith(normalizedQuery));
+      const hasTokenPrefixMatch = tokens.some((token) =>
+        token.startsWith(normalizedQuery) &&
+        (normalizedQuery.length > 1 || token.length > 1),
+      );
       const startsWithQuery = product.name.toLowerCase().startsWith(normalizedQuery);
       const relevance = scoreProductRelevance(product.name, cleanQuery);
 
@@ -490,10 +506,6 @@ export class ProductsService {
       seen.add(key);
 
       const category = product.category || this.resolveCategory(product.name);
-      const resolvedImage = await this.resolveProductImage(
-        product.name,
-        product.image_url || this.getFallbackImage(product.name, category),
-      );
 
       suggestions.push({
         score: (startsWithQuery ? 120 : 0) + (hasTokenPrefixMatch ? 80 : 0) + relevance,
@@ -502,7 +514,7 @@ export class ProductsService {
           name: product.name,
           brand: this.inferBrandName(product.name, product.brand) ?? undefined,
           category,
-          image_url: resolvedImage || this.getFallbackImage(product.name, category),
+          image_url: this.getFastProductImage(product, category),
         },
       });
 
