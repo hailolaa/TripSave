@@ -91,7 +91,10 @@ export class WalmartScraperService extends OxylabsBaseService {
                 salePrice: hasDiscount ? currentPrice : undefined,
                 originalPrice: hasDiscount ? originalPrice! : undefined,
                 brand: item.brand || item.brandName,
-                image: item.image || item.thumbnailUrl || item.imageInfo?.thumbnailUrl || '',
+                image: this.normalizeProductImageUrl(
+                  item.image || item.thumbnailUrl || item.imageInfo?.thumbnailUrl,
+                  'https://www.walmart.com',
+                ),
                 source: 'oxylabs',
               });
             }

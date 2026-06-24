@@ -68,7 +68,7 @@ export class TargetScraperService extends OxylabsBaseService {
               price: currentPrice,
               salePrice: hasDiscount ? currentPrice : undefined,
               originalPrice: hasDiscount ? regularPrice! : undefined,
-              image: imageM?.[1]?.replace(/\\u002F/g, '/') || '',
+              image: this.normalizeProductImageUrl(imageM?.[1], 'https://www.target.com'),
               source: 'oxylabs',
             });
           }

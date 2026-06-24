@@ -89,7 +89,7 @@ export class InstacartScraperService extends OxylabsBaseService {
               store: storeName,
               product: item.title,
               price,
-              image: item.image || '',
+              image: this.normalizeProductImageUrl(item.image, 'https://www.instacart.com'),
               source: 'instacart',
             });
           }
@@ -173,7 +173,7 @@ export class InstacartScraperService extends OxylabsBaseService {
           store: this.cleanStoreName(storeName || 'Instacart'),
           product: name,
           price,
-          image: block.find('img').attr('src') || '',
+          image: this.normalizeProductImageUrl(block.find('img').attr('src'), 'https://www.instacart.com'),
           source: 'instacart',
         });
       }

@@ -134,6 +134,72 @@ export class OxylabsBaseService {
   }
 
   /**
+   * Normalize retailer product image URLs and reject known placeholder/broken images.
+   */
+  protected normalizeProductImageUrl(value: any, baseUrl?: string): string {
+    let raw = '';
+
+    if (typeof value === 'string') {
+      raw = value;
+    } else if (value && typeof value === 'object') {
+      raw =
+        value.url ||
+        value.src ||
+        value.href ||
+        value.thumbnailUrl ||
+        value.primaryImageUrl ||
+        value.baseUrl ||
+        '';
+    }
+
+    raw = String(raw || '')
+      .trim()
+      .replace(/\\u002F/g, '/')
+      .replace(/&amp;/g, '&');
+
+    if (!raw) return '';
+
+    const lower = raw.toLowerCase();
+    const blockedTerms = [
+      'placehold.co',
+      'placeholder',
+      'dummyimage',
+      'fakeimg',
+      'image-not-available',
+      'image-not-found',
+      'image not found',
+      'image%20not%20found',
+      'no-image',
+      'no_image',
+      'default-product',
+      'default_product',
+      '1x1.gif',
+      'transparent.gif',
+      'spacer.gif',
+    ];
+
+    if (blockedTerms.some((term) => lower.includes(term))) {
+      return '';
+    }
+
+    if (raw.startsWith('//')) {
+      raw = `https:${raw}`;
+    } else if (raw.startsWith('/') && baseUrl) {
+      raw = `${baseUrl.replace(/\/$/, '')}${raw}`;
+    }
+
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return '';
+      }
+      return parsed.toString();
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * Clean a store name by removing trademark symbols and trimming.
    */
   protected cleanStoreName(name: string): string {

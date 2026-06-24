@@ -90,7 +90,7 @@ export class KrogerScraperService extends OxylabsBaseService {
             price,
             salePrice: hasDiscount ? price : undefined,
             originalPrice: hasDiscount ? originalPrice! : undefined,
-            image: imageMatch?.[1] || '',
+            image: this.normalizeProductImageUrl(imageMatch?.[1], 'https://www.kroger.com'),
             source: 'oxylabs'
           });
         }
