@@ -71,6 +71,8 @@ class HomeCubit extends Cubit<HomeState> {
   final LocationCubit locationCubit;
   StreamSubscription? _listSubscription;
   StreamSubscription? _locationSubscription;
+  Timer? _dashboardDebounce;
+  String? _lastCartSignature;
 
   HomeCubit({
     required this.listRepository,
@@ -83,7 +85,14 @@ class HomeCubit extends Cubit<HomeState> {
     // Listen to shopping list changes
     _listSubscription = listCubit.stream.listen((listState) {
       if (listState is ListLoaded) {
-        loadDashboard();
+        final cartSignature = listState.items
+            .map((item) => '${item['product_id']}:${item['quantity'] ?? 1}')
+            .join('|');
+        if (cartSignature == _lastCartSignature) {
+          return;
+        }
+        _lastCartSignature = cartSignature;
+        _scheduleDashboardLoad();
       }
     });
 
@@ -95,7 +104,7 @@ class HomeCubit extends Cubit<HomeState> {
 
         // Refresh dashboard (only if not already loading)
         if (state is! HomeLoading) {
-          loadDashboard();
+          _scheduleDashboardLoad();
         }
       }
     });
@@ -103,9 +112,17 @@ class HomeCubit extends Cubit<HomeState> {
 
   @override
   Future<void> close() {
+    _dashboardDebounce?.cancel();
     _listSubscription?.cancel();
     _locationSubscription?.cancel();
     return super.close();
+  }
+
+  void _scheduleDashboardLoad() {
+    _dashboardDebounce?.cancel();
+    _dashboardDebounce = Timer(const Duration(milliseconds: 450), () {
+      loadDashboard();
+    });
   }
 
   /// Update the user's location and refresh dashboard data.

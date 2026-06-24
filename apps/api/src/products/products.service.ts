@@ -368,23 +368,23 @@ export class ProductsService {
 
     // If category is known, use category-specific images from our collection
     const categoryImagesMap: Record<string, string> = {
-      [ProductCategory.PRODUCE]: 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.MEAT]: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.DAIRY]: 'https://images.unsplash.com/photo-1550583724-125581f77833?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.BAKERY]: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.BEVERAGES]: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.SNACKS]: 'https://images.unsplash.com/photo-1599490659213-e2b9527bb087?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.MEDICINE]: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.CLEANING]: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.PET]: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.BABY]: 'https://images.unsplash.com/photo-1515488764276-beab7607c1e6?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.PERSONAL_CARE]: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.HOUSEHOLD]: 'https://images.unsplash.com/photo-1528740561666-dc2479bd08bc?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.GAS]: 'https://images.unsplash.com/photo-1614732414444-096e5f1122d5?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.CANNED]: 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.CONDIMENTS]: 'https://images.unsplash.com/photo-1607604668248-f0143ad3964f?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.FROZEN]: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&q=80&w=400',
-      [ProductCategory.OTHER]: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
+      [ProductCategory.PRODUCE]: 'https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.MEAT]: 'https://images.pexels.com/photos/65175/pexels-photo-65175.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.DAIRY]: 'https://images.pexels.com/photos/248412/pexels-photo-248412.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.BAKERY]: 'https://images.pexels.com/photos/209206/pexels-photo-209206.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.BEVERAGES]: 'https://images.pexels.com/photos/416528/pexels-photo-416528.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.SNACKS]: 'https://images.pexels.com/photos/1583884/pexels-photo-1583884.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.MEDICINE]: 'https://images.pexels.com/photos/3683074/pexels-photo-3683074.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.CLEANING]: 'https://images.pexels.com/photos/4239146/pexels-photo-4239146.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.PET]: 'https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.BABY]: 'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.PERSONAL_CARE]: 'https://images.pexels.com/photos/3737594/pexels-photo-3737594.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.HOUSEHOLD]: 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.GAS]: 'https://images.pexels.com/photos/9796/car-refill-transportation-transport.jpg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.CANNED]: 'https://images.pexels.com/photos/4033639/pexels-photo-4033639.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.CONDIMENTS]: 'https://images.pexels.com/photos/1435904/pexels-photo-1435904.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.FROZEN]: 'https://images.pexels.com/photos/1352278/pexels-photo-1352278.jpeg?auto=compress&cs=tinysrgb&w=400',
+      [ProductCategory.OTHER]: 'https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg?auto=compress&cs=tinysrgb&w=400',
     };
 
     return categoryImagesMap[cat] || categoryImagesMap[ProductCategory.OTHER];
@@ -617,7 +617,8 @@ export class ProductsService {
       if (!forceAll) {
         qb.where('p.image_url IS NULL')
           .orWhere('p.image_url LIKE :u1', { u1: '%images.unsplash.com%' })
-          .orWhere('p.image_url LIKE :u2', { u2: '%placeholder%' });
+          .orWhere('p.image_url LIKE :u2', { u2: '%placeholder%' })
+          .orWhere('p.image_url LIKE :u3', { u3: '%images.pexels.com%' });
       }
 
       const products = await qb.getMany();

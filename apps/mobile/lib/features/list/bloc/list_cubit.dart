@@ -36,12 +36,13 @@ class ListLoaded extends ListState {
     List<Map<String, dynamic>>? searchResults,
     bool? isSearching,
     Map<String, dynamic>? cartSummary,
+    bool clearCartSummary = false,
   }) {
     return ListLoaded(
       items: items ?? this.items,
       searchResults: searchResults ?? this.searchResults,
       isSearching: isSearching ?? this.isSearching,
-      cartSummary: cartSummary ?? this.cartSummary,
+      cartSummary: clearCartSummary ? null : cartSummary ?? this.cartSummary,
     );
   }
 }
@@ -61,6 +62,7 @@ class ListCubit extends Cubit<ListState> {
   final _searchQuerySubject = PublishSubject<String>();
   StreamSubscription? _searchSubscription;
   final Map<String, List<Map<String, dynamic>>> _searchCache = {};
+  int _summaryRequestId = 0;
 
   ListCubit(this._repository, this._locationService) : super(ListInitial()) {
     // Set up debounced search
@@ -99,10 +101,11 @@ class ListCubit extends Cubit<ListState> {
       }
       
       if (items.isNotEmpty) {
-        await fetchSummary();
+        unawaited(fetchSummary());
       } else {
+        _summaryRequestId++;
         if (state is ListLoaded) {
-          emit((state as ListLoaded).copyWith(cartSummary: null));
+          emit((state as ListLoaded).copyWith(clearCartSummary: true));
         }
       }
     } catch (e) {
@@ -160,7 +163,7 @@ class ListCubit extends Cubit<ListState> {
     try {
       await _repository.addToCart(productId, 1);
       // Immediately clear search to close dropdown and refresh list
-      emit(currentState.copyWith(searchResults: [], isSearching: false));
+      emit(currentState.copyWith(searchResults: [], isSearching: false, clearCartSummary: true));
       await fetchCart(isSilent: true); 
     } catch (e) {
       emit(ListError(ApiClient.parseError(e)));
@@ -176,7 +179,7 @@ class ListCubit extends Cubit<ListState> {
     try {
       final product = await _repository.resolveProductForList(query);
       await _repository.addToCart(product['id'], 1);
-      emit(currentState.copyWith(searchResults: [], isSearching: false));
+      emit(currentState.copyWith(searchResults: [], isSearching: false, clearCartSummary: true));
       await fetchCart(isSilent: true);
     } catch (e) {
       emit(ListError(ApiClient.parseError(e)));
@@ -198,7 +201,7 @@ class ListCubit extends Cubit<ListState> {
       return item;
     }).toList();
 
-    emit(currentState.copyWith(items: updatedItems));
+    emit(currentState.copyWith(items: updatedItems, clearCartSummary: true));
     
     try {
       await _repository.updateCartItem(itemId, quantity);
@@ -214,7 +217,7 @@ class ListCubit extends Cubit<ListState> {
     final currentState = state as ListLoaded;
 
     final updatedItems = currentState.items.where((item) => item['id'] != itemId).toList();
-    emit(currentState.copyWith(items: updatedItems));
+    emit(currentState.copyWith(items: updatedItems, clearCartSummary: true));
 
     try {
       await _repository.removeFromCart(itemId);
@@ -239,6 +242,7 @@ class ListCubit extends Cubit<ListState> {
     if (state is! ListLoaded) return;
     final currentState = state as ListLoaded;
     if (currentState.items.isEmpty) return;
+    final requestId = ++_summaryRequestId;
 
     try {
       final position = await _locationService.getCurrentLocation();
@@ -248,7 +252,7 @@ class ListCubit extends Cubit<ListState> {
         items: currentState.items,
       );
       
-      if (state is ListLoaded) {
+      if (state is ListLoaded && requestId == _summaryRequestId) {
         emit((state as ListLoaded).copyWith(cartSummary: summary));
       }
     } catch (e) {

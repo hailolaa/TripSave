@@ -23,6 +23,9 @@ class ProductImageThumb extends StatelessWidget {
 
   String get _normalizedImageUrl {
     final raw = imageUrl?.trim() ?? '';
+    if (_isPlaceholderImageUrl(raw) || _isOldCategoryFallbackUrl(raw)) {
+      return '';
+    }
     if (raw.startsWith('//')) return 'https:$raw';
     if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) {
       return raw;
@@ -34,65 +37,121 @@ class ProductImageThumb extends StatelessWidget {
     final lowerName = name.toLowerCase();
     final lowerCategory = category?.toLowerCase().trim() ?? '';
 
-    const categoryImages = <String, String>{
-      'produce': 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&q=80&w=400',
-      'meat': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400',
-      'dairy': 'https://images.unsplash.com/photo-1550583724-125581f77833?auto=format&fit=crop&q=80&w=400',
-      'bakery': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400',
-      'beverages': 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&q=80&w=400',
-      'snacks': 'https://images.unsplash.com/photo-1599490659213-e2b9527bb087?auto=format&fit=crop&q=80&w=400',
-      'medicine': 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=400',
-      'cleaning': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=400',
-      'pet': 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&q=80&w=400',
-      'baby': 'https://images.unsplash.com/photo-1515488764276-beab7607c1e6?auto=format&fit=crop&q=80&w=400',
-      'personal_care': 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=400',
-      'household': 'https://images.unsplash.com/photo-1528740561666-dc2479bd08bc?auto=format&fit=crop&q=80&w=400',
-      'gas': 'https://images.unsplash.com/photo-1614732414444-096e5f1122d5?auto=format&fit=crop&q=80&w=400',
-      'canned': 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&q=80&w=400',
-      'condiments': 'https://images.unsplash.com/photo-1607604668248-f0143ad3964f?auto=format&fit=crop&q=80&w=400',
-      'frozen': 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&q=80&w=400',
-      'other': 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80',
+    const fallbackPhotos = <String, String>{
+      'produce': 'https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'meat': 'https://images.pexels.com/photos/65175/pexels-photo-65175.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'dairy': 'https://images.pexels.com/photos/248412/pexels-photo-248412.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'bakery': 'https://images.pexels.com/photos/209206/pexels-photo-209206.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'beverages': 'https://images.pexels.com/photos/416528/pexels-photo-416528.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'snacks': 'https://images.pexels.com/photos/1583884/pexels-photo-1583884.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'medicine': 'https://images.pexels.com/photos/3683074/pexels-photo-3683074.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'cleaning': 'https://images.pexels.com/photos/4239146/pexels-photo-4239146.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'pet': 'https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'baby': 'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'personal_care': 'https://images.pexels.com/photos/3737594/pexels-photo-3737594.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'household': 'https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'gas': 'https://images.pexels.com/photos/9796/car-refill-transportation-transport.jpg?auto=compress&cs=tinysrgb&w=400',
+      'canned': 'https://images.pexels.com/photos/4033639/pexels-photo-4033639.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'condiments': 'https://images.pexels.com/photos/1435904/pexels-photo-1435904.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'frozen': 'https://images.pexels.com/photos/1352278/pexels-photo-1352278.jpeg?auto=compress&cs=tinysrgb&w=400',
+      'other': 'https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg?auto=compress&cs=tinysrgb&w=400',
     };
 
     if (lowerName.contains('egg')) {
-      return 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&q=80&w=400';
+      return 'https://images.pexels.com/photos/162712/egg-white-food-protein-162712.jpeg?auto=compress&cs=tinysrgb&w=400';
     }
     if (lowerName.contains('rice')) {
-      return 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&q=80&w=400';
+      return 'https://images.pexels.com/photos/4110251/pexels-photo-4110251.jpeg?auto=compress&cs=tinysrgb&w=400';
     }
     if (lowerName.contains('pasta') ||
         lowerName.contains('spaghetti') ||
         lowerName.contains('macaroni') ||
         lowerName.contains('noodle')) {
-      return 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?auto=format&fit=crop&q=80&w=400';
+      return 'https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg?auto=compress&cs=tinysrgb&w=400';
     }
     if (lowerName.contains('juice')) {
-      return 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&q=80&w=400';
+      return fallbackPhotos['beverages']!;
     }
     if (lowerName.contains('milk') ||
         lowerName.contains('cheese') ||
         lowerName.contains('yogurt') ||
         lowerName.contains('butter')) {
-      return categoryImages['dairy']!;
+      return fallbackPhotos['dairy']!;
     }
     if (lowerName.contains('bread') || lowerName.contains('bagel') || lowerName.contains('cake')) {
-      return categoryImages['bakery']!;
+      return fallbackPhotos['bakery']!;
     }
     if (lowerName.contains('water') || lowerName.contains('soda') || lowerName.contains('beverage')) {
-      return categoryImages['beverages']!;
+      return fallbackPhotos['beverages']!;
     }
     if (lowerName.contains('chip') ||
         lowerName.contains('cookie') ||
         lowerName.contains('candy') ||
         lowerName.contains('chocolate')) {
-      return categoryImages['snacks']!;
+      return fallbackPhotos['snacks']!;
     }
 
-    if (categoryImages.containsKey(lowerCategory)) {
-      return categoryImages[lowerCategory]!;
+    if (fallbackPhotos.containsKey(lowerCategory)) {
+      return fallbackPhotos[lowerCategory]!;
     }
 
-    return categoryImages['other']!;
+    return fallbackPhotos['other']!;
+  }
+
+  bool _isPlaceholderImageUrl(String url) {
+    final lowerUrl = url.toLowerCase().trim();
+    if (lowerUrl.isEmpty) return false;
+
+    const blockedHostsAndTerms = [
+      'placehold.co',
+      'placeholder.com',
+      'via.placeholder',
+      'dummyimage.com',
+      'fakeimg.pl',
+      'image-not-available',
+      'no-image',
+      'no_image',
+      'default-product',
+      'default_product',
+    ];
+
+    if (blockedHostsAndTerms.any(lowerUrl.contains)) return true;
+
+    final hasRenderedText = lowerUrl.contains('text=') || lowerUrl.contains('/text/');
+    final isGeneratedImage = lowerUrl.contains('placeholder') || lowerUrl.contains('dummy');
+    return hasRenderedText && isGeneratedImage;
+  }
+
+  bool _isOldCategoryFallbackUrl(String url) {
+    final lowerUrl = url.toLowerCase().trim();
+    if (lowerUrl.isEmpty) return false;
+
+    const oldFallbackPhotoIds = [
+      '1610348725531-843dff563e2c',
+      '1607623814075-e51df1bdc82f',
+      '1550583724-125581f77833',
+      '1509440159596-0249088772ff',
+      '1622483767028-3f66f32aef97',
+      '1599490659213-e2b9527bb087',
+      '1584308666744-24d5c474f2ae',
+      '1584622650111-993a426fbf0a',
+      '1583511655857-d19b40a7a54e',
+      '1515488764276-beab7607c1e6',
+      '1570172619644-dfd03ed5d881',
+      '1528740561666-dc2479bd08bc',
+      '1614732414444-096e5f1122d5',
+      '1534483509719-3feaee7c30da',
+      '1607604668248-f0143ad3964f',
+      '1547592166-23ac45744acd',
+      '1582722872445-44dc5f7e3c8f',
+      '1536304993881-ff6e9eefa2a6',
+      '1600271886742-f049cd451bba',
+      '1551462147-ff29053bfc14',
+      '1542838132-92c53300491e',
+    ];
+
+    return lowerUrl.contains('images.unsplash.com') &&
+        oldFallbackPhotoIds.any(lowerUrl.contains);
   }
 
   @override
@@ -124,12 +183,13 @@ class ProductImageThumb extends StatelessWidget {
   }
 
   Widget _fallbackImage(String fallbackUrl) {
-    return Image.network(
-      fallbackUrl,
+    return CachedNetworkImage(
+      imageUrl: fallbackUrl,
       width: size,
       height: size,
       fit: fit,
-      errorBuilder: (context, error, stackTrace) => _iconFallback(),
+      placeholder: (context, url) => _iconFallback(),
+      errorWidget: (context, url, error) => _iconFallback(),
     );
   }
 

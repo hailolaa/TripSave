@@ -4,12 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:trip_save/features/list/bloc/list_cubit.dart';
 import 'package:trip_save/features/home/bloc/home_cubit.dart';
 import 'package:trip_save/features/deals/bloc/deals_cubit.dart';
 import '../../../core/widgets/app_error_widget.dart';
+import '../../../core/widgets/product_image_thumb.dart';
 
 class DealsScreen extends StatefulWidget {
   const DealsScreen({super.key});
@@ -304,18 +304,15 @@ class _DealsScreenState extends State<DealsScreen> {
                       color: Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
                     ),
-                    child: imageUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                            child: CachedNetworkImage(
-                              imageUrl: imageUrl,
-                              fit: BoxFit.contain,
-                              width: double.infinity,
-                              placeholder: (context, url) => Center(child: Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 34)),
-                              errorWidget: (context, url, error) => Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 42),
-                            ),
-                          )
-                        : Icon(_getCategoryIcon(deal), color: Colors.grey.shade300, size: 42),
+                    child: Center(
+                      child: ProductImageThumb(
+                        name: deal['name']?.toString() ?? '',
+                        imageUrl: imageUrl,
+                        category: deal['category']?.toString(),
+                        size: 118,
+                        borderRadius: 14,
+                      ),
+                    ),
                   ),
                   if (hasSavings)
                     Positioned(
@@ -435,15 +432,4 @@ class _DealsScreenState extends State<DealsScreen> {
     }
   }
 
-  IconData _getCategoryIcon(Map<String, dynamic> deal) {
-    final name = deal['name']?.toString().toLowerCase() ?? '';
-    final category = deal['category']?.toString().toLowerCase() ?? '';
-
-    if (category.contains('pharmacy') || name.contains('med') || name.contains('pill') || name.contains('drug')) {
-      return Icons.local_pharmacy_rounded;
-    } else if (category.contains('house') || name.contains('clean') || name.contains('home') || name.contains('soap')) {
-      return Icons.home_rounded;
-    }
-    return Icons.shopping_basket_rounded;
-  }
 }

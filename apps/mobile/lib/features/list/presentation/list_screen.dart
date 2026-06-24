@@ -3,10 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_theme.dart';
 import '../bloc/list_cubit.dart';
-import '../../home/bloc/home_cubit.dart';
 import '../../../core/widgets/app_error_widget.dart';
 import '../../../core/widgets/product_image_thumb.dart';
 
@@ -222,9 +220,7 @@ class _ListScreenState extends State<ListScreen> {
                             trailing: const Icon(Icons.add_circle, color: AppTheme.primaryBlue),
                             onTap: () async {
                               final listCubit = context.read<ListCubit>();
-                              final homeCubit = context.read<HomeCubit>();
                               await listCubit.addSearchSuggestionToCart(product);
-                              homeCubit.loadDashboard();
                               _searchController.clear();
                               _searchFocus.unfocus();
                             },
@@ -365,25 +361,12 @@ class _ListScreenState extends State<ListScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Icon(Icons.shopping_basket_outlined, color: Colors.grey, size: 18),
-                      errorWidget: (context, url, error) => const Icon(Icons.shopping_basket_outlined, color: Colors.grey, size: 18),
-                    )
-                  : const Icon(Icons.shopping_basket_outlined, color: Colors.grey, size: 18),
-            ),
+          ProductImageThumb(
+            name: product['name']?.toString() ?? 'Unknown Item',
+            imageUrl: imageUrl,
+            category: product['category']?.toString(),
+            size: 42,
+            borderRadius: 10,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -409,9 +392,7 @@ class _ListScreenState extends State<ListScreen> {
                 InkWell(
                   onTap: () async {
                     final listCubit = context.read<ListCubit>();
-                    final homeCubit = context.read<HomeCubit>();
                     await listCubit.updateQuantity(itemId, quantity - 1);
-                    homeCubit.loadDashboard();
                   },
                   child: const Padding(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Icon(Icons.remove, size: 16)),
                 ),
@@ -419,9 +400,7 @@ class _ListScreenState extends State<ListScreen> {
                 InkWell(
                   onTap: () async {
                     final listCubit = context.read<ListCubit>();
-                    final homeCubit = context.read<HomeCubit>();
                     await listCubit.updateQuantity(itemId, quantity + 1);
-                    homeCubit.loadDashboard();
                   },
                   child: const Padding(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Icon(Icons.add, size: 16)),
                 ),
@@ -432,9 +411,7 @@ class _ListScreenState extends State<ListScreen> {
           GestureDetector(
             onTap: () async {
               final listCubit = context.read<ListCubit>();
-              final homeCubit = context.read<HomeCubit>();
               await listCubit.removeFromCart(itemId);
-              homeCubit.loadDashboard();
             },
             child: Icon(Icons.delete_outline, color: Colors.red.shade300, size: 22),
           ),

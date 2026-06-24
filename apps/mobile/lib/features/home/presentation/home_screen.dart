@@ -14,7 +14,6 @@ import '../../../core/services/location_service.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/widgets/product_image_thumb.dart';
 import '../../auth/auth_repository.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../savings/bloc/savings_cubit.dart';
 import '../../notifications/bloc/notification_cubit.dart';
 
@@ -1019,9 +1018,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
                 ),
                 child: Center(
-                  child: deal['image_url'] != null
-                      ? Image.network(deal['image_url'], height: 100, fit: BoxFit.contain, errorBuilder: (c, e, s) => _buildDealPlaceholder(deal))
-                      : _buildDealPlaceholder(deal),
+                  child: ProductImageThumb(
+                    name: deal['name']?.toString() ?? '',
+                    imageUrl: deal['image_url']?.toString(),
+                    category: deal['category']?.toString(),
+                    size: 112,
+                    borderRadius: 16,
+                  ),
                 ),
               ),
               Positioned(
@@ -1072,33 +1075,6 @@ class _HomeScreenState extends State<HomeScreen> {
       category: product['category']?.toString(),
       size: 50,
       borderRadius: 12,
-    );
-  }
-
-  Widget _buildDealPlaceholder(Map<String, dynamic> deal) {
-    final name = deal['name']?.toString().toLowerCase() ?? '';
-    final category = deal['category']?.toString().toLowerCase() ?? '';
-    
-    IconData icon = Icons.shopping_cart_rounded;
-    Color color = AppTheme.primaryBlue;
-
-    if (category.contains('pharmacy') || name.contains('med') || name.contains('pill')) {
-      icon = Icons.local_pharmacy_rounded;
-      color = const Color(0xFF6A3CE2);
-    } else if (category.contains('house') || name.contains('clean') || name.contains('home')) {
-      icon = Icons.home_rounded;
-      color = Colors.blueGrey;
-    }
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 40, color: color.withValues(alpha: 0.3)),
-          const SizedBox(height: 8),
-          Icon(Icons.image_not_supported_outlined, size: 16, color: color.withValues(alpha: 0.2)),
-        ],
-      ),
     );
   }
 
