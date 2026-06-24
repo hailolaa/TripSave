@@ -64,6 +64,7 @@ class ListRepository {
           'productId': i['product_id'],
           'quantity': i['quantity'] ?? 1,
         }).toList(),
+        'sortBy': 'item_total',
       },
     );
     final results = List<Map<String, dynamic>>.from(response.data);

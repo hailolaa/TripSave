@@ -256,7 +256,9 @@ class _ListScreenState extends State<ListScreen> {
 
   Widget _buildCartSummary(Map<String, dynamic> summary) {
     final itemsFound = summary['items_found'] ?? 0;
-    final basketTotal = summary['item_total'] ?? 0.0;
+    final basketTotal = double.tryParse(summary['item_total']?.toString() ?? '') ?? 0.0;
+    final store = summary['store'];
+    final storeName = store is Map ? store['name']?.toString() : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -282,16 +284,21 @@ class _ListScreenState extends State<ListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Basket Total', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textDark)),
-                    Text('Compare prices across nearby stores', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                    Text('Lowest Item Total', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textDark)),
+                    Text(
+                      storeName == null || storeName.isEmpty
+                          ? 'Compare prices across nearby stores'
+                          : 'Best item prices at $storeName',
+                      style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                    ),
                   ],
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('\$$basketTotal', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.savingsGreen)),
-                  Text('$itemsFound items in list', style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
+                  Text('\$${basketTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.savingsGreen)),
+                  Text('$itemsFound items priced', style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
                 ],
               ),
             ],

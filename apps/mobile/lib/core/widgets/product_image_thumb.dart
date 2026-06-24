@@ -58,7 +58,7 @@ class ProductImageThumb extends StatelessWidget {
     };
 
     if (lowerName.contains('egg')) {
-      return 'https://images.pexels.com/photos/162712/egg-white-food-protein-162712.jpeg?auto=compress&cs=tinysrgb&w=400';
+      return 'https://images.pexels.com/photos/162712/pexels-photo-162712.jpeg?auto=compress&cs=tinysrgb&w=400';
     }
     if (lowerName.contains('rice')) {
       return 'https://images.pexels.com/photos/4110251/pexels-photo-4110251.jpeg?auto=compress&cs=tinysrgb&w=400';
